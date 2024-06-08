@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "956670119454",
+    "project_id": "life-assistant-27ae8",
+    "storage_bucket": "life-assistant-27ae8.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:956670119454:android:9ac77f126e99fb6b28e80f",
+        "android_client_info": {
+          "package_name": "com.example.life_assistant"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCcRf_JmyaINlqpspl8P0nePcULzgapSjc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
