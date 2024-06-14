@@ -103,13 +103,13 @@ class MemberViewModel @Inject constructor(
         inProgress.value = true
 
         auth.signInWithEmailAndPassword(email, pass)
-            .addOnCompleteListener {
-                if (it.isSuccessful) {
+            .addOnCompleteListener {authTask ->
+                if (authTask.isSuccessful) {
                     signedIn.value = true
                     Log.d("AlertDialog", "sign: $signedIn.value ")
-                    handleException(it.exception, "login successful")
+                    handleException(authTask.exception, "登入成功")
                 } else {
-                    handleException(it.exception, "login failed")
+                    handleException(authTask.exception, "登入失敗")
                 }
                 inProgress.value = false
             }
@@ -133,8 +133,6 @@ class MemberViewModel @Inject constructor(
                         val errorCode = exception.errorCode
                         val errorMessage = when (errorCode) {
                             "ERROR_INVALID_EMAIL" -> "電子郵件格式錯誤"
-                            "ERROR_WEAK_PASSWORD" -> "密碼至少大於等於六位"
-                            "ERROR_EMAIL_ALREADY_IN_USE" -> "已經有相同的電子郵件被註冊"
                             else -> "未知錯誤"
                         }
                         dialogMessage.value = errorMessage
@@ -170,6 +168,8 @@ class MemberViewModel @Inject constructor(
                 "ERROR_INVALID_EMAIL" -> "電子郵件格式錯誤"
                 "ERROR_WEAK_PASSWORD" -> "密碼至少大於等於六位"
                 "ERROR_EMAIL_ALREADY_IN_USE" -> "已經有相同的電子郵件被註冊"
+                "ERROR_WRONG_PASSWORD" -> "密碼不正確"
+                "ERROR_USER_NOT_FOUND" -> "帳號不存在"
                 else -> defaultErrorMessage
             }
         }

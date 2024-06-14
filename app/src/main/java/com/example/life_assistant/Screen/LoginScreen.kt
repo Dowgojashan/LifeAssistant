@@ -69,7 +69,6 @@ fun LoginScreen(
             .background(color = Color.White)
             .verticalScroll(rememberScrollState()) //使介面可滾動
     ) {
-        var passwordVisible = true//先假設在這（密碼可見）
         Image(//趴著的小人
             painter = painterResource(id = R.drawable.laying_doodle),
             contentDescription = "laying_doodle",

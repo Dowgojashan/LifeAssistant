@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.requiredWidth
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -19,6 +20,8 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -35,6 +38,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -64,6 +69,7 @@ fun SignUpScreen(
     var password by remember { mutableStateOf("") }
     var checkpassword by remember { mutableStateOf("") }
     var birthday by remember { mutableLongStateOf(0L) } //回傳選擇的日期
+    var passwordVisible by remember { mutableStateOf(false) } //看密碼的可見性
     var errorName by remember { mutableStateOf(false) }
     var errorEmail by remember { mutableStateOf(false) }
     var errorPassword by remember { mutableStateOf(false) }
@@ -322,6 +328,15 @@ fun SignUpScreen(
                 value = password,
                 onValueChange = { password = it},
                 label = {Text("密碼", color = Color.Black)},
+                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                trailingIcon = {
+                    val image = if (passwordVisible) R.drawable.ic_visibility else R.drawable.ic_visibility_off
+                    IconButton(onClick = { passwordVisible = !passwordVisible },
+                        modifier = Modifier.size(54.dp))
+                    {
+                        Icon(painter = painterResource(id = image), contentDescription = null)
+                    }
+                },
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedContainerColor = containerColor,
                     unfocusedContainerColor = containerColor,
@@ -365,6 +380,15 @@ fun SignUpScreen(
                 value = checkpassword,
                 onValueChange = { checkpassword = it},
                 label = {Text("確認密碼", color = Color.Black)},
+                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                trailingIcon = {
+                    val image = if (passwordVisible) R.drawable.ic_visibility else R.drawable.ic_visibility_off
+                    IconButton(onClick = { passwordVisible = !passwordVisible },
+                        modifier = Modifier.size(54.dp))
+                    {
+                        Icon(painter = painterResource(id = image), contentDescription = null)
+                    }
+                },
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedContainerColor = containerColor,
                     unfocusedContainerColor = containerColor,
