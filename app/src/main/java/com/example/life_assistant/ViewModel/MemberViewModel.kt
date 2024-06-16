@@ -45,10 +45,9 @@ class MemberViewModel @Inject constructor(
     }
 
     //註冊
-    fun onSignup(name:String, email: String, pass: String, birthday: Long) {
+    fun onSignup(name: String, email: String, pass: String, birthday: Long) {
         inProgress.value = true
 
-        // 將Long類型的日期轉換為日期字符串
         val formattedBirthday = convertLongToDate(birthday)
 
         auth.createUserWithEmailAndPassword(email, pass)
@@ -57,16 +56,24 @@ class MemberViewModel @Inject constructor(
                     val user = auth.currentUser
                     user?.let {
                         val userId = it.uid
-                        val userRef = database.getReference("members").child(userId)
-                        userRef.apply {
-                            child("name").setValue(name)
-                            child("birthday").setValue(formattedBirthday).addOnCompleteListener { databaseTask ->
-                                if (databaseTask.isSuccessful) {
-                                    registrationSuccess.value = true // 設置為 true，表示註冊成功
-                                    Log.d("Registration", "viewmodel_registrationSuccess: ${registrationSuccess.value}")
-                                } else {
-                                    handleException(databaseTask.exception, "未能成功存入使用者資料")
+                        val registrationRef = database.getReference("members").child(userId)
+                        val memberData = mapOf(
+                            "name" to name,
+                            "birthday" to formattedBirthday
+                        )
+                        registrationRef.setValue(memberData).addOnCompleteListener { databaseTask ->
+                            if (databaseTask.isSuccessful) {
+                                val userRef = database.getReference("members").child(userId)
+                                userRef.setValue(memberData).addOnCompleteListener { moveTask ->
+                                    if (moveTask.isSuccessful) {
+                                        registrationSuccess.value = true
+                                        Log.d("Registration", "viewmodel_registrationSuccess: ${registrationSuccess.value}")
+                                    } else {
+                                        handleException(moveTask.exception, "未能成功存入使用者資料")
+                                    }
                                 }
+                            } else {
+                                handleException(databaseTask.exception, "未能成功存入註冊資料")
                             }
                         }
                     }
@@ -82,8 +89,8 @@ class MemberViewModel @Inject constructor(
         val memberId = auth.currentUser?.uid ?: return
 
         val habitRef = database.getReference("members").child(memberId).child("habits")
-        val wakeTime = "$wakeHour:$wakeMinute"
-        val sleepTime = "$sleepHour:$sleepMinute"
+        val wakeTime = String.format("%02d:%02d", wakeHour, wakeMinute)
+        val sleepTime = String.format("%02d:%02d", sleepHour, sleepMinute)
 
         val habits = mapOf(
             "wakeTime" to wakeTime,
@@ -92,6 +99,8 @@ class MemberViewModel @Inject constructor(
 
         habitRef.setValue(habits).addOnSuccessListener {
             Log.d("Firebase", "Habit times saved successfully")
+            auth.signOut()
+            signedIn.value = false
         }.addOnFailureListener { exception ->
             handleException(exception, "無法儲存使用習慣")
         }
@@ -107,7 +116,6 @@ class MemberViewModel @Inject constructor(
                 if (authTask.isSuccessful) {
                     signedIn.value = true
                     Log.d("AlertDialog", "sign: $signedIn.value ")
-                    handleException(authTask.exception, "登入成功")
                 } else {
                     handleException(authTask.exception, "登入失敗")
                 }
@@ -164,12 +172,12 @@ class MemberViewModel @Inject constructor(
         }
 
         if (exception is FirebaseAuthException) {
+            Log.d("AuthException", "Error Code: ${exception.errorCode}")
             return when (exception.errorCode) {
                 "ERROR_INVALID_EMAIL" -> "電子郵件格式錯誤"
                 "ERROR_WEAK_PASSWORD" -> "密碼至少大於等於六位"
                 "ERROR_EMAIL_ALREADY_IN_USE" -> "已經有相同的電子郵件被註冊"
-                "ERROR_WRONG_PASSWORD" -> "密碼不正確"
-                "ERROR_USER_NOT_FOUND" -> "帳號不存在"
+                "ERROR_INVALID_CREDENTIAL" -> "帳號或密碼不正確"
                 else -> defaultErrorMessage
             }
         }
@@ -229,7 +237,6 @@ class MemberViewModel @Inject constructor(
             val memberData = snapshot.getValue(Member::class.java)
             member.value = memberData
         }.addOnFailureListener { exception ->
-            handleException(exception, "無法獲取資料")
         }
     }
 

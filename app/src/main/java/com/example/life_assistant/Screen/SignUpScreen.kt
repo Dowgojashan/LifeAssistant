@@ -1,5 +1,6 @@
 package com.example.life_assistant.Screen
 
+import android.annotation.SuppressLint
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -57,6 +58,7 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
+@SuppressLint("SuspiciousIndentation")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SignUpScreen(
@@ -98,8 +100,9 @@ fun SignUpScreen(
             .background(color = Color.White)
             .verticalScroll(rememberScrollState())  //使介面可滾動
     ) {
-        TextButton( //返回上一頁
-            onClick = { },
+        //回註冊頁面
+        TextButton(
+            onClick = {navController.navigate(DestinationScreen.Login.route) },
             colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
             modifier = modifier
                 .requiredSize(size = 36.dp)
@@ -364,6 +367,17 @@ fun SignUpScreen(
         ) {
             //檢查密碼與確認密碼是否相同
             if(errorCheckPassword){
+                showDialog.value = true
+                mvm.ErrorAlertDialog(
+                    showDialog = showDialog,
+                    message = "密碼與確認密碼不符",
+                    onDismiss = {
+                        showDialog.value = false
+                        errorCheckPassword = false
+                    }
+                )
+            }
+            if(errorCheck){
                 showDialog.value = true
                 mvm.ErrorAlertDialog(
                     showDialog = showDialog,

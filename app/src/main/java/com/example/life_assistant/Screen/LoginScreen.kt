@@ -56,6 +56,20 @@ fun LoginScreen(
     var passwordVisible by remember { mutableStateOf(false) } //看密碼的可見性
     val showDialog = remember { mutableStateOf(false) }
     val signedIn by mvm.signedIn
+    val errorMessage = mvm.errorMessage.value
+
+    //錯誤訊息跳出
+    if (errorMessage != null) {
+        showDialog.value = true
+        mvm.ErrorAlertDialog(
+            showDialog = showDialog,
+            message = errorMessage,
+            onDismiss = {
+                showDialog.value = false
+                mvm.errorMessage.value = null
+            }
+        )
+    }
 
     //檢查登入狀態，若為登入就進入主畫面
     if (signedIn) {
