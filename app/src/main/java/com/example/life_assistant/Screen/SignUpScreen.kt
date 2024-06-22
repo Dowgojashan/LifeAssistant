@@ -497,7 +497,7 @@ fun convertLongToDate(time: Long): String {
     val month = calendar.get(Calendar.MONTH) + 1
     val day = calendar.get(Calendar.DAY_OF_MONTH)
 
-    return "${year}年\n${month}月${day}號"
+    return "${year}年\n${month}月${day}日"
 }
 
 

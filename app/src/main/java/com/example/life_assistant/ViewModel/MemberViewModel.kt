@@ -21,6 +21,7 @@ import com.google.firebase.database.FirebaseDatabase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 @HiltViewModel
@@ -278,7 +279,28 @@ class MemberViewModel @Inject constructor(
         val memberRef = database.getReference("members").child(memberId)
         memberRef.child("name").setValue(newName).addOnSuccessListener {
             showDialog.value = true
-            getData()
+            viewModelScope.launch(Dispatchers.IO) { // 確保在IO執行緒上運行
+                try {
+                    // 從 Room Database 獲取當前成員資料
+                    val currentMember = memberRepository.getMemberByUid(memberId)
+                    if (currentMember != null) {
+                        // 更新成員資料
+                        val updatedMember = currentMember.copy(name = newName)
+                        memberRepository.update(updatedMember)
+                        // 在主執行緒上顯示對話框和更新UI
+                        withContext(Dispatchers.Main) {
+                            showDialog.value = true
+                            getData() // 獲取更新後的資料
+                        }
+                    } else {
+                        Log.d("AlertDialog", "沒有找到該成員資料")
+                    }
+                } catch (exception: Exception) {
+                    withContext(Dispatchers.Main) {
+                        handleException(exception, "無法更新資料")
+                    }
+                }
+            }
         }.addOnFailureListener { exception ->
             handleException(exception, "無法更新資料")
         }
