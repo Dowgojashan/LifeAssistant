@@ -112,6 +112,7 @@ fun ForgetPasswordScreen(
                     .requiredWidth(width = 210.dp)
                     .requiredHeight(height = 60.dp),
                 shape = RoundedCornerShape(15.dp),
+                singleLine = true
             )
         }
 

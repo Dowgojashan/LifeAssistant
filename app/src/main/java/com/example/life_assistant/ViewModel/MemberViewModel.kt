@@ -9,18 +9,24 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.example.life_assistant.Event
+import com.example.life_assistant.Repository.MemberRepository
 import com.example.life_assistant.Screen.convertLongToDate
 import com.example.life_assistant.data.Member
+import com.example.life_assistant.data.MemberEntity
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthException
 import com.google.firebase.database.FirebaseDatabase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
 class MemberViewModel @Inject constructor(
-    val auth: FirebaseAuth
+    val auth: FirebaseAuth,
+    private val memberRepository: MemberRepository
 ): ViewModel(){
     val database = FirebaseDatabase.getInstance("https://life-assistant-27ae8-default-rtdb.europe-west1.firebasedatabase.app/")
     val signedIn = mutableStateOf(false)
@@ -66,6 +72,13 @@ class MemberViewModel @Inject constructor(
                                 val userRef = database.getReference("members").child(userId)
                                 userRef.setValue(memberData).addOnCompleteListener { moveTask ->
                                     if (moveTask.isSuccessful) {
+                                        val memberEntity = MemberEntity(
+                                            uid = userId,
+                                            name = name,
+                                            birthday = formattedBirthday
+                                        )
+                                        insertMember(memberEntity)
+
                                         registrationSuccess.value = true
                                         Log.d("Registration", "viewmodel_registrationSuccess: ${registrationSuccess.value}")
                                     } else {
@@ -84,6 +97,13 @@ class MemberViewModel @Inject constructor(
             }
     }
 
+    //插入會員資料到本地端資料庫
+    fun insertMember(memberEntity: MemberEntity) {
+        viewModelScope.launch(Dispatchers.IO) {
+            memberRepository.insert(memberEntity)
+        }
+    }
+
     // 儲存習慣時間
     fun saveHabitTimes(wakeHour: Int, wakeMinute: Int, sleepHour: Int, sleepMinute: Int) {
         val memberId = auth.currentUser?.uid ?: return
@@ -99,13 +119,24 @@ class MemberViewModel @Inject constructor(
 
         habitRef.setValue(habits).addOnSuccessListener {
             Log.d("Firebase", "Habit times saved successfully")
+
+            viewModelScope.launch(Dispatchers.IO) {
+                val existingMember = memberRepository.getMemberByUid(memberId)
+                if (existingMember != null) {
+                    val updatedMember = existingMember.copy(
+                        wake_time = wakeTime,
+                        sleep_time = sleepTime
+                    )
+                    memberRepository.update(updatedMember)
+                }
+            }
+
             auth.signOut()
             signedIn.value = false
         }.addOnFailureListener { exception ->
             handleException(exception, "無法儲存使用習慣")
         }
     }
-
 
     //登入
     fun login(email: String, pass: String) {
