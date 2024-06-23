@@ -57,6 +57,7 @@ android {
 
 dependencies {
 
+
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -74,6 +75,8 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
+
+    implementation("com.google.android.material:material:1.7.0")
 
 
     //room-database
@@ -93,6 +96,10 @@ dependencies {
     implementation(libs.firebase.database)
     // Import the BoM for the Firebase platform
     implementation(platform("com.google.firebase:firebase-bom:33.1.0"))
+    // Firebase Realtime Database 依赖
+    implementation ("com.google.firebase:firebase-database-ktx:20.1.0")
+    // Firebase Auth 依赖（用于身份验证）
+    implementation ("com.google.firebase:firebase-auth-ktx:21.0.5")
 
     val lifecycle_version = "2.8.1"
     implementation("androidx.compose.runtime:runtime-livedata:1.6.7")

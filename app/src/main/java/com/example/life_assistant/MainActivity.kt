@@ -1,11 +1,9 @@
 package com.example.life_assistant
 
-
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import com.example.life_assistant.ui.theme.Life_AssistantTheme
-
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.compose.material3.MaterialTheme
@@ -26,6 +24,7 @@ import com.example.life_assistant.Screen.MainScreen
 import com.example.life_assistant.Screen.SignUpHabitScreen
 import com.example.life_assistant.Screen.SignUpScreen
 import com.example.life_assistant.ViewModel.MemberViewModel
+import com.example.life_assistant.Screen.EventScreen
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -51,6 +50,7 @@ sealed class DestinationScreen(val route: String){
     object Main: DestinationScreen("main")
     object SignUpHabit: DestinationScreen("signuphabit")
     object ForgetPassword: DestinationScreen("forgetpassword")
+    object Event: DestinationScreen("event")  // 新增日历页面的导航目标
 }
 
 @Composable
@@ -72,19 +72,22 @@ fun AuthenticationApp(){
 
     NavHost(navController = navController, startDestination = start.value){
         composable(DestinationScreen.Login.route){
-            LoginScreen(navController,mvm)
+            LoginScreen(navController, mvm)
         }
         composable(DestinationScreen.Main.route){
-            MainScreen(navController,mvm)
+            MainScreen(navController, mvm)
         }
         composable(DestinationScreen.SignUp.route){
-            SignUpScreen(navController,mvm)
+            SignUpScreen(navController, mvm)
         }
         composable(DestinationScreen.SignUpHabit.route){
-            SignUpHabitScreen(navController,mvm)
+            SignUpHabitScreen(navController, mvm)
         }
         composable(DestinationScreen.ForgetPassword.route){
-            ForgetPasswordScreen(navController,mvm)
+            ForgetPasswordScreen(navController, mvm)
+        }
+        composable(DestinationScreen.Event.route) {
+            EventScreen(navController, mvm) // 添加日历页面的导航
         }
     }
 }

@@ -1,3 +1,5 @@
+// MemberViewModel.kt
+
 package com.example.life_assistant.ViewModel
 
 import android.util.Log
@@ -9,7 +11,7 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
-import com.example.life_assistant.Event
+import com.example.life_assistant.data.Event
 import com.example.life_assistant.Screen.convertLongToDate
 import com.example.life_assistant.data.Member
 import com.google.firebase.auth.FirebaseAuth
@@ -21,11 +23,11 @@ import javax.inject.Inject
 @HiltViewModel
 class MemberViewModel @Inject constructor(
     val auth: FirebaseAuth
-): ViewModel(){
+): ViewModel() {
     val database = FirebaseDatabase.getInstance("https://life-assistant-27ae8-default-rtdb.europe-west1.firebasedatabase.app/")
     val signedIn = mutableStateOf(false)
     val inProgress = mutableStateOf(false)
-    val popupNotification = mutableStateOf<Event<String>?>(null)
+    val popupNotification = mutableStateOf<com.example.life_assistant.Event<String>?>(null)
     val registrationSuccess = mutableStateOf(false)
     val errorMessage = mutableStateOf<String?>(null)
     val member = mutableStateOf<Member?>(null)
@@ -33,18 +35,22 @@ class MemberViewModel @Inject constructor(
     val showDialog = mutableStateOf(false)
     val dialogMessage = mutableStateOf("")
 
-    //一開啟就檢查使用者是否登入
+    // 一開啟就檢查使用者是否登入
     init {
         checkUserStatus()
     }
 
-    //檢查使用者是否登入
+    // 檢查使用者是否登入
     private fun checkUserStatus() {
         val currentUser = auth.currentUser
         signedIn.value = currentUser != null
     }
 
+<<<<<<< Updated upstream
     //註冊
+=======
+    // 註冊
+>>>>>>> Stashed changes
     fun onSignup(name: String, email: String, pass: String, birthday: Long) {
         inProgress.value = true
 
@@ -106,13 +112,16 @@ class MemberViewModel @Inject constructor(
         }
     }
 
-
-    //登入
+    // 登入
     fun login(email: String, pass: String) {
         inProgress.value = true
 
         auth.signInWithEmailAndPassword(email, pass)
+<<<<<<< Updated upstream
             .addOnCompleteListener {authTask ->
+=======
+            .addOnCompleteListener { authTask ->
+>>>>>>> Stashed changes
                 if (authTask.isSuccessful) {
                     signedIn.value = true
                     Log.d("AlertDialog", "sign: $signedIn.value ")
@@ -127,7 +136,7 @@ class MemberViewModel @Inject constructor(
     val showSuccessDialog = mutableStateOf(false)
     val showErrorDialog = mutableStateOf(false)
 
-    //忘記密碼
+    // 忘記密碼
     fun sendPasswordResetEmail(email: String) {
         auth.sendPasswordResetEmail(email)
             .addOnCompleteListener { task ->
@@ -152,9 +161,9 @@ class MemberViewModel @Inject constructor(
                     }
                 }
             }
-        }
+    }
 
-    //抓錯誤
+    // 抓錯誤
     fun handleException(exception: Exception? = null, customMessage: String = "") {
         exception?.printStackTrace()
         val errorMsg = exception?.localizedMessage ?: ""
@@ -162,8 +171,7 @@ class MemberViewModel @Inject constructor(
         errorMessage.value = formattedMessage
     }
 
-
-    //抓取auth檢查後的錯誤
+    // 抓取auth檢查後的錯誤
     private fun formatErrorMessage(exception: Exception?, customMessage: String, errorMsg: String): String {
         val defaultErrorMessage = if (customMessage.isEmpty()) {
             errorMsg
@@ -184,13 +192,13 @@ class MemberViewModel @Inject constructor(
         return defaultErrorMessage
     }
 
-    //登出
+    // 登出
     fun logout() {
         auth.signOut()
         signedIn.value = false
     }
 
-    //錯誤訊息跳出提示框
+    // 錯誤訊息跳出提示框
     @Composable
     fun ErrorAlertDialog(
         showDialog: MutableState<Boolean>,
@@ -199,7 +207,7 @@ class MemberViewModel @Inject constructor(
     ) {
         if (showDialog.value) {
             AlertDialog(
-                onDismissRequest = {onDismiss()},
+                onDismissRequest = { onDismiss() },
                 title = {
                     Text(text = "提示")
                 },
@@ -220,7 +228,7 @@ class MemberViewModel @Inject constructor(
         }
     }
 
-    //從資料庫取得資料
+    // 從資料庫取得資料
     fun getData() {
         val userId = auth.currentUser?.uid ?: return
         Log.d("AlertDialog", "userid: $userId")
@@ -240,7 +248,7 @@ class MemberViewModel @Inject constructor(
         }
     }
 
-    //修改資料
+    // 修改資料
     fun updateMemberData(newName: String) {
         val memberId = auth.currentUser?.uid ?: return
 
@@ -250,6 +258,20 @@ class MemberViewModel @Inject constructor(
             getData()
         }.addOnFailureListener { exception ->
             handleException(exception, "無法更新資料")
+        }
+    }
+
+    // 新增事件
+    fun addEvent(title: String, description: String, date: String, time: String) {
+        val userId = auth.currentUser?.uid ?: return
+
+        val eventRef = database.getReference("events").child(userId).push()
+        val event = Event(title, description, date, time)
+
+        eventRef.setValue(event).addOnSuccessListener {
+            Log.d("Firebase", "Event saved successfully")
+        }.addOnFailureListener { exception ->
+            handleException(exception, "無法儲存事件")
         }
     }
 }
