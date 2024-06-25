@@ -23,6 +23,7 @@ import com.example.life_assistant.Screen.LoginScreen
 import com.example.life_assistant.Screen.MainScreen
 import com.example.life_assistant.Screen.SignUpHabitScreen
 import com.example.life_assistant.Screen.SignUpScreen
+import com.example.life_assistant.Screen.CalendarScreen
 import com.example.life_assistant.ViewModel.MemberViewModel
 import com.example.life_assistant.Screen.EventScreen
 
@@ -50,7 +51,11 @@ sealed class DestinationScreen(val route: String){
     object Main: DestinationScreen("main")
     object SignUpHabit: DestinationScreen("signuphabit")
     object ForgetPassword: DestinationScreen("forgetpassword")
+<<<<<<< Updated upstream
     object Event: DestinationScreen("event")  // 新增日历页面的导航目标
+=======
+    object Calendar: DestinationScreen("calendar") // 新增日历页面
+>>>>>>> Stashed changes
 }
 
 @Composable
@@ -88,6 +93,9 @@ fun AuthenticationApp(){
         }
         composable(DestinationScreen.Event.route) {
             EventScreen(navController, mvm) // 添加日历页面的导航
+        }
+        composable(DestinationScreen.Calendar.route){ // 新增日历页面的路由
+            CalendarScreen(navController, mvm)
         }
     }
 }

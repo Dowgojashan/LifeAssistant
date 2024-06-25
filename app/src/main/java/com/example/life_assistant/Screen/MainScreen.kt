@@ -213,6 +213,33 @@ fun MainScreen(
             )
         }
 
+        Box(
+            modifier = modifier
+                .requiredWidth(width = 120.dp)
+                .requiredHeight(height = 60.dp)
+                .align(Alignment.TopCenter)
+                .offset(y = 620.dp) // Adjust the offset as needed
+        ) {
+            OutlinedButton(
+                onClick = {
+                    navController.navigate(DestinationScreen.Calendar.route)
+                },
+                shape = RoundedCornerShape(20.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xfffafca3)),
+                border = BorderStroke(1.dp, Color(0xff534e4e)),
+                modifier = Modifier
+                    .requiredWidth(width = 100.dp)
+                    .requiredHeight(height = 50.dp)
+                    .align(Alignment.Center)
+            ) {}
+            Text(
+                text = "日歷",
+                color = Color.Black.copy(alpha = 0.25f),
+                fontSize = 20.sp,
+                modifier = Modifier.align(Alignment.Center)
+            )
+        }
+
         Log.d("AlertDialog", "Confirm button clicked, success: $success")
         if (success) {
             showDialog.value = true
