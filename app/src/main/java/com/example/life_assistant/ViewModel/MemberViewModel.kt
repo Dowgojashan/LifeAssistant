@@ -7,6 +7,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import com.example.life_assistant.Event
@@ -17,6 +18,7 @@ import com.google.firebase.auth.FirebaseAuthException
 import com.google.firebase.database.FirebaseDatabase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import com.example.life_assistant.Screen.CalendarScreen
 
 @HiltViewModel
 class MemberViewModel @Inject constructor(
@@ -43,6 +45,85 @@ class MemberViewModel @Inject constructor(
         val currentUser = auth.currentUser
         signedIn.value = currentUser != null
     }
+
+    // 添加事件
+    fun addEvent(date: Int, name: String, description: String) {
+        val memberId = auth.currentUser?.uid ?: return
+        val event = CalendarEvent(date, name, description)
+        val events = mutableStateListOf<CalendarEvent>()
+        events.add(event)
+
+        // 将事件保存到 Firebase
+        val eventRef = database.getReference("members").child(memberId).child("events").push()
+        eventRef.setValue(event).addOnSuccessListener {
+            Log.d("Firebase", "Event saved successfully")
+        }.addOnFailureListener { exception ->
+            handleException(exception, "Unable to save event")
+        }
+    }
+
+    // 获取所有事件
+    fun fetchEvents() {
+        val memberId = auth.currentUser?.uid ?: return
+        val eventRef = database.getReference("members").child(memberId).child("events")
+        val events = mutableStateListOf<CalendarEvent>()
+        eventRef.get().addOnSuccessListener { snapshot ->
+            events.clear()
+            for (data in snapshot.children) {
+                val event = data.getValue(CalendarEvent::class.java)
+                event?.let {
+                    events.add(it)
+                }
+            }
+        }.addOnFailureListener { exception ->
+            handleException(exception, "Unable to fetch events")
+        }
+    }
+
+    // 获取特定日期的事件列表
+    fun getEventsForDate(date: Int): List<CalendarEvent> {
+        val memberId = auth.currentUser?.uid ?: return emptyList()
+        val eventRef = database.getReference("members").child(memberId).child("events")
+        val events = mutableStateListOf<CalendarEvent>()
+
+        eventRef.get().addOnSuccessListener { snapshot ->
+            events.clear()
+            for (data in snapshot.children) {
+                val event = data.getValue(CalendarEvent::class.java)
+                if (event?.date == date) {
+                    event?.let {
+                        events.add(it)
+                    }
+                }
+            }
+        }.addOnFailureListener { exception ->
+            handleException(exception, "Unable to fetch events for date $date")
+        }
+
+        return events
+    }
+
+    // 在 MemberViewModel 中添加删除事件的方法
+    fun deleteEvent(event: CalendarEvent) {
+        val memberId = auth.currentUser?.uid ?: return
+        val eventRef = database.getReference("members").child(memberId).child("events")
+
+        eventRef.get().addOnSuccessListener { snapshot ->
+            for (data in snapshot.children) {
+                val existingEvent = data.getValue(CalendarEvent::class.java)
+                if (existingEvent != null && existingEvent.name == event.name && existingEvent.description == event.description) {
+                    data.ref.removeValue().addOnSuccessListener {
+                        Log.d("Firebase", "Event deleted successfully")
+                    }.addOnFailureListener { exception ->
+                        handleException(exception, "Unable to delete event")
+                    }
+                }
+            }
+        }.addOnFailureListener { exception ->
+            handleException(exception, "Unable to fetch events for deletion")
+        }
+    }
+
 
     //註冊
     fun onSignup(name: String, email: String, pass: String, birthday: Long) {
@@ -152,7 +233,7 @@ class MemberViewModel @Inject constructor(
                     }
                 }
             }
-        }
+    }
 
     //抓錯誤
     fun handleException(exception: Exception? = null, customMessage: String = "") {
@@ -253,3 +334,10 @@ class MemberViewModel @Inject constructor(
         }
     }
 }
+
+// 日历事件数据类
+data class CalendarEvent(
+    val date: Int = 0,
+    val name: String = "",
+    val description: String = ""
+)
