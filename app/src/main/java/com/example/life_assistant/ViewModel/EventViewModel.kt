@@ -1,9 +1,7 @@
 package com.example.life_assistant.ViewModel
 
 import android.util.Log
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
@@ -11,6 +9,7 @@ import androidx.lifecycle.asLiveData
 import androidx.lifecycle.viewModelScope
 import com.example.life_assistant.Repository.EventRepository
 import com.example.life_assistant.Screen.convertLongToDate
+import com.example.life_assistant.data.Event
 import com.google.firebase.database.FirebaseDatabase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -45,7 +44,18 @@ class EventViewModel @Inject constructor(
             remind_time = 0L,
             repeat = 0
         )
-        insertEvent(newEvent)
+        val event = Event(name, description, formatteddate)
+        val events = mutableStateListOf<Event>()
+        events.add(event)
+
+        // 將事件保存到 Firebase
+        val eventRef = database.getReference("members").child(memberId).child("events").push()
+        eventRef.setValue(event).addOnSuccessListener {
+            Log.d("Firebase", "Event saved successfully")
+            insertEvent(newEvent)
+        }.addOnFailureListener { exception ->
+            handleException(exception, "Unable to save event")
+        }
     }
 
     //roomdatabase新增事件
@@ -55,9 +65,31 @@ class EventViewModel @Inject constructor(
         }
     }
 
+    // 獲取特定日期的事件列表
+    fun getEventsForDate(date: String): List<Event> {
+        val memberId = auth.currentUser?.uid ?: return emptyList()
+        val eventRef = database.getReference("members").child(memberId).child("events")
+        val events = mutableStateListOf<Event>()
+
+        eventRef.get().addOnSuccessListener { snapshot ->
+            events.clear()
+            for (data in snapshot.children) {
+                val event = data.getValue(Event::class.java)
+                if (event?.date == date) {
+                    event?.let {
+                        events.add(it)
+                    }
+                }
+            }
+        }.addOnFailureListener { exception ->
+            handleException(exception, "Unable to fetch events for date $date")
+        }
+
+        return events
+    }
+
     private val _eventsByDate = MutableStateFlow<List<EventEntity>>(emptyList())
     val eventsByDate: StateFlow<List<EventEntity>> = _eventsByDate
-
     //取得事件
     fun getEventsByDate(date: String) {
         val replacedate = date.replace("年0", "年\n0").replace("年\n0", "年\n").replace("年\n0", "年\n")
@@ -81,5 +113,32 @@ class EventViewModel @Inject constructor(
         viewModelScope.launch {
             eventRepository.delete(event)
         }
+    }
+
+    //firebase刪除
+    fun deleteEvent(event: Event) {
+        val memberId = auth.currentUser?.uid ?: return
+        val eventRef = database.getReference("members").child(memberId).child("events")
+
+        eventRef.get().addOnSuccessListener { snapshot ->
+            for (data in snapshot.children) {
+                val existingEvent = data.getValue(Event::class.java)
+                if (existingEvent != null && existingEvent.name == event.name && existingEvent.description == event.description) {
+                    data.ref.removeValue().addOnSuccessListener {
+                        Log.d("Firebase", "Event deleted successfully")
+                    }.addOnFailureListener { exception ->
+                        handleException(exception, "Unable to delete event")
+                    }
+                }
+            }
+        }.addOnFailureListener { exception ->
+            handleException(exception, "Unable to fetch events for deletion")
+        }
+    }
+
+    //抓錯誤
+    fun handleException(exception: Exception? = null, customMessage: String = "") {
+        exception?.printStackTrace()
+        val errorMsg = exception?.localizedMessage ?: ""
     }
 }
