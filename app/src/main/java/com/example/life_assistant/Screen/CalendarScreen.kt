@@ -20,10 +20,11 @@ import kotlinx.coroutines.launch
 @Composable
 fun CalendarScreen(
     navController: NavHostController,
-    mvm: MemberViewModel
+    mvm: MemberViewModel,
+    modifier: Modifier = Modifier
 ) {
-    val daysInMonth = 30 // 假设每个月30天
-    val columns = 7 // 一周7天
+    val daysInMonth = 30
+    val columns = 7
     var selectedDate by remember { mutableStateOf(-1) }
     var showDialog by remember { mutableStateOf(false) }
     var lastClickTimestamp by remember { mutableStateOf(0L) }

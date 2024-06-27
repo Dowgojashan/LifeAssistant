@@ -53,7 +53,7 @@ class MemberViewModel @Inject constructor(
         val events = mutableStateListOf<CalendarEvent>()
         events.add(event)
 
-        // 将事件保存到 Firebase
+        // 將事件保存到 Firebase
         val eventRef = database.getReference("members").child(memberId).child("events").push()
         eventRef.setValue(event).addOnSuccessListener {
             Log.d("Firebase", "Event saved successfully")
@@ -62,7 +62,7 @@ class MemberViewModel @Inject constructor(
         }
     }
 
-    // 获取所有事件
+    // 獲取所有事件
     fun fetchEvents() {
         val memberId = auth.currentUser?.uid ?: return
         val eventRef = database.getReference("members").child(memberId).child("events")
@@ -80,7 +80,7 @@ class MemberViewModel @Inject constructor(
         }
     }
 
-    // 获取特定日期的事件列表
+    // 獲取特定日期的事件列表
     fun getEventsForDate(date: Int): List<CalendarEvent> {
         val memberId = auth.currentUser?.uid ?: return emptyList()
         val eventRef = database.getReference("members").child(memberId).child("events")
@@ -103,7 +103,7 @@ class MemberViewModel @Inject constructor(
         return events
     }
 
-    // 在 MemberViewModel 中添加删除事件的方法
+    // 在 MemberViewModel 中添加刪除事件的方法
     fun deleteEvent(event: CalendarEvent) {
         val memberId = auth.currentUser?.uid ?: return
         val eventRef = database.getReference("members").child(memberId).child("events")
@@ -335,7 +335,7 @@ class MemberViewModel @Inject constructor(
     }
 }
 
-// 日历事件数据类
+// 日曆事件data 另外放一個資料夾
 data class CalendarEvent(
     val date: Int = 0,
     val name: String = "",

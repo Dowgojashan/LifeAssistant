@@ -73,7 +73,7 @@ fun LoginScreen(
 
     //檢查登入狀態，若為登入就進入主畫面
     if (signedIn) {
-        navController.navigate(DestinationScreen.Main.route)
+        navController.navigate(DestinationScreen.Calendar.route)
     }
 
 
@@ -230,7 +230,7 @@ fun LoginScreen(
                 )
         ){Text(text = "登入",color = Color.White)
             if(mvm.signedIn.value){
-                navController.navigate(DestinationScreen.Main.route)
+                navController.navigate(DestinationScreen.Calendar.route)
             }}
 
         //尚未註冊按鈕
