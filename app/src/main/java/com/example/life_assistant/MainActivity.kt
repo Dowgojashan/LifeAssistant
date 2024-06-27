@@ -25,6 +25,8 @@ import com.example.life_assistant.Screen.LoginScreen
 import com.example.life_assistant.Screen.MainScreen
 import com.example.life_assistant.Screen.SignUpHabitScreen
 import com.example.life_assistant.Screen.SignUpScreen
+import com.example.life_assistant.Screen.calendarScreen
+import com.example.life_assistant.ViewModel.EventViewModel
 import com.example.life_assistant.ViewModel.MemberViewModel
 
 @AndroidEntryPoint
@@ -51,11 +53,13 @@ sealed class DestinationScreen(val route: String){
     object Main: DestinationScreen("main")
     object SignUpHabit: DestinationScreen("signuphabit")
     object ForgetPassword: DestinationScreen("forgetpassword")
+    object Calendar: DestinationScreen("calendar")
 }
 
 @Composable
 fun AuthenticationApp(){
     val mvm = hiltViewModel<MemberViewModel>()
+    val evm = hiltViewModel<EventViewModel>()
     val navController = rememberNavController()
     val start = remember{ mutableStateOf(DestinationScreen.Login.route) }
 
@@ -64,7 +68,7 @@ fun AuthenticationApp(){
     // Determine the initial start destination based on signed-in status
     LaunchedEffect(mvm.signedIn.value) {
         start.value = if (mvm.signedIn.value) {
-            DestinationScreen.Main.route
+            DestinationScreen.Calendar.route
         } else {
             DestinationScreen.Login.route
         }
@@ -85,6 +89,10 @@ fun AuthenticationApp(){
         }
         composable(DestinationScreen.ForgetPassword.route){
             ForgetPasswordScreen(navController,mvm)
+        }
+
+        composable(DestinationScreen.Calendar.route){
+            calendarScreen(navController,evm,mvm)
         }
     }
 }
