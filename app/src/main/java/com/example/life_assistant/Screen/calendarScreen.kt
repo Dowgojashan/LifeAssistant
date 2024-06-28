@@ -31,6 +31,7 @@ import androidx.navigation.NavController
 import com.example.life_assistant.DestinationScreen
 import com.example.life_assistant.ViewModel.EventViewModel
 import com.example.life_assistant.ViewModel.MemberViewModel
+import com.example.life_assistant.data.Event
 import com.example.life_assistant.data.EventEntity
 import java.text.SimpleDateFormat
 import java.util.*
@@ -65,7 +66,7 @@ fun calendarScreen(
                 selectedDate = date
                 showAddEventDialog = true
                 selectedDate?.let {
-                    evm.getEventsByDate(convertDateToString(it))
+                    evm.getEventsForDate(convertDateToString(it))
                 }
             }
         )
@@ -224,9 +225,7 @@ fun AddEventDialog(date: Date, evm: EventViewModel, onDismiss: () -> Unit) {
     var eventName by remember { mutableStateOf("") }
     var eventDescription by remember { mutableStateOf("") }
 
-
     val events by evm.eventsByDate.collectAsState(emptyList())
-    //Log.d("test", events.toString())
 
     Dialog(onDismissRequest = onDismiss) {
         Box(

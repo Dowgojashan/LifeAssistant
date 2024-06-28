@@ -44,7 +44,7 @@ class EventViewModel @Inject constructor(
             remind_time = 0L,
             repeat = 0
         )
-        val event = Event(name, description, formatteddate)
+        val event = Event(name, description, formatteddate, remind_time = 0, label = "", repeat = 0)
         val events = mutableStateListOf<Event>()
         events.add(event)
 
@@ -77,14 +77,19 @@ class EventViewModel @Inject constructor(
                 val event = data.getValue(Event::class.java)
                 if (event?.date == date) {
                     event?.let {
+                        Log.d("test","firebase")
                         events.add(it)
                     }
                 }
             }
         }.addOnFailureListener { exception ->
             handleException(exception, "Unable to fetch events for date $date")
+            // Firebase 失敗時從 Room 取得資料
+            viewModelScope.launch {
+                Log.d("test","roomdatabase")
+                getEventsByDate(date)
+            }
         }
-
         return events
     }
 
@@ -109,14 +114,14 @@ class EventViewModel @Inject constructor(
     }
 
     //刪除事件
-    fun deleteEvent(event: EventEntity) {
+    fun deleteEventFromRoom(event: EventEntity) {
         viewModelScope.launch {
             eventRepository.delete(event)
         }
     }
 
     //firebase刪除
-    fun deleteEvent(event: Event) {
+    fun deleteEventFromFirebase(event: Event) {
         val memberId = auth.currentUser?.uid ?: return
         val eventRef = database.getReference("members").child(memberId).child("events")
 
@@ -134,6 +139,12 @@ class EventViewModel @Inject constructor(
         }.addOnFailureListener { exception ->
             handleException(exception, "Unable to fetch events for deletion")
         }
+    }
+
+    fun deleteEvent(event: EventEntity) {
+        val firebaseEvent = Event(event)
+        deleteEventFromRoom(event)
+        deleteEventFromFirebase(firebaseEvent)
     }
 
     //抓錯誤

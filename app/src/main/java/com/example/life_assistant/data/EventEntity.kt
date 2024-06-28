@@ -40,4 +40,13 @@ data class EventEntity(
     //紀錄是哪種重複
     @SerialName("repeat")
     val repeat: Int,
-)
+){
+    // Event 轉換成 EventEntity
+    constructor(event: Event) : this(
+        name = event.name,
+        description = event.description,
+        date = event.date,
+        remind_time = event.remind_time,
+        repeat = event.repeat
+    )
+}
