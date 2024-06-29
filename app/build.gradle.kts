@@ -67,6 +67,7 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.firebase.auth)
     implementation(libs.firebase.database)
+    implementation("org.testng:testng:7.10.2")
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -92,10 +93,10 @@ dependencies {
     implementation(libs.firebase.auth)
     implementation(libs.firebase.database)
     // Import the BoM for the Firebase platform
-    implementation(platform("com.google.firebase:firebase-bom:33.1.0"))
+    implementation(platform("com.google.firebase:firebase-bom:33.1.1"))
 
-    val lifecycle_version = "2.8.1"
-    implementation("androidx.compose.runtime:runtime-livedata:1.6.7")
+    val lifecycle_version = "2.8.2"
+    implementation("androidx.compose.runtime:runtime-livedata:1.6.8")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:$lifecycle_version")
     implementation("androidx.lifecycle:lifecycle-viewmodel-savedstate:$lifecycle_version")
 //    Serialization :
@@ -105,5 +106,5 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:$lifecycle_version")
     implementation("androidx.constraintlayout:constraintlayout-compose:1.0.1")
 
-    implementation("androidx.compose.runtime:runtime-livedata:1.6.7")
+    implementation("androidx.compose.runtime:runtime-livedata:1.6.8")
 }

@@ -159,7 +159,7 @@ fun SignUpScreen(
                 showDialog.value = true
                 mvm.ErrorAlertDialog(
                     showDialog = showDialog,
-                    message = "請輸入遊戲暱稱",
+                    message = "請輸入暱稱",
                     onDismiss = {
                         showDialog.value = false
                         errorName = false
@@ -182,9 +182,8 @@ fun SignUpScreen(
                     .requiredWidth(width = 210.dp)
                     .requiredHeight(height = 60.dp),
                 shape = RoundedCornerShape(15.dp),
-
+                singleLine = true
                 )
-
         }
 
         //電子郵件
@@ -225,7 +224,8 @@ fun SignUpScreen(
                 modifier = Modifier
                     .requiredWidth(width = 210.dp)
                     .requiredHeight(height = 60.dp),
-                shape = RoundedCornerShape(15.dp)
+                shape = RoundedCornerShape(15.dp),
+                singleLine = true
             )
         }
 
@@ -241,16 +241,24 @@ fun SignUpScreen(
 
         ) {
             var dateDialogController by  remember { mutableStateOf(false) }
+
+            // 獲取當前日期
+            val calendar = Calendar.getInstance()
+            val year = calendar.get(Calendar.YEAR)
+            val month = calendar.get(Calendar.MONTH)
+            val day = calendar.get(Calendar.DAY_OF_MONTH)
+
+
             val currentDate = remember {
                 Calendar.getInstance().apply {
-                    set(Calendar.YEAR, 2024)
-                    set(Calendar.MONTH, 5)
-                    set(Calendar.DAY_OF_MONTH, 13)
+                    set(Calendar.YEAR, year)
+                    set(Calendar.MONTH, month)
+                    set(Calendar.DAY_OF_MONTH, day)
                 }.timeInMillis
             }
             val dateState = rememberDatePickerState(
                 initialSelectedDateMillis = currentDate,
-                yearRange = 1990..2024
+                yearRange = 1970..2024
             )
 
             Button(
@@ -286,7 +294,7 @@ fun SignUpScreen(
                 }
             }
 
-            Text(text = if (birthday != 0L) convertLongToDate(birthday) else "尚未選擇日期")
+            Text(text = if (birthday != 0L) convertLongToDate(birthday) else "尚未選擇\n日期")
 
             //檢查是否有填寫生日
             if(errorBirthday){
@@ -349,7 +357,8 @@ fun SignUpScreen(
                 modifier = Modifier
                     .requiredWidth(width = 210.dp)
                     .requiredHeight(height = 60.dp),
-                shape = RoundedCornerShape(15.dp)
+                shape = RoundedCornerShape(15.dp),
+                singleLine = true
             )
 
         }
@@ -412,7 +421,8 @@ fun SignUpScreen(
                 modifier = Modifier
                     .requiredWidth(width = 210.dp)
                     .requiredHeight(height = 60.dp),
-                shape = RoundedCornerShape(15.dp)
+                shape = RoundedCornerShape(15.dp),
+                singleLine = true
             )
 
         }
@@ -480,18 +490,23 @@ fun SignUpScreen(
 
 
 fun convertLongToDate(time: Long): String {
-    val date = Date(time)
-    val format = SimpleDateFormat.getDateInstance(SimpleDateFormat.DEFAULT, Locale.CHINESE)
-    return format.format(date)
+    val calendar = Calendar.getInstance()
+    calendar.timeInMillis = time
+
+    val year = calendar.get(Calendar.YEAR)
+    val month = calendar.get(Calendar.MONTH) + 1
+    val day = calendar.get(Calendar.DAY_OF_MONTH)
+
+    return "${year}年\n${month}月${day}日"
 }
 
 
-@Preview(widthDp = 360, heightDp = 800)
-@Composable
-fun RegisterScreenPreview() {
-    val navController = rememberNavController()
-    val auth = FirebaseAuth.getInstance()
-    val vm = remember { MemberViewModel(auth) }
-
-    SignUpScreen(navController = navController, mvm = vm, modifier = Modifier)
-}
+//@Preview(widthDp = 360, heightDp = 800)
+//@Composable
+//fun RegisterScreenPreview() {
+//    val navController = rememberNavController()
+//    val auth = FirebaseAuth.getInstance()
+//    val vm = remember { MemberViewModel(auth) }
+//
+//    SignUpScreen(navController = navController, mvm = vm, modifier = Modifier)
+//}

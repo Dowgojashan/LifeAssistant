@@ -9,18 +9,27 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.example.life_assistant.Event
+import com.example.life_assistant.Repository.MemberRepository
 import com.example.life_assistant.Screen.convertLongToDate
 import com.example.life_assistant.data.Member
+import com.example.life_assistant.data.MemberEntity
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthException
 import com.google.firebase.database.FirebaseDatabase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 @HiltViewModel
 class MemberViewModel @Inject constructor(
-    val auth: FirebaseAuth
+    val auth: FirebaseAuth,
+    private val memberRepository: MemberRepository
 ): ViewModel(){
     val database = FirebaseDatabase.getInstance("https://life-assistant-27ae8-default-rtdb.europe-west1.firebasedatabase.app/")
     val signedIn = mutableStateOf(false)
@@ -66,6 +75,13 @@ class MemberViewModel @Inject constructor(
                                 val userRef = database.getReference("members").child(userId)
                                 userRef.setValue(memberData).addOnCompleteListener { moveTask ->
                                     if (moveTask.isSuccessful) {
+                                        val memberEntity = MemberEntity(
+                                            uid = userId,
+                                            name = name,
+                                            birthday = formattedBirthday
+                                        )
+                                        insertMember(memberEntity)
+
                                         registrationSuccess.value = true
                                         Log.d("Registration", "viewmodel_registrationSuccess: ${registrationSuccess.value}")
                                     } else {
@@ -84,6 +100,13 @@ class MemberViewModel @Inject constructor(
             }
     }
 
+    //插入會員資料到本地端資料庫
+    fun insertMember(memberEntity: MemberEntity) {
+        viewModelScope.launch(Dispatchers.IO) {
+            memberRepository.insert(memberEntity)
+        }
+    }
+
     // 儲存習慣時間
     fun saveHabitTimes(wakeHour: Int, wakeMinute: Int, sleepHour: Int, sleepMinute: Int) {
         val memberId = auth.currentUser?.uid ?: return
@@ -99,13 +122,24 @@ class MemberViewModel @Inject constructor(
 
         habitRef.setValue(habits).addOnSuccessListener {
             Log.d("Firebase", "Habit times saved successfully")
+
+            viewModelScope.launch(Dispatchers.IO) {
+                val existingMember = memberRepository.getMemberByUid(memberId)
+                if (existingMember != null) {
+                    val updatedMember = existingMember.copy(
+                        wake_time = wakeTime,
+                        sleep_time = sleepTime
+                    )
+                    memberRepository.update(updatedMember)
+                }
+            }
+
             auth.signOut()
             signedIn.value = false
         }.addOnFailureListener { exception ->
             handleException(exception, "無法儲存使用習慣")
         }
     }
-
 
     //登入
     fun login(email: String, pass: String) {
@@ -114,6 +148,8 @@ class MemberViewModel @Inject constructor(
         auth.signInWithEmailAndPassword(email, pass)
             .addOnCompleteListener {authTask ->
                 if (authTask.isSuccessful) {
+                    val memberId = auth.currentUser?.uid ?: ""
+                    checkAndInsertMember(memberId)
                     signedIn.value = true
                     Log.d("AlertDialog", "sign: $signedIn.value ")
                 } else {
@@ -123,7 +159,40 @@ class MemberViewModel @Inject constructor(
             }
     }
 
-    private val defaultErrorMessage = "發生未知錯誤，請稍後再試"
+    //如果firebase註冊過，但非這台手機的話
+    private fun checkAndInsertMember(memberId: String) {
+        database.getReference("members").child(memberId)
+            .get()
+            .addOnSuccessListener { snapshot ->
+                if (snapshot.exists()) {
+                    val name = snapshot.child("name").getValue(String::class.java) ?: ""
+                    val birthday = snapshot.child("birthday").getValue(String::class.java) ?: ""
+                    val wakeTime = snapshot.child("habits").child("wakeTime").getValue(String::class.java) ?: ""
+                    Log.d("test","$wakeTime")
+                    val sleepTime = snapshot.child("habits").child("sleepTime").getValue(String::class.java) ?: ""
+                    Log.d("test","$sleepTime")
+
+
+                    viewModelScope.launch(Dispatchers.IO) {
+                        val existingMember = memberRepository.getUid(memberId)
+                        if (existingMember == null) {
+                            val memberEntity = MemberEntity(
+                                uid = memberId,
+                                name = name,
+                                birthday = birthday,
+                                wake_time = wakeTime,
+                                sleep_time = sleepTime
+                            )
+                            insertMember(memberEntity)
+                        }
+                    }
+                }
+            }
+            .addOnFailureListener { exception ->
+                handleException(exception, "取得使用者資料失敗")
+            }
+    }
+
     val showSuccessDialog = mutableStateOf(false)
     val showErrorDialog = mutableStateOf(false)
 
@@ -247,7 +316,28 @@ class MemberViewModel @Inject constructor(
         val memberRef = database.getReference("members").child(memberId)
         memberRef.child("name").setValue(newName).addOnSuccessListener {
             showDialog.value = true
-            getData()
+            viewModelScope.launch(Dispatchers.IO) { // 確保在IO執行緒上運行
+                try {
+                    // 從 Room Database 獲取當前成員資料
+                    val currentMember = memberRepository.getMemberByUid(memberId)
+                    if (currentMember != null) {
+                        // 更新成員資料
+                        val updatedMember = currentMember.copy(name = newName)
+                        memberRepository.update(updatedMember)
+                        // 在主執行緒上顯示對話框和更新UI
+                        withContext(Dispatchers.Main) {
+                            showDialog.value = true
+                            getData() // 獲取更新後的資料
+                        }
+                    } else {
+                        Log.d("AlertDialog", "沒有找到該成員資料")
+                    }
+                } catch (exception: Exception) {
+                    withContext(Dispatchers.Main) {
+                        handleException(exception, "無法更新資料")
+                    }
+                }
+            }
         }.addOnFailureListener { exception ->
             handleException(exception, "無法更新資料")
         }
