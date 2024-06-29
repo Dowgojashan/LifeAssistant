@@ -24,5 +24,8 @@ interface MyDao {
     fun getAllMembers(): Flow<List<MemberEntity>>
 
     @Query("SELECT * FROM MemberEntity WHERE uid = :uid LIMIT 1")
-    fun getMemberByUid(uid: String): MemberEntity?
+    fun getMemberByUid(uid: String): MemberEntity
+
+    @Query("SELECT uid FROM MemberEntity WHERE uid = :uid LIMIT 1")
+    fun getUid(uid: String): String?
 }

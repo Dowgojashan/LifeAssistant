@@ -30,6 +30,8 @@ class EventViewModel @Inject constructor(
     val database = FirebaseDatabase.getInstance("https://life-assistant-27ae8-default-rtdb.europe-west1.firebasedatabase.app/")
     private val _events = MutableLiveData<List<EventEntity>>()
     val events: LiveData<List<EventEntity>> = _events
+    private val _eventsByDate = MutableStateFlow<List<EventEntity>>(emptyList())
+    val eventsByDate: StateFlow<List<EventEntity>> = _eventsByDate
 
 
     //firebase新增事件
@@ -65,23 +67,26 @@ class EventViewModel @Inject constructor(
         }
     }
 
-    // 獲取特定日期的事件列表
+    // 從firebase取得事件
     fun getEventsForDate(date: String): List<Event> {
+        val replacedate = date.replace("年0", "年\n0").replace("年\n0", "年\n").replace("年\n0", "年\n")
         val memberId = auth.currentUser?.uid ?: return emptyList()
         val eventRef = database.getReference("members").child(memberId).child("events")
         val events = mutableStateListOf<Event>()
 
         eventRef.get().addOnSuccessListener { snapshot ->
             events.clear()
+            val eventsList = mutableListOf<Event>()
             for (data in snapshot.children) {
                 val event = data.getValue(Event::class.java)
-                if (event?.date == date) {
+                if (event?.date == replacedate) {
                     event?.let {
                         Log.d("test","firebase")
-                        events.add(it)
+                        eventsList.add(it)
                     }
                 }
             }
+            _eventsByDate.value = eventsList.map { EventEntity(it) }
         }.addOnFailureListener { exception ->
             handleException(exception, "Unable to fetch events for date $date")
             // Firebase 失敗時從 Room 取得資料
@@ -93,9 +98,7 @@ class EventViewModel @Inject constructor(
         return events
     }
 
-    private val _eventsByDate = MutableStateFlow<List<EventEntity>>(emptyList())
-    val eventsByDate: StateFlow<List<EventEntity>> = _eventsByDate
-    //取得事件
+    //從roomdatabase取得事件
     fun getEventsByDate(date: String) {
         val replacedate = date.replace("年0", "年\n0").replace("年\n0", "年\n").replace("年\n0", "年\n")
         Log.d("test", replacedate)
@@ -108,15 +111,19 @@ class EventViewModel @Inject constructor(
                     }
             } catch (e: Exception) {
                 Log.e("test", "Error collecting events", e)
-                // Handle error situation here, if needed
+                getEventsForDate(date)
             }
         }
     }
 
-    //刪除事件
+    //roomdatabase刪除事件
     fun deleteEventFromRoom(event: EventEntity) {
         viewModelScope.launch {
-            eventRepository.delete(event)
+            val memberId = auth.currentUser?.uid ?: return@launch
+            val eventWithUid = event.copy(memberuid = memberId)
+            val date = event.date
+            eventRepository.delete(eventWithUid)
+            getEventsForDate(date)
         }
     }
 
@@ -124,6 +131,7 @@ class EventViewModel @Inject constructor(
     fun deleteEventFromFirebase(event: Event) {
         val memberId = auth.currentUser?.uid ?: return
         val eventRef = database.getReference("members").child(memberId).child("events")
+        val date = event.date
 
         eventRef.get().addOnSuccessListener { snapshot ->
             for (data in snapshot.children) {
@@ -131,6 +139,7 @@ class EventViewModel @Inject constructor(
                 if (existingEvent != null && existingEvent.name == event.name && existingEvent.description == event.description) {
                     data.ref.removeValue().addOnSuccessListener {
                         Log.d("Firebase", "Event deleted successfully")
+                        getEventsForDate(date)
                     }.addOnFailureListener { exception ->
                         handleException(exception, "Unable to delete event")
                     }

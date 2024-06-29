@@ -34,6 +34,7 @@ class EventRepositoryImpl @Inject constructor(
 
     override suspend fun delete(eventEntity: EventEntity) {
         withContext(Dispatchers.IO) {
+            Log.d("test","$eventEntity")
             edao.delete(eventEntity)
         }
     }

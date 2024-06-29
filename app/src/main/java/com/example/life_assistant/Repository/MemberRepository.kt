@@ -17,7 +17,9 @@ interface MemberRepository {
     suspend fun update(memberEntity: MemberEntity)
 
     suspend fun getAllMembers(): Flow<List<MemberEntity>>
-    suspend fun getMemberByUid(uid: String): MemberEntity?
+    suspend fun getMemberByUid(uid: String): MemberEntity
+
+    suspend fun getUid(uid: String): String?
 }
 
 class RepositoryImpl @Inject constructor(
@@ -47,7 +49,11 @@ class RepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun getMemberByUid(uid: String): MemberEntity? {
+    override suspend fun getMemberByUid(uid: String): MemberEntity {
         return dao.getMemberByUid(uid)
+    }
+
+    override suspend fun getUid(uid: String): String? {
+        return dao.getUid(uid)
     }
 }
