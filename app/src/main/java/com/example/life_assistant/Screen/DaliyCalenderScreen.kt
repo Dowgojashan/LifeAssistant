@@ -65,7 +65,7 @@ data class Event(
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
-fun DaliyCalender(modifier: Modifier = Modifier) {
+fun DaliyCalenderScreen(modifier: Modifier = Modifier) {
     var showDialog by remember { mutableStateOf(false) }
     var selectedHour by remember { mutableStateOf("") }
     val userEntries = remember { mutableStateListOf<UserEntry>() }
@@ -609,5 +609,5 @@ fun UserInputDialog(
 @Preview(showBackground = true)
 @Composable
 fun DaliyCalenderPreview() {
-    DaliyCalender()
+    DaliyCalenderScreen()
 }
