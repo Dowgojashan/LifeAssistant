@@ -66,7 +66,7 @@ fun calendarScreen(
                 selectedDate = date
                 showAddEventDialog = true
                 selectedDate?.let {
-                    evm.getEventsForDate(convertDateToString(it))
+                    evm.getEventsByDate(convertDateToString(it))
                 }
             }
         )

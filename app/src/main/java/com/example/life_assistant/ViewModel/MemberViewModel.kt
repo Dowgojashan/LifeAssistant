@@ -20,6 +20,8 @@ import com.google.firebase.auth.FirebaseAuthException
 import com.google.firebase.database.FirebaseDatabase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -146,6 +148,8 @@ class MemberViewModel @Inject constructor(
         auth.signInWithEmailAndPassword(email, pass)
             .addOnCompleteListener {authTask ->
                 if (authTask.isSuccessful) {
+                    val memberId = auth.currentUser?.uid ?: ""
+                    checkAndInsertMember(memberId)
                     signedIn.value = true
                     Log.d("AlertDialog", "sign: $signedIn.value ")
                 } else {
@@ -155,7 +159,40 @@ class MemberViewModel @Inject constructor(
             }
     }
 
-    private val defaultErrorMessage = "發生未知錯誤，請稍後再試"
+    //如果firebase註冊過，但非這台手機的話
+    private fun checkAndInsertMember(memberId: String) {
+        database.getReference("members").child(memberId)
+            .get()
+            .addOnSuccessListener { snapshot ->
+                if (snapshot.exists()) {
+                    val name = snapshot.child("name").getValue(String::class.java) ?: ""
+                    val birthday = snapshot.child("birthday").getValue(String::class.java) ?: ""
+                    val wakeTime = snapshot.child("habits").child("wakeTime").getValue(String::class.java) ?: ""
+                    Log.d("test","$wakeTime")
+                    val sleepTime = snapshot.child("habits").child("sleepTime").getValue(String::class.java) ?: ""
+                    Log.d("test","$sleepTime")
+
+
+                    viewModelScope.launch(Dispatchers.IO) {
+                        val existingMember = memberRepository.getUid(memberId)
+                        if (existingMember == null) {
+                            val memberEntity = MemberEntity(
+                                uid = memberId,
+                                name = name,
+                                birthday = birthday,
+                                wake_time = wakeTime,
+                                sleep_time = sleepTime
+                            )
+                            insertMember(memberEntity)
+                        }
+                    }
+                }
+            }
+            .addOnFailureListener { exception ->
+                handleException(exception, "取得使用者資料失敗")
+            }
+    }
+
     val showSuccessDialog = mutableStateOf(false)
     val showErrorDialog = mutableStateOf(false)
 
