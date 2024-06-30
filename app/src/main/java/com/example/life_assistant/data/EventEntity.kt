@@ -24,29 +24,38 @@ data class EventEntity(
     @SerialName("name")
     val name: String = "",
 
-    @SerialName("description")
-    val description: String = "",
-
     @SerialName("date")
     val date: String,
 
+    @SerialName("startTime")
+    val startTime: String,
+
+    @SerialName("endTime")
+    val endTime: String,
+
     @SerialName("label")
-    val label: String = "",
+    val tags: String = "",
 
     //提醒時間
     @SerialName("remind_time")
-    val remind_time: Long,
+    val alarmTime: String,
 
     //紀錄是哪種重複
     @SerialName("repeat")
-    val repeat: Int,
+    val repeat: String,
+
+    @SerialName("description")
+    val description: String = "",
 ){
     // Event 轉換成 EventEntity
     constructor(event: Event) : this(
         name = event.name,
-        description = event.description,
         date = event.date,
-        remind_time = event.remind_time,
-        repeat = event.repeat
+        startTime = event.startTime,
+        endTime = event.endTime,
+        tags = event.tags,
+        alarmTime = event.alarmTime,
+        repeat = event.repeat,
+        description = event.description,
     )
 }

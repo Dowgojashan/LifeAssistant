@@ -1,23 +1,29 @@
 package com.example.life_assistant.data
 
 data class Event(
+    var uid: String = "",
     val name: String = "",
-    val description: String = "",
     val date: String,
-    val label: String = "",
-    val remind_time: Long,
-    val repeat: Int,
+    val startTime: String,
+    val endTime: String,
+    val tags: String = "",
+    val alarmTime: String,
+    val repeat: String,
+    val description: String = "",
 ){
     // 建構子
-    constructor() : this("", "", "", "", 0L, 0)
+    constructor() : this("", "", "", "", "", "","","")
 
 
     // EventEntity 改變成 Event
     constructor(eventEntity: EventEntity) : this(
         name = eventEntity.name,
-        description = eventEntity.description,
         date = eventEntity.date,
-        remind_time = eventEntity.remind_time,
-        repeat = eventEntity.repeat
+        startTime = eventEntity.startTime,
+        endTime = eventEntity.endTime,
+        tags = eventEntity.tags,
+        alarmTime = eventEntity.alarmTime,
+        repeat = eventEntity.repeat,
+        description = eventEntity.description,
     )
 }

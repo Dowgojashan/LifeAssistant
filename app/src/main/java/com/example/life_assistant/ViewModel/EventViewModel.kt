@@ -15,11 +15,16 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import com.example.life_assistant.data.EventEntity
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.database.DataSnapshot
+import com.google.firebase.database.DatabaseError
+import com.google.firebase.database.DatabaseReference
+import com.google.firebase.database.ValueEventListener
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
+import java.time.format.DateTimeFormatter
 
 
 @HiltViewModel
@@ -28,33 +33,61 @@ class EventViewModel @Inject constructor(
     val auth: FirebaseAuth,
 ): ViewModel(){
     val database = FirebaseDatabase.getInstance("https://life-assistant-27ae8-default-rtdb.europe-west1.firebasedatabase.app/")
-    private val _events = MutableLiveData<List<EventEntity>>()
-    val events: LiveData<List<EventEntity>> = _events
+    private val _events = MutableLiveData<List<Event>>()
+    val events: LiveData<List<Event>> get() = _events
     private val _eventsByDate = MutableStateFlow<List<EventEntity>>(emptyList())
     val eventsByDate: StateFlow<List<EventEntity>> = _eventsByDate
 
 
     //firebase新增事件
-    fun addEvent(name: String,description: String,date: Long){
+    fun addEvent(name: String, date: Long, startTime: String, endTime: String, tags: String, alarmTime: String, repeat: String, description: String) {
         val memberId = auth.currentUser?.uid ?: return
         val formatteddate = convertLongToDate(date)
+
+        // Room Database 物件
         val newEvent = EventEntity(
             memberuid = memberId,
             name = name,
-            description = description,
             date = formatteddate,
-            remind_time = 0L,
-            repeat = 0
+            startTime = startTime,
+            endTime = endTime,
+            tags = tags,
+            alarmTime = alarmTime,
+            repeat = repeat,
+            description = description,
         )
-        val event = Event(name, description, formatteddate, remind_time = 0, label = "", repeat = 0)
-        val events = mutableStateListOf<Event>()
-        events.add(event)
 
-        // 將事件保存到 Firebase
-        val eventRef = database.getReference("members").child(memberId).child("events").push()
+        // Firebase 物件
+        val event = Event(
+            name = name,
+            date = formatteddate,
+            startTime = startTime,
+            endTime = endTime,
+            tags = tags,
+            alarmTime = alarmTime,
+            repeat = repeat,
+            description = description,
+        )
+
+        val eventRef: DatabaseReference = database.getReference("members")
+            .child(memberId)
+            .child("events")
+            .push()
+
+        val eventUid = eventRef.key // 獲取自動生成的 UID
+
+        // 設置 Event 物件的 UID
+        event.uid = eventUid ?: ""
+
+        // 設置 Firebase 中的 Event
         eventRef.setValue(event).addOnSuccessListener {
-            Log.d("Firebase", "Event saved successfully")
-            insertEvent(newEvent)
+            Log.d("Firebase", "Event saved successfully with UID: $eventUid")
+            var replace = formatteddate.replace("\n", "")
+            Log.d("test", replace)
+            // 新增 UID 到 Room Database 物件中
+//            val newEventWithUid = newEvent.copy(uid = eventUid ?: "")
+//            insertEvent(newEventWithUid) // 儲存到 Room 資料庫
+            getEventsForDate(replace)
         }.addOnFailureListener { exception ->
             handleException(exception, "Unable to save event")
         }
@@ -68,25 +101,47 @@ class EventViewModel @Inject constructor(
     }
 
     // 從firebase取得事件
-    fun getEventsForDate(date: String): List<Event> {
-        val replacedate = date.replace("年0", "年\n0").replace("年\n0", "年\n").replace("年\n0", "年\n")
-        val memberId = auth.currentUser?.uid ?: return emptyList()
+    fun getEventsForDate(date: String) {
+        val replacedate = date.replace("年", "年\n")
+        val memberId = auth.currentUser?.uid ?: return
         val eventRef = database.getReference("members").child(memberId).child("events")
-        val events = mutableStateListOf<Event>()
 
         eventRef.get().addOnSuccessListener { snapshot ->
-            events.clear()
             val eventsList = mutableListOf<Event>()
             for (data in snapshot.children) {
-                val event = data.getValue(Event::class.java)
-                if (event?.date == replacedate) {
-                    event?.let {
-                        Log.d("test","firebase")
-                        eventsList.add(it)
+                // 讀取 Firebase 數據
+                val eventMap = data.value as? Map<*, *>
+                if (eventMap != null) {
+                    val uid = eventMap["uid"] as? String ?: ""
+                    val name = eventMap["name"] as? String ?: ""
+                    val dateFromFirebase = eventMap["date"] as? String ?: ""
+                    val startTime = eventMap["startTime"] as? String ?: ""
+                    val endTime = eventMap["endTime"] as? String ?: ""
+                    val tags = eventMap["tags"] as? String ?: ""
+                    val alarmTime = eventMap["alarmTime"] as? String ?: ""
+                    val repeat = eventMap["repeat"] as? String ?: ""
+                    val description = eventMap["description"] as? String ?: ""
+
+                    // 創建 Event 物件
+                    val event = Event(
+                        uid = uid,
+                        name = name,
+                        date = dateFromFirebase,
+                        startTime = startTime,
+                        endTime = endTime,
+                        tags = tags,
+                        alarmTime = alarmTime,
+                        repeat = repeat,
+                        description = description
+                    )
+
+                    if (event.date == replacedate) {
+                        eventsList.add(event)
                     }
                 }
             }
             _eventsByDate.value = eventsList.map { EventEntity(it) }
+            _events.value = eventsList  // 更新 MutableLiveData
         }.addOnFailureListener { exception ->
             handleException(exception, "Unable to fetch events for date $date")
             // Firebase 失敗時從 Room 取得資料
@@ -95,7 +150,6 @@ class EventViewModel @Inject constructor(
                 getEventsByDate(date)
             }
         }
-        return events
     }
 
     //從roomdatabase取得事件
@@ -128,32 +182,82 @@ class EventViewModel @Inject constructor(
     }
 
     //firebase刪除
-    fun deleteEventFromFirebase(event: Event) {
+    fun deleteEventFromFirebase(event: Event,onSuccess: () -> Unit) {
         val memberId = auth.currentUser?.uid ?: return
+        val eventUid = event.uid
         val eventRef = database.getReference("members").child(memberId).child("events")
-        val date = event.date
+        Log.d("uid",eventUid)
 
-        eventRef.get().addOnSuccessListener { snapshot ->
-            for (data in snapshot.children) {
-                val existingEvent = data.getValue(Event::class.java)
-                if (existingEvent != null && existingEvent.name == event.name && existingEvent.description == event.description) {
-                    data.ref.removeValue().addOnSuccessListener {
-                        Log.d("Firebase", "Event deleted successfully")
-                        getEventsForDate(date)
-                    }.addOnFailureListener { exception ->
-                        handleException(exception, "Unable to delete event")
-                    }
-                }
-            }
+        eventRef.child(eventUid).removeValue().addOnSuccessListener {
+            Log.d("Firebase", "Event deleted successfully")
+            val replacedDate = event.date.replace("\n", "")
+            getEventsForDate(replacedDate) // 更新 UI，顯示新的事件列表
+            onSuccess() // 成功刪除後呼叫 onSuccess 回調
         }.addOnFailureListener { exception ->
-            handleException(exception, "Unable to fetch events for deletion")
+            handleException(exception, "Unable to delete event")
         }
     }
 
     fun deleteEvent(event: EventEntity) {
         val firebaseEvent = Event(event)
         deleteEventFromRoom(event)
-        deleteEventFromFirebase(firebaseEvent)
+        //deleteEventFromFirebase(firebaseEvent)
+    }
+
+    //修改事件
+    fun updateEvent(uid: String,name: String,date: Long, startTime: String, endTime: String, tags: String, alarmTime: String, repeatSetting: String, description: String) {
+        // 確保用戶已登入
+        val memberId = auth.currentUser?.uid ?: return
+        val formatteddate = convertLongToDate(date)
+
+        // Firebase 的事件參考路徑
+        val eventRef = database.getReference("members").child(memberId).child("events").child(uid)
+
+        // 將要更新的事件資料
+        val updatedEvent = mapOf(
+            "name" to name,
+            "date" to formatteddate,
+            "startTime" to startTime,
+            "endTime" to endTime,
+            "tags" to tags,
+            "alarmTime" to alarmTime,
+            "repeat" to repeatSetting,
+            "description" to description
+        )
+
+        // 開始更新 Firebase 中的事件資料
+        eventRef.updateChildren(updatedEvent).addOnSuccessListener {
+            Log.d("firebase","updated successfully")
+            val replace = formatteddate.replace("\n", "")
+            Log.d("firebase",replace)
+            getEventsForDate(replace)
+            refreshEvents()
+        }.addOnFailureListener { exception ->
+            handleException(exception, "無法更新事件資料")
+        }
+    }
+
+    //事件刷新
+    fun refreshEvents() {
+        val memberId = auth.currentUser?.uid ?: return
+
+        val eventsRef = database.getReference("members").child(memberId).child("events")
+        eventsRef.addValueEventListener(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val eventsList = mutableListOf<Event>()
+                snapshot.children.forEach { dataSnapshot ->
+                    val event = dataSnapshot.getValue(Event::class.java)
+                    if (event != null) {
+                        eventsList.add(event)
+                    }
+                }
+                _events.value = eventsList // 假設你有一個 LiveData 或 State 來儲存事件列表
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                Log.e("FirebaseError", "Failed to load events: ${error.message}")
+            }
+        })
     }
 
     //抓錯誤
@@ -161,4 +265,5 @@ class EventViewModel @Inject constructor(
         exception?.printStackTrace()
         val errorMsg = exception?.localizedMessage ?: ""
     }
+
 }
