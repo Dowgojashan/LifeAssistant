@@ -115,12 +115,7 @@ fun AuthenticationApp(){
         }
 
         composable(DestinationScreen.MonthCalendar.route){
-            MonthCalendarScreen(navController = navController,
-                evm = evm,
-                mvm = mvm,
-                displayMonth = currentMonth.value,
-                onNextMonth = ::goToNextMonth,
-                onPreviousMonth = ::goToPreviousMonth)
+            MonthCalendarScreen(navController, evm, mvm)
         }
     }
 }

@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.navigation.NavController
+import com.example.life_assistant.DestinationScreen
 import com.example.life_assistant.R
 import com.example.life_assistant.ViewModel.EventViewModel
 import com.example.life_assistant.ViewModel.MemberViewModel
@@ -56,6 +57,7 @@ import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
 import java.time.format.TextStyle
 import androidx.compose.ui.res.colorResource as colorResource1
+
 
 @RequiresApi(Build.VERSION_CODES.O)
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
@@ -98,7 +100,7 @@ fun DailyCalendarScreen(
                         DropdownMenuItem(
                             onClick = {
                                 expanded = false
-                                // 切換到月視圖的邏輯
+                                navController.navigate(DestinationScreen.MonthCalendar.route)
                             },
                             text = {
                                 Text("月行事曆")
@@ -196,7 +198,9 @@ fun DailyCalendarScreen(
                             onLongPress = { offset ->
                                 // 根據點擊的位置計算選擇的時間
                                 val hour = (offset.y / 60).toInt()
-                                selectedHour = hour.toString().padStart(2, '0')
+                                selectedHour = hour
+                                    .toString()
+                                    .padStart(2, '0')
                                 showDialog = true
                             }
                         )
@@ -437,6 +441,10 @@ private fun DayCell(
     }
 }
 
+fun getSelectedDate(date: LocalDate){
+
+}
+
 @SuppressLint("UnrememberedMutableState")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -469,6 +477,7 @@ fun UserInputDialog(
     var startTime by remember { mutableStateOf(initialStartTime) }
     var endTime by remember { mutableStateOf(initialEndTimeEvent) }
     var date by remember { mutableStateOf(selectedDate.format(DateTimeFormatter.ofPattern("M月d日"))) }
+    var selectedDay by remember { mutableStateOf(LocalDate.now())}
     var description by remember { mutableStateOf(initialDescription) }
     var alarmTime by remember { mutableStateOf(initialAlarmTime) }
     var autoSchedule by remember { mutableStateOf(false) }
@@ -488,8 +497,12 @@ fun UserInputDialog(
     )
 
     // Function to format the date to a string
-    fun formatDate(year: Int, month: Int, day: Int): String {
+    fun formatDate(month: Int, day: Int): String {
         return "${month + 1}月${day}日"
+    }
+
+    fun formattedDay(year: Int, month: Int, dayOfMonth: Int): LocalDate {
+        return LocalDate.of(year, month + 1, dayOfMonth)
     }
 
     Dialog(onDismissRequest = onDismiss) {
@@ -529,7 +542,8 @@ fun UserInputDialog(
                         DatePickerDialog(
                             context,
                             { _, year, month, dayOfMonth ->
-                                date = formatDate(year, month, dayOfMonth)
+                                date = formatDate(month, dayOfMonth)
+                                selectedDay = formattedDay(year,month, dayOfMonth)
                                 showDatePicker = false
                             },
                             calendar.get(Calendar.YEAR),
@@ -755,9 +769,9 @@ fun UserInputDialog(
 
                             if (endLocalTime.isAfter(startLocalTime)) {
                                 if (event == null) {
-                                    evm.addEvent(name, localDateToLong(selectedDate), startTime, endTime, tags, alarmTime, repeatSetting, description)
+                                    evm.addEvent(name, localDateToLong(selectedDay), startTime, endTime, tags, alarmTime, repeatSetting, description)
                                 } else {
-                                    evm.updateEvent(event.uid,name, localDateToLong(selectedDate), startTime, endTime, tags, alarmTime, repeatSetting, description)
+                                    evm.updateEvent(event.uid,name, localDateToLong(selectedDay), startTime, endTime, tags, alarmTime, repeatSetting, description)
                                 }
                                 onDismiss()
                             } else {
