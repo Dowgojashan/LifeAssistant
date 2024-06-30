@@ -51,39 +51,39 @@ fun calendarScreen(
 
     val events by evm.events.observeAsState(emptyList())
 
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        CalendarHeader(month = currentMonth, year = currentYear)
-        Spacer(modifier = Modifier.height(16.dp))
-        CalendarGrid(
-            month = currentMonth,
-            year = currentYear,
-            events = events,
-            onDateSelected = { date ->
-                selectedDate = date
-                showAddEventDialog = true
-                selectedDate?.let {
-                    evm.getEventsByDate(convertDateToString(it))
-                }
-            }
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        selectedDate?.let {
-            SelectedDateDialog(date = it) {
-                selectedDate = null
-            }
-        }
-        if (showAddEventDialog) {
-            AddEventDialog(
-                date = selectedDate ?: Date(),
-                evm = evm,
-                onDismiss = { showAddEventDialog = false },
-            )
-        }
-    }
+//    Column(
+//        modifier = Modifier.fillMaxSize(),
+//        verticalArrangement = Arrangement.Center,
+//        horizontalAlignment = Alignment.CenterHorizontally
+//    ) {
+//        CalendarHeader(month = currentMonth, year = currentYear)
+//        Spacer(modifier = Modifier.height(16.dp))
+//        CalendarGrid(
+//            month = currentMonth,
+//            year = currentYear,
+//            events = events,
+//            onDateSelected = { date ->
+//                selectedDate = date
+//                showAddEventDialog = true
+//                selectedDate?.let {
+//                    evm.getEventsByDate(convertDateToString(it))
+//                }
+//            }
+//        )
+//        Spacer(modifier = Modifier.height(16.dp))
+//        selectedDate?.let {
+//            SelectedDateDialog(date = it) {
+//                selectedDate = null
+//            }
+//        }
+//        if (showAddEventDialog) {
+//            AddEventDialog(
+//                date = selectedDate ?: Date(),
+//                evm = evm,
+//                onDismiss = { showAddEventDialog = false },
+//            )
+//        }
+//    }
 
     Box(
         modifier = modifier
@@ -271,7 +271,7 @@ fun AddEventDialog(date: Date, evm: EventViewModel, onDismiss: () -> Unit) {
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 TextButton(onClick = {
-                    evm.addEvent(eventName, eventDescription, date.time)
+                    //evm.addEvent(eventName, eventDescription, date.time)
                     onDismiss()  // 關閉對話框
                 }) {
                     Text("新增")

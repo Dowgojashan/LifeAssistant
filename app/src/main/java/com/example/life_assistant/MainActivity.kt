@@ -19,15 +19,18 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.life_assistant.Main.NotificationMessage
+import com.example.life_assistant.Screen.DailyCalendarScreen
 import com.example.life_assistant.Screen.ForgetPasswordScreen
 import dagger.hilt.android.AndroidEntryPoint
 import com.example.life_assistant.Screen.LoginScreen
 import com.example.life_assistant.Screen.MainScreen
+import com.example.life_assistant.Screen.MonthCalendarScreen
 import com.example.life_assistant.Screen.SignUpHabitScreen
 import com.example.life_assistant.Screen.SignUpScreen
 import com.example.life_assistant.Screen.calendarScreen
 import com.example.life_assistant.ViewModel.EventViewModel
 import com.example.life_assistant.ViewModel.MemberViewModel
+import java.time.LocalDate
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -54,6 +57,8 @@ sealed class DestinationScreen(val route: String){
     object SignUpHabit: DestinationScreen("signuphabit")
     object ForgetPassword: DestinationScreen("forgetpassword")
     object Calendar: DestinationScreen("calendar")
+    object DailyCalendar: DestinationScreen("dailycalendar")
+    object MonthCalendar: DestinationScreen("monthcalendar")
 }
 
 @Composable
@@ -63,12 +68,22 @@ fun AuthenticationApp(){
     val navController = rememberNavController()
     val start = remember{ mutableStateOf(DestinationScreen.Login.route) }
 
+    val currentMonth = remember { mutableStateOf(LocalDate.now().withDayOfMonth(1)) }
+
+    fun goToNextMonth() {
+        currentMonth.value = currentMonth.value.plusMonths(1)
+    }
+
+    fun goToPreviousMonth() {
+        currentMonth.value = currentMonth.value.minusMonths(1)
+    }
+
     NotificationMessage(mvm)
 
     // Determine the initial start destination based on signed-in status
     LaunchedEffect(mvm.signedIn.value) {
         start.value = if (mvm.signedIn.value) {
-            DestinationScreen.Calendar.route
+            DestinationScreen.DailyCalendar.route
         } else {
             DestinationScreen.Login.route
         }
@@ -93,6 +108,19 @@ fun AuthenticationApp(){
 
         composable(DestinationScreen.Calendar.route){
             calendarScreen(navController,evm,mvm)
+        }
+
+        composable(DestinationScreen.DailyCalendar.route){
+            DailyCalendarScreen(navController,evm,mvm)
+        }
+
+        composable(DestinationScreen.MonthCalendar.route){
+            MonthCalendarScreen(navController = navController,
+                evm = evm,
+                mvm = mvm,
+                displayMonth = currentMonth.value,
+                onNextMonth = ::goToNextMonth,
+                onPreviousMonth = ::goToPreviousMonth)
         }
     }
 }

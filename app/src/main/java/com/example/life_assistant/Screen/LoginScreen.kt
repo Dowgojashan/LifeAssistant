@@ -232,7 +232,7 @@ fun LoginScreen(
                 )
         ){Text(text = "登入",color = Color.White)
             if(mvm.signedIn.value){
-                navController.navigate(DestinationScreen.Calendar.route)
+                navController.navigate(DestinationScreen.DailyCalendar.route)
             }}
 
         //尚未註冊按鈕
