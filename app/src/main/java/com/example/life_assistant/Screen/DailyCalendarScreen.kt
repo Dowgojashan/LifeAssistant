@@ -109,6 +109,15 @@ fun DailyCalendarScreen(
                         DropdownMenuItem(
                             onClick = {
                                 expanded = false
+                                navController.navigate(DestinationScreen.WeekCalendar.route)
+                            },
+                            text = {
+                                androidx.compose.material3.Text("週行事曆")
+                            }
+                        )
+                        DropdownMenuItem(
+                            onClick = {
+                                expanded = false
                                 mvm.logout()
                             },
                             text = {
@@ -450,7 +459,8 @@ fun getSelectedDate(date: LocalDate){
 @Composable
 fun UserInputDialog(
     selectedDate: LocalDate, evm: EventViewModel, onDismiss: () -> Unit,
-    selectedHour: String,event: Event? = null
+    selectedHour: String,event: Event? = null,
+    currentMonth: LocalDate? = null
 ) {
     val context = LocalContext.current
 
@@ -476,8 +486,8 @@ fun UserInputDialog(
     var name by remember { mutableStateOf(initialName) }
     var startTime by remember { mutableStateOf(initialStartTime) }
     var endTime by remember { mutableStateOf(initialEndTimeEvent) }
-    var date by remember { mutableStateOf(selectedDate.format(DateTimeFormatter.ofPattern("M月d日"))) }
-    var selectedDay by remember { mutableStateOf(LocalDate.now())}
+    var date by remember { mutableStateOf(selectedDate.format(DateTimeFormatter.ofPattern("MM月dd日"))) }
+    var selectedDay by remember { mutableStateOf(selectedDate) }
     var description by remember { mutableStateOf(initialDescription) }
     var alarmTime by remember { mutableStateOf(initialAlarmTime) }
     var autoSchedule by remember { mutableStateOf(false) }
@@ -495,6 +505,8 @@ fun UserInputDialog(
         initialHour = initialStartLocalTime.hour,
         initialMinute = initialStartLocalTime.minute
     )
+
+    Log.d("date","$selectedDay")
 
     // Function to format the date to a string
     fun formatDate(month: Int, day: Int): String {
@@ -544,6 +556,7 @@ fun UserInputDialog(
                             { _, year, month, dayOfMonth ->
                                 date = formatDate(month, dayOfMonth)
                                 selectedDay = formattedDay(year,month, dayOfMonth)
+                                Log.d("date","$selectedDay")
                                 showDatePicker = false
                             },
                             calendar.get(Calendar.YEAR),
@@ -768,10 +781,18 @@ fun UserInputDialog(
                             val endLocalTime = LocalTime.parse(endTime, DateTimeFormatter.ofPattern("HH:mm"))
 
                             if (endLocalTime.isAfter(startLocalTime)) {
-                                if (event == null) {
+                                if (event == null && currentMonth == null) {
+                                    Log.d("date","$selectedDay")
                                     evm.addEvent(name, localDateToLong(selectedDay), startTime, endTime, tags, alarmTime, repeatSetting, description)
-                                } else {
+                                }
+                                else if (event != null && currentMonth == null) {
                                     evm.updateEvent(event.uid,name, localDateToLong(selectedDay), startTime, endTime, tags, alarmTime, repeatSetting, description)
+                                }
+                                else if(event == null && currentMonth != null){
+                                    evm.addEvent(name, localDateToLong(selectedDay), startTime, endTime, tags, alarmTime, repeatSetting, description,currentMonth)
+                                }
+                                else if(event != null && currentMonth != null){
+                                    evm.updateEvent(event.uid,name, localDateToLong(selectedDay), startTime, endTime, tags, alarmTime, repeatSetting, description,currentMonth)
                                 }
                                 onDismiss()
                             } else {

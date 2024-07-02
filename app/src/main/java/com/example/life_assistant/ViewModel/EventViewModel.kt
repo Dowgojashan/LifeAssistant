@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
 
@@ -40,7 +41,7 @@ class EventViewModel @Inject constructor(
 
 
     //firebase新增事件
-    fun addEvent(name: String, date: Long, startTime: String, endTime: String, tags: String, alarmTime: String, repeat: String, description: String) {
+    fun addEvent(name: String, date: Long, startTime: String, endTime: String, tags: String, alarmTime: String, repeat: String, description: String,currentMonth: LocalDate? = null) {
         val memberId = auth.currentUser?.uid ?: return
         val formatteddate = convertLongToDate(date)
 
@@ -83,11 +84,13 @@ class EventViewModel @Inject constructor(
         eventRef.setValue(event).addOnSuccessListener {
             Log.d("Firebase", "Event saved successfully with UID: $eventUid")
             var replace = formatteddate.replace("\n", "")
-            Log.d("test", replace)
             // 新增 UID 到 Room Database 物件中
 //            val newEventWithUid = newEvent.copy(uid = eventUid ?: "")
 //            insertEvent(newEventWithUid) // 儲存到 Room 資料庫
             getEventsForDate(replace)
+            if (currentMonth != null) {
+                getEventsForMonth(currentMonth)
+            }
         }.addOnFailureListener { exception ->
             handleException(exception, "Unable to save event")
         }
@@ -170,6 +173,73 @@ class EventViewModel @Inject constructor(
         }
     }
 
+    //取得這個月所有事件
+    fun getEventsForMonth(month: LocalDate) {
+        val year = month.year
+        val monthValue = month.monthValue
+        val memberId = auth.currentUser?.uid ?: return
+        val eventRef = database.getReference("members").child(memberId).child("events")
+
+        eventRef.get().addOnSuccessListener { snapshot ->
+            val eventsList = mutableListOf<Event>()
+            for (data in snapshot.children) {
+                // 讀取 Firebase 數據
+                val eventMap = data.value as? Map<*, *>
+                if (eventMap != null) {
+                    val uid = eventMap["uid"] as? String ?: ""
+                    val name = eventMap["name"] as? String ?: ""
+                    val dateFromFirebase = eventMap["date"] as? String ?: ""
+                    val startTime = eventMap["startTime"] as? String ?: ""
+                    val endTime = eventMap["endTime"] as? String ?: ""
+                    val tags = eventMap["tags"] as? String ?: ""
+                    val alarmTime = eventMap["alarmTime"] as? String ?: ""
+                    val repeat = eventMap["repeat"] as? String ?: ""
+                    val description = eventMap["description"] as? String ?: ""
+
+                    // 創建 Event 物件
+                    val event = Event(
+                        uid = uid,
+                        name = name,
+                        date = dateFromFirebase,
+                        startTime = startTime,
+                        endTime = endTime,
+                        tags = tags,
+                        alarmTime = alarmTime,
+                        repeat = repeat,
+                        description = description
+                    )
+
+                    // 判斷是否在當前月份
+                    val eventDate = LocalDate.parse(dateFromFirebase, DateTimeFormatter.ofPattern("yyyy年\nM月d日"))
+                    if (eventDate.year == year && eventDate.monthValue == monthValue) {
+                        eventsList.add(event)
+                    }
+                }
+            }
+            _eventsByDate.value = eventsList.map { EventEntity(it) }
+            _events.value = eventsList  // 更新 MutableLiveData
+        }.addOnFailureListener { exception ->
+            handleException(exception, "Unable to fetch events for month $month")
+            // Firebase 失敗時從 Room 取得資料
+            viewModelScope.launch {
+                Log.d("test", "roomdatabase")
+                //getEventsForMonthFromRoom(month) // 從 Room 取得當月事件
+            }
+        }
+    }
+
+//    fun getEventsForMonthFromRoom(month: LocalDate) {
+//        // 這是從 Room 取得事件的示例方法
+//        // 需要實現這個方法以根據月份取得事件
+//        viewModelScope.launch {
+//            val startOfMonth = month.withDayOfMonth(1)
+//            val endOfMonth = month.withDayOfMonth(month.length(month.isLeapYear))
+//            val events = eventDao.getEventsBetweenDates(startOfMonth, endOfMonth)
+//            _eventsByDate.value = events.map { EventEntity(it) }
+//            _events.value = events.map { it.toEvent() }  // 假設有 toEvent() 擴展方法將 EventEntity 轉換為 Event
+//        }
+//    }
+
     //roomdatabase刪除事件
     fun deleteEventFromRoom(event: EventEntity) {
         viewModelScope.launch {
@@ -205,7 +275,7 @@ class EventViewModel @Inject constructor(
     }
 
     //修改事件
-    fun updateEvent(uid: String,name: String,date: Long, startTime: String, endTime: String, tags: String, alarmTime: String, repeatSetting: String, description: String) {
+    fun updateEvent(uid: String,name: String,date: Long, startTime: String, endTime: String, tags: String, alarmTime: String, repeatSetting: String, description: String,currentMonth: LocalDate? = null) {
         // 確保用戶已登入
         val memberId = auth.currentUser?.uid ?: return
         val formatteddate = convertLongToDate(date)
@@ -232,6 +302,10 @@ class EventViewModel @Inject constructor(
             Log.d("firebase",replace)
             getEventsForDate(replace)
             refreshEvents()
+
+            if (currentMonth != null) {
+                getEventsForMonth(currentMonth)
+            }
         }.addOnFailureListener { exception ->
             handleException(exception, "無法更新事件資料")
         }

@@ -27,6 +27,7 @@ import com.example.life_assistant.Screen.MainScreen
 import com.example.life_assistant.Screen.MonthCalendarScreen
 import com.example.life_assistant.Screen.SignUpHabitScreen
 import com.example.life_assistant.Screen.SignUpScreen
+import com.example.life_assistant.Screen.WeekCalendarScreen
 import com.example.life_assistant.Screen.calendarScreen
 import com.example.life_assistant.ViewModel.EventViewModel
 import com.example.life_assistant.ViewModel.MemberViewModel
@@ -59,6 +60,7 @@ sealed class DestinationScreen(val route: String){
     object Calendar: DestinationScreen("calendar")
     object DailyCalendar: DestinationScreen("dailycalendar")
     object MonthCalendar: DestinationScreen("monthcalendar")
+    object WeekCalendar: DestinationScreen("weekcalendar")
 }
 
 @Composable
@@ -116,6 +118,9 @@ fun AuthenticationApp(){
 
         composable(DestinationScreen.MonthCalendar.route){
             MonthCalendarScreen(navController, evm, mvm)
+        }
+        composable(DestinationScreen.WeekCalendar.route){
+            WeekCalendarScreen(navController, evm, mvm)
         }
     }
 }
