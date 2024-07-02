@@ -17,6 +17,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -32,6 +36,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.life_assistant.DestinationScreen
 import com.example.life_assistant.R
 import com.example.life_assistant.ViewModel.EventViewModel
 import com.example.life_assistant.ViewModel.MemberViewModel
@@ -44,20 +49,19 @@ import java.util.Locale
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
-fun WeeklyCalendarView(
+fun WeekCalendarScreen(
     navController: NavController,
     evm: EventViewModel,
     mvm: MemberViewModel,
     modifier: Modifier = Modifier,
-    currentDay: LocalDate,
-    onNextWeek: () -> Unit,
-    onPreviousWeek: () -> Unit,
-    onSwitchToMonthView: () -> Unit,
+
 ) {
     // 紀錄選擇的日期
-    val selectedDate = remember { mutableStateOf(currentDay) }
+    val selectedDate = remember { mutableStateOf(LocalDate.now()) }
     var showDialog by remember { mutableStateOf(false) }
     var selectedHour by remember { mutableStateOf("") }
+    var currentMonth by remember { mutableStateOf(LocalDate.now().withDayOfMonth(1)) }
+    var expanded by remember { mutableStateOf(false) }
 
     // 管理使用者輸入的行事曆項目
     val currentDate = remember { mutableStateOf(LocalDate.now()) }
@@ -70,40 +74,77 @@ fun WeeklyCalendarView(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                // 切換至月視圖的按鈕
-                IconButton(
-                    onClick = onSwitchToMonthView,
-                    modifier = modifier
-                ) {
+                Column {
+                    IconButton(onClick = { expanded = true }) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.change),
+                            contentDescription = "More Options",
+                            modifier = Modifier.size(32.dp)
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = { expanded = false }
+                    ) {
+                        DropdownMenuItem(
+                            onClick = {
+                                expanded = false
+                                navController.navigate(DestinationScreen.MonthCalendar.route)
+                            },
+                            text = {
+                                Text("月行事曆")
+                            }
+                        )
+                        DropdownMenuItem(
+                            onClick = {
+                                expanded = false
+                                navController.navigate(DestinationScreen.DailyCalendar.route)
+                            },
+                            text = {
+                                androidx.compose.material3.Text("日行事曆")
+                            }
+                        )
+                        DropdownMenuItem(
+                            onClick = {
+                                expanded = false
+                                mvm.logout()
+                            },
+                            text = {
+                                Text("登出")
+                            }
+                        )
+                    }
+                }
+
+                IconButton(onClick = { currentDate.value = currentDate.value.minusWeeks(1) }) {
                     Icon(
-                        painter = painterResource(id = R.drawable.change),
-                        contentDescription = "Change to Month View",
-                        modifier = Modifier.size(24.dp)
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Previous Week",
+                        modifier = Modifier.size(32.dp)
                     )
                 }
 
-                // 顯示當前月份和年份的文字
-                Box(
+                Text(
+                    "${currentDate.value.month.getDisplayName(TextStyle.FULL, Locale.getDefault())} ${currentDate.value.year}",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = Color.Black,
+                    textAlign = TextAlign.Center,
                     modifier = Modifier.align(Alignment.CenterVertically)
-                ) {
-                    Text(
-                        "${currentDay.month.getDisplayName(TextStyle.FULL, Locale.getDefault())} ${currentDay.year}",
-                        style = MaterialTheme.typography.titleLarge,
-                        color = Color.Black,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.align(Alignment.Center)
+                )
+
+                IconButton(onClick = { currentDate.value = currentDate.value.plusWeeks(1) }) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = "Next Week",
+                        modifier = Modifier.size(32.dp)
                     )
                 }
 
-                // 新增事件的按鈕
-                IconButton(
-                    onClick = { showDialog = true } ,
-                    modifier = modifier
-                ) {
+                IconButton(onClick = { showDialog = true }) {
                     Icon(
-                        painter = painterResource(id = R.drawable.add),
+                        imageVector = Icons.Filled.Add,
                         contentDescription = "Add Event",
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(32.dp)
                     )
                 }
             }
@@ -153,27 +194,15 @@ fun WeeklyCalendarView(
                 }
             }
 
-//            if (showDialog) {
-//                UserInputDialog(
-//                    onDismiss = { showDialog = false },
-//                    onConfirm = { name, startTime, endTime, date, tags, notes, alarmTime, repeat ->
-//                        userEntries.add(    //確定新增事件，將事件添加到事件列表
-//                            UserEntry(
-//                                name,
-//                                startTime,
-//                                endTime,
-//                                date,
-//                                tags,
-//                                notes,
-//                                alarmTime.toString(),
-//                                repeat
-//                            )
-//                        )
-//                        showDialog = false
-//                    },
-//                    selectedHour = selectedHour
-//                )
-//            }
+            if (showDialog) {
+                UserInputDialog(
+                    selectedDate = LocalDate.now(),
+                    evm = evm,
+                    onDismiss = { showDialog = false },
+                    selectedHour = selectedHour,
+                    currentMonth = currentMonth
+                )
+            }
 
             // 當天行程
             //Text("下面是當天行程", style = MaterialTheme.typography.bodyLarge)
