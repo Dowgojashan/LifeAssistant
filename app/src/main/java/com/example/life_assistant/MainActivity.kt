@@ -15,9 +15,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.example.life_assistant.Main.NotificationMessage
 import com.example.life_assistant.Screen.DailyCalendarScreen
 import com.example.life_assistant.Screen.ForgetPasswordScreen
@@ -32,6 +34,8 @@ import com.example.life_assistant.Screen.calendarScreen
 import com.example.life_assistant.ViewModel.EventViewModel
 import com.example.life_assistant.ViewModel.MemberViewModel
 import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeParseException
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -58,7 +62,8 @@ sealed class DestinationScreen(val route: String){
     object SignUpHabit: DestinationScreen("signuphabit")
     object ForgetPassword: DestinationScreen("forgetpassword")
     object Calendar: DestinationScreen("calendar")
-    object DailyCalendar: DestinationScreen("dailycalendar")
+    //object DailyCalendar: DestinationScreen("dailycalendar")
+    object DailyCalendar : DestinationScreen("daily_calendar_screen/{date}")
     object MonthCalendar: DestinationScreen("monthcalendar")
     object WeekCalendar: DestinationScreen("weekcalendar")
 }
@@ -112,8 +117,19 @@ fun AuthenticationApp(){
             calendarScreen(navController,evm,mvm)
         }
 
-        composable(DestinationScreen.DailyCalendar.route){
-            DailyCalendarScreen(navController,evm,mvm)
+        composable("daily_calendar_screen/{date}") { backStackEntry ->
+            val dateString = backStackEntry.arguments?.getString("date") ?: LocalDate.now().toString()
+            val date = try {
+                LocalDate.parse(dateString, DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+            } catch (e: DateTimeParseException) {
+                LocalDate.now() // 在日期解析失敗時使用當前日期作為回退
+            }
+            DailyCalendarScreen(
+                navController = navController,
+                evm = evm,
+                mvm = mvm,
+                date = date
+            )
         }
 
         composable(DestinationScreen.MonthCalendar.route){

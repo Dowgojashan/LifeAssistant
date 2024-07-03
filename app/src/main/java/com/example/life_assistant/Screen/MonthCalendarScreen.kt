@@ -98,15 +98,15 @@ fun MonthCalendarScreen(
                                     androidx.compose.material3.Text("日行事曆")
                                 }
                             )
-                            androidx.compose.material3.DropdownMenuItem(
-                                onClick = {
-                                    expanded = false
-                                    navController.navigate(DestinationScreen.WeekCalendar.route)
-                                },
-                                text = {
-                                    androidx.compose.material3.Text("週行事曆")
-                                }
-                            )
+//                            androidx.compose.material3.DropdownMenuItem(
+//                                onClick = {
+//                                    expanded = false
+//                                    navController.navigate(DestinationScreen.WeekCalendar.route)
+//                                },
+//                                text = {
+//                                    androidx.compose.material3.Text("週行事曆")
+//                                }
+//                            )
                             androidx.compose.material3.DropdownMenuItem(
                                 onClick = {
                                     expanded = false
@@ -152,6 +152,7 @@ fun MonthCalendarScreen(
                 }
             }
         }
+        val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
 
         MonthBody(
             evm = evm,
@@ -159,7 +160,7 @@ fun MonthCalendarScreen(
             selectedDate = selectedDate,
             onDateSelected = { date ->
                 selectedDate = date
-                showDialog = true
+                navController.navigate("daily_calendar_screen/${date.format(formatter)}")
             },
             onEventSelected = { event ->
                 selectedEvent = event
