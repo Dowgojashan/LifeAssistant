@@ -39,6 +39,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -66,10 +67,11 @@ fun DailyCalendarScreen(
     navController: NavController,
     evm: EventViewModel,
     mvm: MemberViewModel,
+    date: LocalDate,
     modifier: Modifier = Modifier
 ) {
     var showDialog by remember { mutableStateOf(false) }
-    var selectedDate by remember { mutableStateOf(LocalDate.now()) }  // 設置為 LocalDate.now() 以確保能夠顯示當前日期
+    var selectedDate by remember { mutableStateOf(date) }  // 設置為 LocalDate.now() 以確保能夠顯示當前日期
     var selectedHour by remember { mutableStateOf("") }
     val currentDate = remember { mutableStateOf(LocalDate.now()) }  // 這個值應該用於顯示當前月份的視圖
     var expanded by remember { mutableStateOf(false) } // 控制下拉選單的狀態
@@ -106,15 +108,15 @@ fun DailyCalendarScreen(
                                 Text("月行事曆")
                             }
                         )
-                        DropdownMenuItem(
-                            onClick = {
-                                expanded = false
-                                navController.navigate(DestinationScreen.WeekCalendar.route)
-                            },
-                            text = {
-                                androidx.compose.material3.Text("週行事曆")
-                            }
-                        )
+//                        DropdownMenuItem(
+//                            onClick = {
+//                                expanded = false
+//                                navController.navigate(DestinationScreen.WeekCalendar.route)
+//                            },
+//                            text = {
+//                                androidx.compose.material3.Text("週行事曆")
+//                            }
+//                        )
                         DropdownMenuItem(
                             onClick = {
                                 expanded = false
@@ -256,7 +258,7 @@ fun DailyCalendarScreen(
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
-fun DailyRow(hour: String, evm:EventViewModel, events: List<Event>) {
+fun DailyRow(hour: String, evm: EventViewModel, events: List<Event>) {
     val hourInt = hour.toInt()
     val eventsForHour = events.filter { event ->
         val eventStartTime = LocalTime.parse(event.startTime, DateTimeFormatter.ofPattern("HH:mm"))
@@ -267,7 +269,6 @@ fun DailyRow(hour: String, evm:EventViewModel, events: List<Event>) {
     Log.d("test", "$eventsForHour")
 
     var selectedEvent by remember { mutableStateOf<Event?>(null) }
-
 
     Row(
         modifier = Modifier
@@ -311,6 +312,8 @@ fun DailyRow(hour: String, evm:EventViewModel, events: List<Event>) {
                             text = event.name,
                             color = Color.White,
                             fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                             modifier = Modifier
                                 .align(Alignment.CenterStart)
                         )
@@ -322,7 +325,7 @@ fun DailyRow(hour: String, evm:EventViewModel, events: List<Event>) {
     }
 
     selectedEvent?.let { event ->
-        EventDetailDialog(event = event,evm,onDismiss = { selectedEvent = null })
+        EventDetailDialog(event = event, evm = evm, onDismiss = { selectedEvent = null })
     }
 }
 
@@ -448,10 +451,6 @@ private fun DayCell(
             color = textColor
         )
     }
-}
-
-fun getSelectedDate(date: LocalDate){
-
 }
 
 @SuppressLint("UnrememberedMutableState")

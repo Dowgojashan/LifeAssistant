@@ -262,7 +262,10 @@ class EventViewModel @Inject constructor(
             Log.d("Firebase", "Event deleted successfully")
             val replacedDate = event.date.replace("\n", "")
             getEventsForDate(replacedDate) // 更新 UI，顯示新的事件列表
+            val eventDate = LocalDate.parse(replacedDate,DateTimeFormatter.ofPattern("yyyy年M月d日")) // 解析日期字串為 LocalDate
+            val eventMonth = eventDate.monthValue // 獲取月份 (1-12)
             onSuccess() // 成功刪除後呼叫 onSuccess 回調
+            getEventsForMonth(eventDate)
         }.addOnFailureListener { exception ->
             handleException(exception, "Unable to delete event")
         }
