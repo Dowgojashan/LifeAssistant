@@ -185,6 +185,7 @@ fun MonthCalendarScreen(
             EventDetailDialog(
                 event = event,
                 evm = evm,
+                temp = "month",
                 onDismiss = { showEventDetailDialog = false }
             )
         }
