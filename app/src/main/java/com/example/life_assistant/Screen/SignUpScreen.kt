@@ -102,7 +102,7 @@ fun SignUpScreen(
             .background(color = Color.White)
             .verticalScroll(rememberScrollState())  //使介面可滾動
     ) {
-        //回註冊頁面
+        //回登入頁面
         TextButton(
             onClick = {navController.navigate(DestinationScreen.Login.route) },
             colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
