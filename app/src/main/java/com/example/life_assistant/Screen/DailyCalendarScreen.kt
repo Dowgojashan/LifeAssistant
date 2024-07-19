@@ -80,6 +80,7 @@ fun DailyCalendarScreen(
     val currentDate = remember { mutableStateOf(LocalDate.now()) }  // 這個值應該用於顯示當前月份的視圖
     var expanded by remember { mutableStateOf(false) } // 控制下拉選單的狀態
     val events by evm.events.observeAsState(emptyList())
+    val eventPositions = remember { mutableMapOf<String, Float>() }
 
     LaunchedEffect(selectedDate) {
         evm.getEventsForDate(selectedDate.format(DateTimeFormatter.ofPattern("yyyy年M月d日")))
@@ -252,7 +253,7 @@ fun DailyCalendarScreen(
                                     )
                                 }
                         ) {
-                            DailyRow(hourString,evm ,events)
+                            DailyRow(hourString,evm ,events,eventPositions)
                         }
                     }
                 }
@@ -274,13 +275,10 @@ fun DailyCalendarScreen(
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
-fun DailyRow(hour: String, evm: EventViewModel, events: List<Event>) {
+fun DailyRow(hour: String, evm: EventViewModel, events: List<Event>, eventPositions: MutableMap<String, Float>) {
     val hourInt = hour.toInt()
     val eventWidth = 80.dp // 預設寬度，根據需要調整
     val eventSpacing = 4.dp // 事件之間的間距
-
-    // Store the horizontal position for each event across the entire day
-    val eventPositions = remember { mutableMapOf<String, Float>() }
 
     // Filter events that overlap with the current hour
     val eventsForHour = events.filter { event ->
@@ -295,13 +293,18 @@ fun DailyRow(hour: String, evm: EventViewModel, events: List<Event>) {
 
     var selectedEvent by remember { mutableStateOf<Event?>(null) }
 
-    // Define a function to compute position
+    // Define a function to compute position outside of the Composable
     val eventWidthPx = with(LocalDensity.current) { eventWidth.toPx() }
     val eventSpacingPx = with(LocalDensity.current) { eventSpacing.toPx() }
 
+    // Store the first available position in the current hour
+    var currentOffset = 0f
+
     fun computeEventOffset(event: Event): Float {
         return eventPositions.getOrPut(event.uid) {
-            eventPositions.size * (eventWidthPx + eventSpacingPx)
+            val position = currentOffset
+            currentOffset += (eventWidthPx + eventSpacingPx)
+            position
         }
     }
 
@@ -386,13 +389,6 @@ fun DailyRow(hour: String, evm: EventViewModel, events: List<Event>) {
 
     selectedEvent?.let { event ->
         EventDetailDialog(event = event, evm = evm, "daily", onDismiss = { selectedEvent = null })
-    }
-
-    // Clear positions after processing the entire day
-    DisposableEffect(Unit) {
-        onDispose {
-            eventPositions.clear()
-        }
     }
 }
 
