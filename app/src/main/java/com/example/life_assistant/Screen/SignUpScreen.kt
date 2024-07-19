@@ -452,11 +452,11 @@ fun SignUpScreen(
                                         }
                                 }
                                 else {
-                                    errorCheckPassword = true
+                                    errorCheck = true
                                 }
                             }
                             else {
-                                errorCheck = true
+                                errorCheckPassword = true
                             }
                         }
                         else {
