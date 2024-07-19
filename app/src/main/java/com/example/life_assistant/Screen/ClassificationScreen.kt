@@ -60,13 +60,7 @@ fun ClassificationScreen(
                         },
                         text = { Text("月行事曆") }
                     )
-                    DropdownMenuItem(
-                        onClick = {
-                            expanded = false
-                            navController.navigate(DestinationScreen.Classification.route)
-                        },
-                        text = { Text("標籤分類") }
-                    )
+                    
                     DropdownMenuItem(
                         onClick = {
                             expanded = false
@@ -88,13 +82,7 @@ fun ClassificationScreen(
                     textAlign = TextAlign.Center
                 )
 
-                IconButton(onClick = { /* Handle click */ }) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.member),
-                        contentDescription = "Next Week",
-                        modifier = Modifier.size(32.dp)
-                    )
-                }
+
             }
 
             val items = remember {
