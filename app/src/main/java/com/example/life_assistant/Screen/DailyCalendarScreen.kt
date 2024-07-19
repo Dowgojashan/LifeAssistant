@@ -34,6 +34,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -43,6 +44,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.times
 import androidx.compose.ui.window.Dialog
 import androidx.navigation.NavController
 import com.example.life_assistant.DestinationScreen
@@ -258,10 +260,17 @@ fun DailyCalendarScreen(
     }
 }
 
+
+
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun DailyRow(hour: String, evm: EventViewModel, events: List<Event>) {
     val hourInt = hour.toInt()
+    val eventWidth = 80.dp // 預設寬度，根據需要調整
+    val eventSpacing = 4.dp // 事件之間的間距
+
+    // Store the horizontal position for each event across the entire day
+    val eventPositions = remember { mutableMapOf<String, Float>() }
 
     // Filter events that overlap with the current hour
     val eventsForHour = events.filter { event ->
@@ -275,6 +284,21 @@ fun DailyRow(hour: String, evm: EventViewModel, events: List<Event>) {
     }
 
     var selectedEvent by remember { mutableStateOf<Event?>(null) }
+
+    // Define a function to compute position
+    val eventWidthPx = with(LocalDensity.current) { eventWidth.toPx() }
+    val eventSpacingPx = with(LocalDensity.current) { eventSpacing.toPx() }
+
+    fun computeEventOffset(event: Event): Float {
+        return eventPositions.getOrPut(event.uid) {
+            eventPositions.size * (eventWidthPx + eventSpacingPx)
+        }
+    }
+
+    LaunchedEffect(eventsForHour) {
+        println("Events for hour $hour: ${eventsForHour.map { it.uid }}")
+        println("Event positions: $eventPositions")
+    }
 
     Row(
         modifier = Modifier.fillMaxWidth()
@@ -295,13 +319,11 @@ fun DailyRow(hour: String, evm: EventViewModel, events: List<Event>) {
                 .height(60.dp)
                 .background(Color.White)
         ) {
-            val eventWidthFraction = 1f / 4f // Each event takes up 1/4th of the width
-            eventsForHour.forEachIndexed { index, event ->
+            eventsForHour.forEach { event ->
                 val eventStartTime = LocalTime.parse(event.startTime, DateTimeFormatter.ofPattern("HH:mm"))
                 val eventEndTime = LocalTime.parse(event.endTime, DateTimeFormatter.ofPattern("HH:mm"))
 
                 val eventDurationMinutes = ChronoUnit.MINUTES.between(eventStartTime, eventEndTime)
-                val eventName = if (eventStartTime.hour == hourInt) event.name else ""
 
                 val heightFraction = when {
                     eventStartTime.hour == hourInt && eventEndTime.hour == hourInt -> {
@@ -323,18 +345,20 @@ fun DailyRow(hour: String, evm: EventViewModel, events: List<Event>) {
                     }
                 }
 
-                // Display each event in its corresponding hour slot
+                // Retrieve horizontal offset for the event
+                val offsetPx = computeEventOffset(event)
+
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth(eventWidthFraction)
+                        .offset(x = with(LocalDensity.current) { offsetPx.toDp() })
+                        .width(eventWidth)
                         .fillMaxHeight(heightFraction)
                         .background(Color.Blue)
-                        .offset(x = Dp(index * (1f / eventsForHour.size) * 240.dp.value))
                         .clip(RoundedCornerShape(4.dp))
                         .clickable { selectedEvent = event }
                 ) {
                     Text(
-                        text = eventName,
+                        text = event.name,
                         color = Color.White,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
@@ -351,7 +375,14 @@ fun DailyRow(hour: String, evm: EventViewModel, events: List<Event>) {
     }
 
     selectedEvent?.let { event ->
-        EventDetailDialog(event = event, evm = evm, temp = "daily", onDismiss = { selectedEvent = null })
+        EventDetailDialog(event = event, evm = evm, "daily", onDismiss = { selectedEvent = null })
+    }
+
+    // Clear positions after processing the entire day
+    DisposableEffect(Unit) {
+        onDispose {
+            eventPositions.clear()
+        }
     }
 }
 
