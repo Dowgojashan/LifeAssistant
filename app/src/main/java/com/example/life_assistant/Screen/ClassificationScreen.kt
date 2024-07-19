@@ -56,6 +56,15 @@ fun ClassificationScreen(
                     DropdownMenuItem(
                         onClick = {
                             expanded = false
+                            navController.navigate(DestinationScreen.DailyCalendar.route)
+                        },
+                        text = {
+                            Text("日行事曆")
+                        }
+                    )
+                    DropdownMenuItem(
+                        onClick = {
+                            expanded = false
                             navController.navigate(DestinationScreen.MonthCalendar.route)
                         },
                         text = { Text("月行事曆") }

@@ -34,14 +34,17 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.times
 import androidx.compose.ui.window.Dialog
 import androidx.navigation.NavController
 import com.example.life_assistant.DestinationScreen
@@ -57,6 +60,7 @@ import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
 import java.time.format.TextStyle
+import java.time.temporal.ChronoUnit
 import androidx.compose.ui.res.colorResource as colorResource1
 
 
@@ -76,6 +80,7 @@ fun DailyCalendarScreen(
     val currentDate = remember { mutableStateOf(LocalDate.now()) }  // 這個值應該用於顯示當前月份的視圖
     var expanded by remember { mutableStateOf(false) } // 控制下拉選單的狀態
     val events by evm.events.observeAsState(emptyList())
+    val eventPositions = remember { mutableMapOf<String, MutableMap<String, Float>>() }
 
     LaunchedEffect(selectedDate) {
         evm.getEventsForDate(selectedDate.format(DateTimeFormatter.ofPattern("yyyy年M月d日")))
@@ -248,7 +253,7 @@ fun DailyCalendarScreen(
                                     )
                                 }
                         ) {
-                            DailyRow(hourString,evm ,events)
+                            DailyRow(hourString,evm ,events,eventPositions)
                         }
                     }
                 }
@@ -266,23 +271,70 @@ fun DailyCalendarScreen(
     }
 }
 
+
+
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
-fun DailyRow(hour: String, evm: EventViewModel, events: List<Event>) {
+fun DailyRow(hour: String, evm: EventViewModel, events: List<Event>, eventPositions: MutableMap<String, MutableMap<String, Float>>) {
     val hourInt = hour.toInt()
+    val eventWidth = 80.dp // 預設寬度，根據需要調整
+    val eventSpacing = 4.dp // 事件之間的間距
+
+    // Filter events that overlap with the current hour
     val eventsForHour = events.filter { event ->
         val eventStartTime = LocalTime.parse(event.startTime, DateTimeFormatter.ofPattern("HH:mm"))
         val eventEndTime = LocalTime.parse(event.endTime, DateTimeFormatter.ofPattern("HH:mm"))
-        eventStartTime.hour == hourInt || eventEndTime.hour == hourInt || (eventStartTime.isBefore(LocalTime.of(hourInt, 59)) && eventEndTime.isAfter(LocalTime.of(hourInt, 0)))
-    }
 
-    Log.d("test", "$eventsForHour")
+        eventStartTime.hour <= hourInt && eventEndTime.hour >= hourInt
+    }.sortedBy { event ->
+        // Sort events by start time within the hour
+        LocalTime.parse(event.startTime, DateTimeFormatter.ofPattern("HH:mm"))
+    }
 
     var selectedEvent by remember { mutableStateOf<Event?>(null) }
 
+    // Define a function to compute position outside of the Composable
+    val eventWidthPx = with(LocalDensity.current) { eventWidth.toPx() }
+    val eventSpacingPx = with(LocalDensity.current) { eventSpacing.toPx() }
+
+    fun computeEventOffset(event: Event): Float {
+        val eventKey = event.uid
+
+        // If position is already computed for any hour, return it
+        eventPositions.values.forEach { positionsForHour ->
+            positionsForHour[eventKey]?.let { return it }
+        }
+
+        // Compute new position if not found
+        val position = run {
+            var newPosition = 0f
+            // 遍歷當前小時段的所有事件，確保無重疊
+            while (eventPositions[hour]?.values?.contains(newPosition) == true) {
+                newPosition += (eventWidthPx + eventSpacingPx)
+            }
+            newPosition
+        }
+
+        // Update position for all hours the event spans
+        val eventStartTime = LocalTime.parse(event.startTime, DateTimeFormatter.ofPattern("HH:mm"))
+        val eventEndTime = LocalTime.parse(event.endTime, DateTimeFormatter.ofPattern("HH:mm"))
+
+        for (h in eventStartTime.hour..eventEndTime.hour) {
+            val hourKey = h.toString().padStart(2, '0')
+            val positionsForHour = eventPositions.getOrPut(hourKey) { mutableMapOf() }
+            positionsForHour[eventKey] = position
+        }
+
+        return position
+    }
+
+    LaunchedEffect(eventsForHour) {
+        println("Events for hour $hour: ${eventsForHour.map { it.uid }}")
+        println("Event positions for hour $hour: ${eventPositions[hour]}")
+    }
+
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
+        modifier = Modifier.fillMaxWidth()
     ) {
         Text(
             text = "$hour:00",
@@ -293,41 +345,62 @@ fun DailyRow(hour: String, evm: EventViewModel, events: List<Event>) {
             color = Color.Black
         )
         HorizontalDivider(modifier = Modifier.width(1.dp))
+
         Box(
             modifier = Modifier
                 .weight(1f)
-                .height(40.dp)
+                .height(60.dp)
                 .background(Color.White)
         ) {
-            Column {
-                eventsForHour.forEach { event ->
-                    val eventStartTime = LocalTime.parse(event.startTime, DateTimeFormatter.ofPattern("HH:mm"))
-                    val eventEndTime = LocalTime.parse(event.endTime, DateTimeFormatter.ofPattern("HH:mm"))
-                    val timeSpan = ((eventEndTime.hour - eventStartTime.hour) * 60 + eventEndTime.minute - eventStartTime.minute).toFloat()
-                    val widthFraction = (timeSpan / 60) // 每小時分為1段，長度從 0 到 1
-                    val fiveWidthFraction = 1f / 5
+            eventsForHour.forEach { event ->
+                val eventStartTime = LocalTime.parse(event.startTime, DateTimeFormatter.ofPattern("HH:mm"))
+                val eventEndTime = LocalTime.parse(event.endTime, DateTimeFormatter.ofPattern("HH:mm"))
 
-                    Box(
-                        modifier = Modifier
-                            .padding(horizontal = 4.dp, vertical = 2.dp)
-                            .fillMaxWidth(fiveWidthFraction * widthFraction) // 根據時間跨度調整寬度
-                            .height(30.dp)
-                            .background(Color.Blue)
-                            .border(3.dp, Color.Black, RoundedCornerShape(4.dp))
-                            .clip(RoundedCornerShape(4.dp))
-                            .padding(4.dp)
-                            .clickable { selectedEvent = event } // 添加點擊事件
-                    ) {
-                        Text(
-                            text = event.name,
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier
-                                .align(Alignment.CenterStart)
-                        )
+                val eventDurationMinutes = ChronoUnit.MINUTES.between(eventStartTime, eventEndTime)
+
+                val heightFraction = when {
+                    eventStartTime.hour == hourInt && eventEndTime.hour == hourInt -> {
+                        // Event starts and ends within this hour
+                        (eventDurationMinutes.toFloat() / 60).coerceIn(0.1f, 1.0f)
                     }
+                    eventStartTime.hour == hourInt && eventEndTime.hour > hourInt -> {
+                        // Event starts in this hour but ends in the next hour
+                        val minutesInCurrentHour = ChronoUnit.MINUTES.between(eventStartTime, LocalTime.of(hourInt + 1, 0))
+                        (minutesInCurrentHour.toFloat() / 60).coerceIn(0.1f, 1.0f)
+                    }
+                    eventEndTime.hour == hourInt -> {
+                        // Event ends in this hour
+                        (eventEndTime.minute.toFloat() / 60).coerceIn(0.1f, 1.0f)
+                    }
+                    else -> {
+                        // Event covers the entire hour
+                        1.0f
+                    }
+                }
+
+                // Retrieve horizontal offset for the event
+                val offsetPx = computeEventOffset(event)
+
+                Box(
+                    modifier = Modifier
+                        .offset(x = with(LocalDensity.current) { offsetPx.toDp() })
+                        .width(eventWidth)
+                        .fillMaxHeight(heightFraction)
+                        .background(Color.Blue)
+                        .clip(RoundedCornerShape(4.dp))
+                        .clickable { selectedEvent = event }
+                ) {
+                    Text(
+                        text = event.name,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .padding(4.dp)
+                    )
                 }
             }
         }
@@ -335,13 +408,14 @@ fun DailyRow(hour: String, evm: EventViewModel, events: List<Event>) {
     }
 
     selectedEvent?.let { event ->
-        EventDetailDialog(event = event, evm = evm, onDismiss = { selectedEvent = null })
+        EventDetailDialog(event = event, evm = evm, "daily", onDismiss = { selectedEvent = null })
     }
 }
 
+
 //事件視窗
 @Composable
-fun EventDetailDialog(event: Event, evm: EventViewModel, onDismiss: () -> Unit) {
+fun EventDetailDialog(event: Event, evm: EventViewModel,temp: String, onDismiss: () -> Unit) {
     var showEditDialog by remember { mutableStateOf(false) }
     val updatedEvent = remember { mutableStateOf(event) }
 
@@ -377,7 +451,7 @@ fun EventDetailDialog(event: Event, evm: EventViewModel, onDismiss: () -> Unit) 
                         Icon(Icons.Default.Edit, contentDescription = "編輯", tint = Color.Blue)
                     }
                     IconButton(onClick = {
-                        evm.deleteEventFromFirebase(event) {
+                        evm.deleteEventFromFirebase(event,temp) {
                             onDismiss() // 成功刪除後關閉視窗
                         }
                     }) {
