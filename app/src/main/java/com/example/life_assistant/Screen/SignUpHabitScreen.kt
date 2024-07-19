@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.requiredHeight
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -16,6 +17,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimeInput
 import androidx.compose.material3.TimePickerDefaults
 import androidx.compose.material3.rememberTimePickerState
@@ -48,6 +50,21 @@ fun SignUpHabitScreen(
             .background(color = Color.White)
             .verticalScroll(rememberScrollState())  //使介面可滾動
     ) {
+        //回註冊頁面
+        TextButton(
+            onClick = {navController.navigate(DestinationScreen.SignUp.route) },
+            colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+            modifier = modifier
+                .requiredSize(size = 36.dp)
+                .offset( x = 20.dp, y = 20.dp)  //元素對齊
+        ) {
+            Image(
+                painter = painterResource(id = R.drawable.back),  //引入照片
+                contentDescription = "back",
+                modifier = Modifier
+                    .requiredSize(size = 36.dp)
+                    .fillMaxSize())
+        }
         Image( //泡泡左
             painter = painterResource(id = R.drawable.bubble_1),
             contentDescription = "bubble_1",

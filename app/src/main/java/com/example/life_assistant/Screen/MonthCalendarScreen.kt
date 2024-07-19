@@ -101,6 +101,15 @@ fun MonthCalendarScreen(
                             androidx.compose.material3.DropdownMenuItem(
                                 onClick = {
                                     expanded = false
+                                    navController.navigate(DestinationScreen.Main.route)
+                                },
+                                text = {
+                                    androidx.compose.material3.Text("個人資料")
+                                }
+                            )
+                            androidx.compose.material3.DropdownMenuItem(
+                                onClick = {
+                                    expanded = false
                                     navController.navigate(DestinationScreen.Classification.route)
                                 },
                                 text = {

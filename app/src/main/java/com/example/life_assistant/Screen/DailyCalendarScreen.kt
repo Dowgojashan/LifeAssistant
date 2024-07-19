@@ -113,7 +113,16 @@ fun DailyCalendarScreen(
                                 Text("月行事曆")
                             }
                         )
-                        DropdownMenuItem(
+                        androidx.compose.material3.DropdownMenuItem(
+                            onClick = {
+                                expanded = false
+                                navController.navigate(DestinationScreen.Main.route)
+                            },
+                            text = {
+                                Text("個人資料")
+                            }
+                        )
+                        androidx.compose.material3.DropdownMenuItem(
                             onClick = {
                                 expanded = false
                                 navController.navigate(DestinationScreen.Classification.route)
@@ -281,14 +290,15 @@ fun DailyRow(hour: String, evm: EventViewModel, events: List<Event>, eventPositi
     val eventSpacing = 4.dp // 事件之間的間距
 
     // Filter events that overlap with the current hour
-    val eventsForHour = events.filter { event ->
-        val eventStartTime = LocalTime.parse(event.startTime, DateTimeFormatter.ofPattern("HH:mm"))
-        val eventEndTime = LocalTime.parse(event.endTime, DateTimeFormatter.ofPattern("HH:mm"))
-
-        eventStartTime.hour <= hourInt && eventEndTime.hour >= hourInt
-    }.sortedBy { event ->
-        // Sort events by start time within the hour
-        LocalTime.parse(event.startTime, DateTimeFormatter.ofPattern("HH:mm"))
+    val eventsForHour = remember(events) {
+        events.filter { event ->
+            val eventStartTime = LocalTime.parse(event.startTime, DateTimeFormatter.ofPattern("HH:mm"))
+            val eventEndTime = LocalTime.parse(event.endTime, DateTimeFormatter.ofPattern("HH:mm"))
+            eventStartTime.hour <= hourInt && eventEndTime.hour >= hourInt
+        }.sortedBy { event ->
+            // Sort events by start time within the hour
+            LocalTime.parse(event.startTime, DateTimeFormatter.ofPattern("HH:mm"))
+        }
     }
 
     var selectedEvent by remember { mutableStateOf<Event?>(null) }
