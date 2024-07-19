@@ -34,6 +34,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -43,6 +44,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.times
 import androidx.compose.ui.window.Dialog
 import androidx.navigation.NavController
 import com.example.life_assistant.DestinationScreen
@@ -78,6 +80,7 @@ fun DailyCalendarScreen(
     val currentDate = remember { mutableStateOf(LocalDate.now()) }  // 這個值應該用於顯示當前月份的視圖
     var expanded by remember { mutableStateOf(false) } // 控制下拉選單的狀態
     val events by evm.events.observeAsState(emptyList())
+    val eventPositions = remember { mutableMapOf<String, MutableMap<String, Float>>() }
 
     LaunchedEffect(selectedDate) {
         evm.getEventsForDate(selectedDate.format(DateTimeFormatter.ofPattern("yyyy年M月d日")))
@@ -110,13 +113,22 @@ fun DailyCalendarScreen(
                                 Text("月行事曆")
                             }
                         )
-                        DropdownMenuItem(
+                        androidx.compose.material3.DropdownMenuItem(
                             onClick = {
                                 expanded = false
                                 navController.navigate(DestinationScreen.Main.route)
                             },
                             text = {
-                                androidx.compose.material3.Text("個人資料")
+                                Text("個人資料")
+                            }
+                        )
+                        androidx.compose.material3.DropdownMenuItem(
+                            onClick = {
+                                expanded = false
+                                navController.navigate(DestinationScreen.Classification.route)
+                            },
+                            text = {
+                                Text("標籤分類")
                             }
                         )
 //                        DropdownMenuItem(
@@ -128,6 +140,7 @@ fun DailyCalendarScreen(
 //                                androidx.compose.material3.Text("週行事曆")
 //                            }
 //                        )
+
                         DropdownMenuItem(
                             onClick = {
                                 expanded = false
@@ -249,7 +262,7 @@ fun DailyCalendarScreen(
                                     )
                                 }
                         ) {
-                            DailyRow(hourString,evm ,events)
+                            DailyRow(hourString,evm ,events,eventPositions)
                         }
                     }
                 }
@@ -267,10 +280,14 @@ fun DailyCalendarScreen(
     }
 }
 
+
+
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
-fun DailyRow(hour: String, evm: EventViewModel, events: List<Event>) {
+fun DailyRow(hour: String, evm: EventViewModel, events: List<Event>, eventPositions: MutableMap<String, MutableMap<String, Float>>) {
     val hourInt = hour.toInt()
+    val eventWidth = 80.dp // 預設寬度，根據需要調整
+    val eventSpacing = 4.dp // 事件之間的間距
 
     // Filter events that overlap with the current hour
     val eventsForHour = events.filter { event ->
@@ -284,6 +301,46 @@ fun DailyRow(hour: String, evm: EventViewModel, events: List<Event>) {
     }
 
     var selectedEvent by remember { mutableStateOf<Event?>(null) }
+
+    // Define a function to compute position outside of the Composable
+    val eventWidthPx = with(LocalDensity.current) { eventWidth.toPx() }
+    val eventSpacingPx = with(LocalDensity.current) { eventSpacing.toPx() }
+
+    fun computeEventOffset(event: Event): Float {
+        val eventKey = event.uid
+
+        // If position is already computed for any hour, return it
+        eventPositions.values.forEach { positionsForHour ->
+            positionsForHour[eventKey]?.let { return it }
+        }
+
+        // Compute new position if not found
+        val position = run {
+            var newPosition = 0f
+            // 遍歷當前小時段的所有事件，確保無重疊
+            while (eventPositions[hour]?.values?.contains(newPosition) == true) {
+                newPosition += (eventWidthPx + eventSpacingPx)
+            }
+            newPosition
+        }
+
+        // Update position for all hours the event spans
+        val eventStartTime = LocalTime.parse(event.startTime, DateTimeFormatter.ofPattern("HH:mm"))
+        val eventEndTime = LocalTime.parse(event.endTime, DateTimeFormatter.ofPattern("HH:mm"))
+
+        for (h in eventStartTime.hour..eventEndTime.hour) {
+            val hourKey = h.toString().padStart(2, '0')
+            val positionsForHour = eventPositions.getOrPut(hourKey) { mutableMapOf() }
+            positionsForHour[eventKey] = position
+        }
+
+        return position
+    }
+
+    LaunchedEffect(eventsForHour) {
+        println("Events for hour $hour: ${eventsForHour.map { it.uid }}")
+        println("Event positions for hour $hour: ${eventPositions[hour]}")
+    }
 
     Row(
         modifier = Modifier.fillMaxWidth()
@@ -304,13 +361,11 @@ fun DailyRow(hour: String, evm: EventViewModel, events: List<Event>) {
                 .height(60.dp)
                 .background(Color.White)
         ) {
-            val eventWidthFraction = 1f / 4f // Each event takes up 1/4th of the width
-            eventsForHour.forEachIndexed { index, event ->
+            eventsForHour.forEach { event ->
                 val eventStartTime = LocalTime.parse(event.startTime, DateTimeFormatter.ofPattern("HH:mm"))
                 val eventEndTime = LocalTime.parse(event.endTime, DateTimeFormatter.ofPattern("HH:mm"))
 
                 val eventDurationMinutes = ChronoUnit.MINUTES.between(eventStartTime, eventEndTime)
-                val eventName = if (eventStartTime.hour == hourInt) event.name else ""
 
                 val heightFraction = when {
                     eventStartTime.hour == hourInt && eventEndTime.hour == hourInt -> {
@@ -332,18 +387,20 @@ fun DailyRow(hour: String, evm: EventViewModel, events: List<Event>) {
                     }
                 }
 
-                // Display each event in its corresponding hour slot
+                // Retrieve horizontal offset for the event
+                val offsetPx = computeEventOffset(event)
+
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth(eventWidthFraction)
+                        .offset(x = with(LocalDensity.current) { offsetPx.toDp() })
+                        .width(eventWidth)
                         .fillMaxHeight(heightFraction)
                         .background(Color.Blue)
-                        .offset(x = Dp(index * (1f / eventsForHour.size) * 240.dp.value))
                         .clip(RoundedCornerShape(4.dp))
                         .clickable { selectedEvent = event }
                 ) {
                     Text(
-                        text = eventName,
+                        text = event.name,
                         color = Color.White,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
@@ -360,9 +417,10 @@ fun DailyRow(hour: String, evm: EventViewModel, events: List<Event>) {
     }
 
     selectedEvent?.let { event ->
-        EventDetailDialog(event = event, evm = evm, temp = "daily", onDismiss = { selectedEvent = null })
+        EventDetailDialog(event = event, evm = evm, "daily", onDismiss = { selectedEvent = null })
     }
 }
+
 
 //事件視窗
 @Composable

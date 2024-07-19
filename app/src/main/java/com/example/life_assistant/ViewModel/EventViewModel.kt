@@ -308,7 +308,6 @@ class EventViewModel @Inject constructor(
             val replace = formatteddate.replace("\n", "")
             Log.d("firebase",replace)
             getEventsForDate(replace)
-            refreshEvents()
 
             if (currentMonth != null) {
                 getEventsForMonth(currentMonth)
@@ -316,29 +315,6 @@ class EventViewModel @Inject constructor(
         }.addOnFailureListener { exception ->
             handleException(exception, "無法更新事件資料")
         }
-    }
-
-    //事件刷新
-    fun refreshEvents() {
-        val memberId = auth.currentUser?.uid ?: return
-
-        val eventsRef = database.getReference("members").child(memberId).child("events")
-        eventsRef.addValueEventListener(object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                val eventsList = mutableListOf<Event>()
-                snapshot.children.forEach { dataSnapshot ->
-                    val event = dataSnapshot.getValue(Event::class.java)
-                    if (event != null) {
-                        eventsList.add(event)
-                    }
-                }
-                _events.value = eventsList // 假設你有一個 LiveData 或 State 來儲存事件列表
-            }
-
-            override fun onCancelled(error: DatabaseError) {
-                Log.e("FirebaseError", "Failed to load events: ${error.message}")
-            }
-        })
     }
 
     //抓錯誤

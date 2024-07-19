@@ -21,6 +21,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.life_assistant.Main.NotificationMessage
+import com.example.life_assistant.Screen.ClassificationScreen
 import com.example.life_assistant.Screen.DailyCalendarScreen
 import com.example.life_assistant.Screen.ForgetPasswordScreen
 import dagger.hilt.android.AndroidEntryPoint
@@ -66,6 +67,7 @@ sealed class DestinationScreen(val route: String){
     object DailyCalendar : DestinationScreen("daily_calendar_screen/{date}")
     object MonthCalendar: DestinationScreen("monthcalendar")
     object WeekCalendar: DestinationScreen("weekcalendar")
+    object Classification: DestinationScreen("Classification")
 }
 
 @Composable
@@ -137,6 +139,9 @@ fun AuthenticationApp(){
         }
         composable(DestinationScreen.WeekCalendar.route){
             WeekCalendarScreen(navController, evm, mvm)
+        }
+        composable(DestinationScreen.Classification.route){
+            ClassificationScreen(navController,mvm)
         }
     }
 }
