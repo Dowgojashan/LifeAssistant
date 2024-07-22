@@ -82,8 +82,10 @@ fun DailyCalendarScreen(
     val events by evm.events.observeAsState(emptyList())
     val eventPositions = remember { mutableMapOf<String, MutableMap<String, Float>>() }
 
-    LaunchedEffect(selectedDate) {
+    LaunchedEffect(selectedDate, events) {
+        // 確保事件和排版位置是同步的
         evm.getEventsForDate(selectedDate.format(DateTimeFormatter.ofPattern("yyyy年M月d日")))
+        eventPositions.clear()
     }
 
     Scaffold(modifier = modifier.fillMaxSize()) {
@@ -262,7 +264,7 @@ fun DailyCalendarScreen(
                                     )
                                 }
                         ) {
-                            DailyRow(hourString,evm ,events,eventPositions)
+                            DailyRow(hourString,evm ,events,eventPositions, selectedDate.toString())
                         }
                     }
                 }
@@ -284,19 +286,47 @@ fun DailyCalendarScreen(
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
-fun DailyRow(hour: String, evm: EventViewModel, events: List<Event>, eventPositions: MutableMap<String, MutableMap<String, Float>>) {
+fun DailyRow(
+    hour: String,
+    evm: EventViewModel,
+    events: List<Event>,
+    eventPositions: MutableMap<String, MutableMap<String, Float>>,
+    currentDay: String
+) {
     val hourInt = hour.toInt()
     val eventWidth = 80.dp // 預設寬度，根據需要調整
     val eventSpacing = 4.dp // 事件之間的間距
 
-    // Filter events that overlap with the current hour
-    val eventsForHour = remember(events) {
+    // 日期格式化器
+    val eventFormatter = DateTimeFormatter.ofPattern("yyyy年M月d日")
+    val currentDayFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+
+    // 清理並解析 event.date 字符串
+    fun parseEventDate(dateString: String): LocalDate {
+        return LocalDate.parse(dateString.trim().replace("\n", ""), eventFormatter)
+    }
+
+    // 清理並解析 currentDay 字符串
+    fun parseCurrentDay(dateString: String): LocalDate {
+        return LocalDate.parse(dateString.trim(), currentDayFormatter)
+    }
+
+    val currentDayFormatted = parseCurrentDay(currentDay)
+
+    // 過濾出當天的事件
+    val eventsForDay = remember(events) {
         events.filter { event ->
+            parseEventDate(event.date) == currentDayFormatted
+        }
+    }
+
+    // 過濾當前小時的事件
+    val eventsForHour = remember(eventsForDay) {
+        eventsForDay.filter { event ->
             val eventStartTime = LocalTime.parse(event.startTime, DateTimeFormatter.ofPattern("HH:mm"))
             val eventEndTime = LocalTime.parse(event.endTime, DateTimeFormatter.ofPattern("HH:mm"))
             eventStartTime.hour <= hourInt && eventEndTime.hour >= hourInt
         }.sortedBy { event ->
-            // Sort events by start time within the hour
             LocalTime.parse(event.startTime, DateTimeFormatter.ofPattern("HH:mm"))
         }
     }
@@ -318,7 +348,6 @@ fun DailyRow(hour: String, evm: EventViewModel, events: List<Event>, eventPositi
         // Compute new position if not found
         val position = run {
             var newPosition = 0f
-            // 遍歷當前小時段的所有事件，確保無重疊
             while (eventPositions[hour]?.values?.contains(newPosition) == true) {
                 newPosition += (eventWidthPx + eventSpacingPx)
             }
@@ -338,11 +367,7 @@ fun DailyRow(hour: String, evm: EventViewModel, events: List<Event>, eventPositi
         return position
     }
 
-    LaunchedEffect(eventsForHour) {
-        println("Events for hour $hour: ${eventsForHour.map { it.uid }}")
-        println("Event positions for hour $hour: ${eventPositions[hour]}")
-    }
-
+    // UI
     Row(
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -421,7 +446,6 @@ fun DailyRow(hour: String, evm: EventViewModel, events: List<Event>, eventPositi
         EventDetailDialog(event = event, evm = evm, "daily", onDismiss = { selectedEvent = null })
     }
 }
-
 
 //事件視窗
 @Composable

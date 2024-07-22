@@ -1,6 +1,7 @@
 package com.example.life_assistant.Screen
 
 import android.os.Build
+import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -178,6 +179,7 @@ fun MonthCalendarScreen(
             selectedDate = selectedDate,
             onDateSelected = { date ->
                 selectedDate = date
+                Log.d("date","$selectedDate")
                 navController.navigate("daily_calendar_screen/${date.format(formatter)}")
             },
             onEventSelected = { event ->
