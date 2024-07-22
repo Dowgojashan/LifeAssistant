@@ -7,7 +7,6 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicText
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -17,7 +16,6 @@ import androidx.compose.ui.input.pointer.consumeAllChanges
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
@@ -69,7 +67,7 @@ fun ClassificationScreen(
                         },
                         text = { Text("月行事曆") }
                     )
-                    
+
                     DropdownMenuItem(
                         onClick = {
                             expanded = false
@@ -78,74 +76,77 @@ fun ClassificationScreen(
                         text = { Text("登出") }
                     )
                 }
+
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        "標籤分類",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = Color.Black,
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
 
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    "Classification",
-                    style = MaterialTheme.typography.titleLarge,
-                    color = Color.Black,
-                    textAlign = TextAlign.Center
-                )
+            val colors = listOf(
+                Color(0xffdb697a),
+                Color(0xffee8575),
+                Color(0xffffe9af),
+                Color(0xff8dccb3),
+                Color(0xff7fabd1),
+                Color(0xff867bb9),
+                Color(0xfff4d6d8)
+            )
 
-
-            }
+            data class ItemState(
+                val label: String,
+                var color: Color,
+                var isExpanded: Boolean = false,
+                var isColorMenuExpanded: Boolean = false
+            )
 
             val items = remember {
                 mutableStateListOf(
-                    "工作", "娛樂", "運動", "生活雜務", "讀書", "旅遊", "吃飯"
+                    ItemState("工作", colors[0]),
+                    ItemState("娛樂", colors[1]),
+                    ItemState("運動", colors[2]),
+                    ItemState("生活雜務", colors[3]),
+                    ItemState("讀書", colors[4]),
+                    ItemState("旅遊", colors[5]),
+                    ItemState("吃飯", colors[6])
                 )
             }
 
-            val expandedStates = remember { mutableStateListOf(*Array(items.size) { false }) }
-            val draggedItem = remember { mutableStateOf<Int?>(null) }
+            val draggedItemIndex = remember { mutableStateOf<Int?>(null) }
             val coroutineScope = rememberCoroutineScope()
 
             LazyColumn {
                 items(items.size) { index ->
                     val item = items[index]
-                    val isBeingDragged = draggedItem.value == index
-                    val isExpanded = expandedStates[index]
+                    val isBeingDragged = draggedItemIndex.value == index
 
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .wrapContentHeight()
                             .zIndex(if (isBeingDragged) 1f else 0f)
-                            .background(
-                                color = when (index) {
-                                    0 -> Color(0xffd5e8f6).copy(alpha = 0.4f)
-                                    1 -> Color(0xffb9e8e3).copy(alpha = 0.4f)
-                                    2 -> Color(0xffcff8f3).copy(alpha = 0.4f)
-                                    3 -> Color(0xffc8e0f0).copy(alpha = 0.4f)
-                                    4 -> Color(0xffb4cfe2).copy(alpha = 0.4f)
-                                    5 -> Color(0xffd5e8f6).copy(alpha = 0.4f)
-                                    6 -> Color(0xffb9e8e3).copy(alpha = 0.4f)
-                                    else -> Color(0xffcff8f3).copy(alpha = 0.4f)
-                                },
-                                shape = RoundedCornerShape(4.dp)
-                            )
+                            .background(item.color, RoundedCornerShape(4.dp))
                             .padding(16.dp)
                             .pointerInput(Unit) {
                                 detectDragGestures(
-                                    onDragStart = { draggedItem.value = index },
-                                    onDragEnd = { draggedItem.value = null },
-                                    onDragCancel = { draggedItem.value = null },
-                                    onDrag = { change, _ ->
+                                    onDragStart = { draggedItemIndex.value = index },
+                                    onDragEnd = { draggedItemIndex.value = null },
+                                    onDragCancel = { draggedItemIndex.value = null },
+                                    onDrag = { change, dragAmount ->
                                         change.consumeAllChanges()
                                         coroutineScope.launch {
-                                            when {
-                                                index > 0 && draggedItem.value != null -> {
-                                                    items.move(index, index - 1)
-                                                    draggedItem.value = index - 1
-                                                }
-                                                index < items.size - 1 && draggedItem.value != null -> {
-                                                    items.move(index, index + 1)
-                                                    draggedItem.value = index + 1
-                                                }
+                                            val startIndex = draggedItemIndex.value ?: return@launch
+                                            val targetIndex = (startIndex + (dragAmount.y / 60).toInt()).coerceIn(0, items.size - 1)
+                                            if (startIndex != targetIndex) {
+                                                items.move(startIndex, targetIndex)
+                                                draggedItemIndex.value = targetIndex
                                             }
                                         }
                                     }
@@ -157,26 +158,55 @@ fun ClassificationScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                BasicText(
-                                    text = item,
-                                    modifier = Modifier.weight(1f)
+                                Text(
+                                    text = item.label,
+                                    fontSize = 16.sp,
+                                    modifier = Modifier.weight(0.7f)
                                 )
                                 IconButton(onClick = {
-                                    expandedStates[index] = !isExpanded
+                                    item.isExpanded = !item.isExpanded
                                 }) {
                                     Icon(
-                                        painter = painterResource(id = if (isExpanded) R.drawable.up else R.drawable.down),
-                                        contentDescription = if (isExpanded) "Collapse" else "Expand",
+                                        painter = painterResource(id = if (item.isExpanded) R.drawable.up else R.drawable.down),
+                                        contentDescription = if (item.isExpanded) "Collapse" else "Expand",
                                         modifier = Modifier.size(24.dp)
                                     )
                                 }
+                                IconButton(onClick = {
+                                    item.isColorMenuExpanded = !item.isColorMenuExpanded
+                                }) {
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.mdi_palette),
+                                        contentDescription = "Change Color",
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                                DropdownMenu(
+                                    expanded = item.isColorMenuExpanded,
+                                    onDismissRequest = { item.isColorMenuExpanded = false }
+                                ) {
+                                    colors.forEach { color ->
+                                        DropdownMenuItem(
+                                            onClick = {
+                                                item.color = color
+                                                item.isColorMenuExpanded = false
+                                            },
+                                            text = {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(24.dp)
+                                                        .background(color)
+                                                )
+                                            }
+                                        )
+                                    }
+                                }
                             }
 
-                            AnimatedVisibility(visible = isExpanded) {
+                            AnimatedVisibility(visible = item.isExpanded) {
                                 Column(modifier = Modifier.padding(start = 16.dp, top = 8.dp)) {
-                                    // Add the detailed content for each item here
                                     Text(
-                                        text = "詳細內容 $item",
+                                        text = "詳細內容 ${item.label}",
                                         style = MaterialTheme.typography.bodyMedium
                                     )
                                 }
