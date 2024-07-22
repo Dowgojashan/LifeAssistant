@@ -392,10 +392,10 @@ fun SignUpScreen(
                 showDialog.value = true
                 mvm.ErrorAlertDialog(
                     showDialog = showDialog,
-                    message = "請輸入確認密碼",
+                    message = "密碼與確認密碼不符",
                     onDismiss = {
                         showDialog.value = false
-                        errorCheckPassword = false
+                        errorCheck = false
                     }
                 )
             }
