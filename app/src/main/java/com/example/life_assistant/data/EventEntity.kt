@@ -40,9 +40,13 @@ data class EventEntity(
     @SerialName("remind_time")
     val alarmTime: String,
 
+    //紀錄重覆到哪一天
+    @SerialName("repeatEndDate")
+    val repeatEndDate: String,
+
     //紀錄是哪種重複
-    @SerialName("repeat")
-    val repeat: String,
+    @SerialName("repeatType")
+    val repeatType: String,
 
     @SerialName("description")
     val description: String = "",
@@ -55,7 +59,8 @@ data class EventEntity(
         endTime = event.endTime,
         tags = event.tags,
         alarmTime = event.alarmTime,
-        repeat = event.repeat,
+        repeatEndDate = event.repeatEndDate,
+        repeatType = event.repeatType,
         description = event.description,
     )
 }

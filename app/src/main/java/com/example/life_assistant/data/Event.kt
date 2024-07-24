@@ -8,7 +8,8 @@ data class Event(
     val endTime: String,
     val tags: String = "",
     val alarmTime: String,
-    val repeat: String,
+    var repeatEndDate: String = "", // 新增字段
+    var repeatType: String = "",
     val description: String = "",
 ){
     // 建構子
@@ -23,7 +24,8 @@ data class Event(
         endTime = eventEntity.endTime,
         tags = eventEntity.tags,
         alarmTime = eventEntity.alarmTime,
-        repeat = eventEntity.repeat,
+        repeatEndDate = eventEntity.repeatEndDate,
+        repeatType = eventEntity.repeatType,
         description = eventEntity.description,
     )
 }
