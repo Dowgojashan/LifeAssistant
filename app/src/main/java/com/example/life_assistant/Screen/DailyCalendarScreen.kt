@@ -419,6 +419,7 @@ fun DailyRow(hour: String, evm: EventViewModel, events: List<Event>, eventPositi
 fun EventDetailDialog(event: Event, evm: EventViewModel,temp: String, onDismiss: () -> Unit) {
     var showEditDialog by remember { mutableStateOf(false) }
     val updatedEvent = remember { mutableStateOf(event) }
+    var showDeleteOptionsDialog by remember { mutableStateOf(false) }
 
     // 觀察 LiveData 中的 events 變化
     val events by evm.events.observeAsState(emptyList())
@@ -452,8 +453,13 @@ fun EventDetailDialog(event: Event, evm: EventViewModel,temp: String, onDismiss:
                         Icon(Icons.Default.Edit, contentDescription = "編輯", tint = Color.Blue)
                     }
                     IconButton(onClick = {
-                        evm.deleteEventFromFirebase(event,temp) {
-                            onDismiss() // 成功刪除後關閉視窗
+                        if (event.repeatType != "無") {
+                            showDeleteOptionsDialog = true
+                        } else {
+                            evm.deleteEventFromFirebase(event, temp,deleteAll = false) {
+                                showDeleteOptionsDialog = false
+                                onDismiss() // 成功刪除後關閉視窗
+                            }
                         }
                     }) {
                         Icon(Icons.Default.Delete, contentDescription = "刪除", tint = Color.Red)
@@ -502,6 +508,56 @@ fun EventDetailDialog(event: Event, evm: EventViewModel,temp: String, onDismiss:
             selectedHour = updatedEvent.value.startTime,
             event = updatedEvent.value // 傳遞更新後的事件對象給編輯視窗
         )
+    }
+
+    if (showDeleteOptionsDialog) {
+        Dialog(onDismissRequest = { showDeleteOptionsDialog = false }) {
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .padding(16.dp)
+                        .fillMaxWidth()
+                ) {
+                    Text("刪除重複事件", fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("這是一個重複事件。您要刪除所有重複項目，還是僅刪除此項目？")
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Row(
+                        horizontalArrangement = Arrangement.End,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        TextButton(onClick = {
+                            evm.deleteEventFromFirebase(event, temp, deleteAll = true) {
+                                showDeleteOptionsDialog = false
+                                onDismiss()
+                            }
+                        }) {
+                            Text("刪除所有")
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        TextButton(onClick = {
+                            evm.deleteEventFromFirebase(event, temp, deleteAll = false) {
+                                showDeleteOptionsDialog = false
+                                onDismiss()
+                            }
+                        }) {
+                            Text("僅刪除此項")
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        TextButton(onClick = {
+                            showDeleteOptionsDialog = false
+                        }) {
+                            Text("取消")
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -1272,6 +1328,7 @@ fun WeeklyRepeatSetting(onEndDateSelected: (String) -> Unit) {
                 context,
                 { _, year, month, dayOfMonth ->
                     endDate = formatDate(year, month, dayOfMonth)
+                    onEndDateSelected(endDate)
                     showDatePicker = false
                 },
                 calendar.get(Calendar.YEAR),
@@ -1312,6 +1369,7 @@ fun MonthlyRepeatSetting(onEndDateSelected: (String) -> Unit) {
                 context,
                 { _, year, month, dayOfMonth ->
                     endDate = formatDate(year, month, dayOfMonth)
+                    onEndDateSelected(endDate)
                     showDatePicker = false
                 },
                 calendar.get(Calendar.YEAR),
@@ -1353,6 +1411,7 @@ fun YearlyRepeatSetting(onEndDateSelected: (String) -> Unit) {
                 context,
                 { _, year, month, dayOfMonth ->
                     endDate = formatDate(year, month, dayOfMonth)
+                    onEndDateSelected(endDate)
                     showDatePicker = false
                 },
                 calendar.get(Calendar.YEAR),
