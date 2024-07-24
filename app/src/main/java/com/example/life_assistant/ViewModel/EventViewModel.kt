@@ -41,7 +41,7 @@ class EventViewModel @Inject constructor(
 
 
     //firebase新增事件
-    fun addEvent(name: String, date: Long, startTime: String, endTime: String, tags: String, alarmTime: String, repeat: String, description: String,currentMonth: LocalDate? = null) {
+    fun addEvent(name: String, date: Long, startTime: String, endTime: String, tags: String, alarmTime: String, repeatEndDate: String,repeatType: String, description: String,currentMonth: LocalDate? = null) {
         val memberId = auth.currentUser?.uid ?: return
         val formatteddate = convertLongToDate(date)
 
@@ -54,7 +54,8 @@ class EventViewModel @Inject constructor(
             endTime = endTime,
             tags = tags,
             alarmTime = alarmTime,
-            repeat = repeat,
+            repeatEndDate = repeatEndDate,
+            repeatType = repeatType,
             description = description,
         )
 
@@ -66,7 +67,8 @@ class EventViewModel @Inject constructor(
             endTime = endTime,
             tags = tags,
             alarmTime = alarmTime,
-            repeat = repeat,
+            repeatEndDate = repeatEndDate,
+            repeatType = repeatType,
             description = description,
         )
 
@@ -122,7 +124,8 @@ class EventViewModel @Inject constructor(
                     val endTime = eventMap["endTime"] as? String ?: ""
                     val tags = eventMap["tags"] as? String ?: ""
                     val alarmTime = eventMap["alarmTime"] as? String ?: ""
-                    val repeat = eventMap["repeat"] as? String ?: ""
+                    val repeatEndDate = eventMap["repeatEndDate"] as? String ?: ""
+                    val repeatType = eventMap["repeatType"] as? String ?: ""
                     val description = eventMap["description"] as? String ?: ""
 
                     // 創建 Event 物件
@@ -134,7 +137,8 @@ class EventViewModel @Inject constructor(
                         endTime = endTime,
                         tags = tags,
                         alarmTime = alarmTime,
-                        repeat = repeat,
+                        repeatEndDate = repeatEndDate,
+                        repeatType = repeatType,
                         description = description
                     )
 
@@ -193,7 +197,8 @@ class EventViewModel @Inject constructor(
                     val endTime = eventMap["endTime"] as? String ?: ""
                     val tags = eventMap["tags"] as? String ?: ""
                     val alarmTime = eventMap["alarmTime"] as? String ?: ""
-                    val repeat = eventMap["repeat"] as? String ?: ""
+                    val repeatEndDate = eventMap["repeatEndDate"] as? String ?: ""
+                    val repeatType = eventMap["repeatType"] as? String ?: ""
                     val description = eventMap["description"] as? String ?: ""
 
                     // 創建 Event 物件
@@ -205,7 +210,8 @@ class EventViewModel @Inject constructor(
                         endTime = endTime,
                         tags = tags,
                         alarmTime = alarmTime,
-                        repeat = repeat,
+                        repeatEndDate = repeatEndDate,
+                        repeatType = repeatType,
                         description = description
                     )
 
@@ -282,7 +288,7 @@ class EventViewModel @Inject constructor(
     }
 
     //修改事件
-    fun updateEvent(uid: String,name: String,date: Long, startTime: String, endTime: String, tags: String, alarmTime: String, repeatSetting: String, description: String,currentMonth: LocalDate? = null) {
+    fun updateEvent(uid: String,name: String,date: Long, startTime: String, endTime: String, tags: String, alarmTime: String, repeatEndDate: String ,repeatType:String, description: String,currentMonth: LocalDate? = null) {
         // 確保用戶已登入
         val memberId = auth.currentUser?.uid ?: return
         val formatteddate = convertLongToDate(date)
@@ -298,7 +304,8 @@ class EventViewModel @Inject constructor(
             "endTime" to endTime,
             "tags" to tags,
             "alarmTime" to alarmTime,
-            "repeat" to repeatSetting,
+            "repeatEndDate" to repeatEndDate,
+            "repeatType" to repeatType,
             "description" to description
         )
 

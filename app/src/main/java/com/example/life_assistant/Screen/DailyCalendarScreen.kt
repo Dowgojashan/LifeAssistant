@@ -4,10 +4,8 @@ import android.annotation.SuppressLint
 import android.app.DatePickerDialog
 import android.os.Build
 import android.util.Log
-import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
@@ -15,7 +13,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -24,7 +21,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
@@ -37,14 +33,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.unit.times
 import androidx.compose.ui.window.Dialog
 import androidx.navigation.NavController
 import com.example.life_assistant.DestinationScreen
@@ -575,6 +566,8 @@ fun UserInputDialog(
     val initialTags = event?.tags ?: ""
     val initialAlarmTime = event?.alarmTime ?: "1天前"
     val initialEndTimeEvent = event?.endTime ?: initialStartLocalTime.plusHours(1).format(DateTimeFormatter.ofPattern("HH:mm"))
+    val initialRepeatType = event?.repeatType ?: "無"
+    val initialRepeatEndDate = event?.repeatEndDate ?: ""
 
     var name by remember { mutableStateOf(initialName) }
     var startTime by remember { mutableStateOf(initialStartTime) }
@@ -591,7 +584,8 @@ fun UserInputDialog(
     var tags by remember { mutableStateOf(initialTags) }  // 當前標籤
     var showTagMenu by remember { mutableStateOf(false) }  // 控制標籤選單的顯示
     var showRepeatDialog by remember { mutableStateOf(false) }
-    var repeatSetting by remember { mutableStateOf("無") }
+    var repeatEndDate by remember {mutableStateOf(initialRepeatEndDate)}
+    var repeatType by remember { mutableStateOf(initialRepeatType) }
     var showDialog = mutableStateOf(false)
     var errorMessage = mutableStateOf("")
     val timeState = rememberTimePickerState(
@@ -825,12 +819,26 @@ fun UserInputDialog(
                         onClick = { showRepeatDialog = true },
                         colors = ButtonDefaults.run { buttonColors(colorResource1(id = R.color.light_blue)) }
                     ) {
-                        Text(repeatSetting.ifBlank { "無" }, color = Color.White)
+                        Text(
+                            text = if (repeatType.isNotBlank()) {
+                                if (repeatEndDate.isNotBlank()) {
+                                    "$repeatType 直到 $repeatEndDate"
+                                } else {
+                                    repeatType
+                                }
+                            } else {
+                                "無"
+                            },
+                            color = Color.White
+                        )
                     }
                 }
                 if (showRepeatDialog) {
                     RepeatDialog(
-                        onRepeatSettingChanged = { newRepeatSetting -> repeatSetting = newRepeatSetting },
+                        onRepeatSettingChanged = { newRepeatType, newRepeatEndDate ->
+                            repeatType = newRepeatType
+                            repeatEndDate = newRepeatEndDate.toString()
+                        },
                         onDismiss = { showRepeatDialog = false }
                     )
                 }
@@ -876,16 +884,16 @@ fun UserInputDialog(
                             if (endLocalTime.isAfter(startLocalTime)) {
                                 if (event == null && currentMonth == null) {
                                     Log.d("date","$selectedDay")
-                                    evm.addEvent(name, localDateToLong(selectedDay), startTime, endTime, tags, alarmTime, repeatSetting, description)
+                                    evm.addEvent(name, localDateToLong(selectedDay), startTime, endTime, tags, alarmTime,repeatEndDate ,repeatType, description)
                                 }
                                 else if (event != null && currentMonth == null) {
-                                    evm.updateEvent(event.uid,name, localDateToLong(selectedDay), startTime, endTime, tags, alarmTime, repeatSetting, description)
+                                    evm.updateEvent(event.uid,name, localDateToLong(selectedDay), startTime, endTime, tags, alarmTime, repeatEndDate ,repeatType, description)
                                 }
                                 else if(event == null && currentMonth != null){
-                                    evm.addEvent(name, localDateToLong(selectedDay), startTime, endTime, tags, alarmTime, repeatSetting, description,currentMonth)
+                                    evm.addEvent(name, localDateToLong(selectedDay), startTime, endTime, tags, alarmTime, repeatEndDate ,repeatType, description,currentMonth)
                                 }
                                 else if(event != null && currentMonth != null){
-                                    evm.updateEvent(event.uid,name, localDateToLong(selectedDay), startTime, endTime, tags, alarmTime, repeatSetting, description,currentMonth)
+                                    evm.updateEvent(event.uid,name, localDateToLong(selectedDay), startTime, endTime, tags, alarmTime, repeatEndDate ,repeatType, description,currentMonth)
                                 }
                                 onDismiss()
                             } else {
@@ -1091,10 +1099,11 @@ fun AlarmTimeDialog(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RepeatDialog(
-    onRepeatSettingChanged: (String) -> Unit,
+    onRepeatSettingChanged: (String, Any?) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var selectedOption by remember { mutableStateOf("無") }
+    var selectedOption by remember { mutableStateOf("") }
+    var endDate by remember { mutableStateOf("") }
 
     BasicAlertDialog(
         onDismissRequest = onDismiss,
@@ -1137,10 +1146,10 @@ fun RepeatDialog(
             Spacer(modifier = Modifier.height(16.dp))
 
             when (selectedOption) {
-                "每日" -> DailyRepeatSetting()
-                "每週" -> WeeklyRepeatSetting()
-                "每月" -> MonthlyRepeatSetting()
-                "每年" -> YearlyRepeatSetting()
+                "每日" -> DailyRepeatSetting { selectedEndDate -> endDate = selectedEndDate }
+                "每週" -> WeeklyRepeatSetting { selectedEndDate -> endDate = selectedEndDate }
+                "每月" -> MonthlyRepeatSetting { selectedEndDate -> endDate = selectedEndDate }
+                "每年" -> YearlyRepeatSetting { selectedEndDate -> endDate = selectedEndDate }
             }
 
             Row(
@@ -1152,7 +1161,7 @@ fun RepeatDialog(
                     Text(text = "取消", color = Color.Black)
                 }
                 TextButton(onClick = {
-                    onRepeatSettingChanged(selectedOption)
+                    onRepeatSettingChanged(selectedOption, endDate)
                     onDismiss()
                 }) {
                     Text(text = "確認", color = Color.Black)
@@ -1164,25 +1173,25 @@ fun RepeatDialog(
 
 //每日重複選單
 @Composable
-fun DailyRepeatSetting() {
+fun DailyRepeatSetting(onEndDateSelected: (String) -> Unit) {
     var interval by remember { mutableStateOf("1") }
     var showDatePicker by remember { mutableStateOf(false) }
     var endDate by remember { mutableStateOf("") }
     val context = LocalContext.current
 
     Column {
-        TextField(
-            value = interval,
-            onValueChange = { interval = it },
-            label = { Text("每幾天重複") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-        )
+//        TextField(
+//            value = interval,
+//            onValueChange = { interval = it },
+//            label = { Text("每幾天重複") },
+//            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+//        )
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("結束日期:", color = Color.Black)
             Spacer(modifier = Modifier.width(8.dp))
             Button(
                 onClick = { showDatePicker = true },
-                colors = ButtonDefaults.run { buttonColors(colorResource1(id = R.color.light_blue)) }
+                colors = ButtonDefaults.buttonColors(Color(0xFF03A9F4))
             ) {
                 Text(if (endDate.isBlank()) "選擇日期" else endDate, color = Color.White)
             }
@@ -1193,6 +1202,7 @@ fun DailyRepeatSetting() {
                 context,
                 { _, year, month, dayOfMonth ->
                     endDate = formatDate(year, month, dayOfMonth)
+                    onEndDateSelected(endDate)
                     showDatePicker = false
                 },
                 calendar.get(Calendar.YEAR),
@@ -1211,7 +1221,7 @@ fun DailyRepeatSetting() {
 
 //每週重複選單
 @Composable
-fun WeeklyRepeatSetting() {
+fun WeeklyRepeatSetting(onEndDateSelected: (String) -> Unit) {
     var daysOfWeek by remember { mutableStateOf(setOf<DayOfWeek>()) }
     var interval by remember { mutableStateOf("1") }
     var showDatePicker by remember { mutableStateOf(false) }
@@ -1220,32 +1230,32 @@ fun WeeklyRepeatSetting() {
 
     Column {
         // 顯示星期一到星期天的選擇
-        DayOfWeek.values().forEach { day ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable {
-                        daysOfWeek = if (daysOfWeek.contains(day)) {
-                            daysOfWeek - day
-                        } else {
-                            daysOfWeek + day
-                        }
-                    },
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Checkbox(
-                    checked = daysOfWeek.contains(day),
-                    onCheckedChange = null
-                )
-                Text(text = day.name)
-            }
-        }
-        TextField(
-            value = interval,
-            onValueChange = { interval = it },
-            label = { Text("每幾週重複") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-        )
+//        DayOfWeek.values().forEach { day ->
+//            Row(
+//                modifier = Modifier
+//                    .fillMaxWidth()
+//                    .clickable {
+//                        daysOfWeek = if (daysOfWeek.contains(day)) {
+//                            daysOfWeek - day
+//                        } else {
+//                            daysOfWeek + day
+//                        }
+//                    },
+//                verticalAlignment = Alignment.CenterVertically
+//            ) {
+//                Checkbox(
+//                    checked = daysOfWeek.contains(day),
+//                    onCheckedChange = null
+//                )
+//                Text(text = day.name)
+//            }
+//        }
+//        TextField(
+//            value = interval,
+//            onValueChange = { interval = it },
+//            label = { Text("每幾週重複") },
+//            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+//        )
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("結束日期:", color = Color.Black)
             Spacer(modifier = Modifier.width(8.dp))
@@ -1280,7 +1290,7 @@ fun WeeklyRepeatSetting() {
 
 //每月重複選單
 @Composable
-fun MonthlyRepeatSetting() {
+fun MonthlyRepeatSetting(onEndDateSelected: (String) -> Unit) {
     var showDatePicker by remember { mutableStateOf(false) }
     var endDate by remember { mutableStateOf("") }
     val context = LocalContext.current
@@ -1321,7 +1331,7 @@ fun MonthlyRepeatSetting() {
 
 //每年重複選單
 @Composable
-fun YearlyRepeatSetting() {
+fun YearlyRepeatSetting(onEndDateSelected: (String) -> Unit) {
     var showDatePicker by remember { mutableStateOf(false) }
     var endDate by remember { mutableStateOf("") }
     val context = LocalContext.current
