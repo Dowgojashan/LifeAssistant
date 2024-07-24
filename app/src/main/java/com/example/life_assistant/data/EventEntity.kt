@@ -48,6 +48,10 @@ data class EventEntity(
     @SerialName("repeatType")
     val repeatType: String,
 
+    //紀錄是哪一組的重複
+    @SerialName("repeatGroupId")
+    val repeatGroupId: String,
+
     @SerialName("description")
     val description: String = "",
 ){
@@ -61,6 +65,7 @@ data class EventEntity(
         alarmTime = event.alarmTime,
         repeatEndDate = event.repeatEndDate,
         repeatType = event.repeatType,
+        repeatGroupId = event.repeatGroupId,
         description = event.description,
     )
 }
