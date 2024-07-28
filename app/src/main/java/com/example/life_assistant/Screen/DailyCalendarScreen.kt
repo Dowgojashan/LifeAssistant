@@ -657,6 +657,9 @@ fun UserInputDialog(
         initialHour = initialStartLocalTime.hour,
         initialMinute = initialStartLocalTime.minute
     )
+    var deadline by remember { mutableStateOf("") }
+    var duration by remember { mutableStateOf("") }
+    var isSplittable by remember { mutableStateOf(false) }
 
     Log.d("date","$selectedDay")
 
@@ -840,18 +843,84 @@ fun UserInputDialog(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 //自動排程(待修正)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("自動排程:", color = Color.Black)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Switch(
-                        checked = autoSchedule,
-                        onCheckedChange = { autoSchedule = it },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = colorResource1(id = R.color.light_blue),
-                            uncheckedThumbColor = Color.Gray
+                Column {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("自動排程:", color = Color.Black)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Switch(
+                            checked = autoSchedule,
+                            onCheckedChange = { autoSchedule = it },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = colorResource1(id = R.color.light_blue),
+                                uncheckedThumbColor = Color.Gray
+                            )
                         )
-                    )
+                    }
+
+                    if (autoSchedule) {
+                        Column {
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("結束時間:", color = Color.Black)//這邊有一個小小的要抓，結束時間最早只能是當天
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Button(
+                                    onClick = { showDatePicker = true },
+                                    colors = ButtonDefaults.run { buttonColors(colorResource1(id = R.color.light_blue)) }
+                                ) {
+                                    Text(if (deadline.isBlank()) "選擇日期" else deadline, color = Color.White)
+                                }
+                                if (showDatePicker) {
+                                    val calendar = Calendar.getInstance()
+                                    DatePickerDialog(
+                                        LocalContext.current,
+                                        { _, year, month, dayOfMonth ->
+                                            deadline = String.format("%d-%02d-%02d", year, month + 1, dayOfMonth)
+                                            showDatePicker = false
+                                        },
+                                        calendar.get(Calendar.YEAR),
+                                        calendar.get(Calendar.MONTH),
+                                        calendar.get(Calendar.DAY_OF_MONTH)
+                                    ).apply {
+                                        setOnShowListener {
+                                            getButton(DatePickerDialog.BUTTON_POSITIVE).setTextColor(android.graphics.Color.BLACK)
+                                            getButton(DatePickerDialog.BUTTON_NEGATIVE).setTextColor(android.graphics.Color.LTGRAY)
+                                            getButton(DatePickerDialog.BUTTON_NEUTRAL).setTextColor(android.graphics.Color.GRAY)
+                                        }
+                                    }.show()
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("所需時間:", color = Color.Black)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                TextField(
+                                    value = duration,
+                                    onValueChange = { duration = it },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("能否分割:", color = Color.Black)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Checkbox(
+                                    checked = isSplittable,
+                                    onCheckedChange = { isSplittable = it },
+                                    colors = CheckboxDefaults.colors(
+                                        checkedColor = colorResource1(id = R.color.light_blue),
+                                        uncheckedColor = Color.Gray
+                                    )
+                                )
+                            }
+                        }
+                    }
                 }
+
 
                 Spacer(modifier = Modifier.height(8.dp))
 
