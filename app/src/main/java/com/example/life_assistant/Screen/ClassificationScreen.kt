@@ -3,7 +3,6 @@ package com.example.life_assistant.Screen
 import android.annotation.SuppressLint
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -12,8 +11,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.consumeAllChanges
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -23,7 +20,6 @@ import androidx.navigation.NavController
 import com.example.life_assistant.DestinationScreen
 import com.example.life_assistant.R
 import com.example.life_assistant.ViewModel.MemberViewModel
-import kotlinx.coroutines.launch
 
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @Composable
@@ -119,39 +115,17 @@ fun ClassificationScreen(
                 )
             }
 
-            val draggedItemIndex = remember { mutableStateOf<Int?>(null) }
-            val coroutineScope = rememberCoroutineScope()
-
             LazyColumn {
                 items(items.size) { index ->
                     val item = items[index]
-                    val isBeingDragged = draggedItemIndex.value == index
 
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .wrapContentHeight()
-                            .zIndex(if (isBeingDragged) 1f else 0f)
+                            .zIndex(0f)
                             .background(item.color, RoundedCornerShape(4.dp))
                             .padding(16.dp)
-                            .pointerInput(Unit) {
-                                detectDragGestures(
-                                    onDragStart = { draggedItemIndex.value = index },
-                                    onDragEnd = { draggedItemIndex.value = null },
-                                    onDragCancel = { draggedItemIndex.value = null },
-                                    onDrag = { change, dragAmount ->
-                                        change.consumeAllChanges()
-                                        coroutineScope.launch {
-                                            val startIndex = draggedItemIndex.value ?: return@launch
-                                            val targetIndex = (startIndex + (dragAmount.y / 60).toInt()).coerceIn(0, items.size - 1)
-                                            if (startIndex != targetIndex) {
-                                                items.move(startIndex, targetIndex)
-                                                draggedItemIndex.value = targetIndex
-                                            }
-                                        }
-                                    }
-                                )
-                            }
                     ) {
                         Column {
                             Row(
@@ -201,6 +175,28 @@ fun ClassificationScreen(
                                         )
                                     }
                                 }
+                                IconButton(onClick = {
+                                    if (index > 0) {
+                                        items.swap(index, index - 1)
+                                    }
+                                }) {
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.change_up),
+                                        contentDescription = "Move Up",
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                                IconButton(onClick = {
+                                    if (index < items.size - 1) {
+                                        items.swap(index, index + 1)
+                                    }
+                                }) {
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.change_down),
+                                        contentDescription = "Move Down",
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
                             }
 
                             AnimatedVisibility(visible = item.isExpanded) {
@@ -219,8 +215,9 @@ fun ClassificationScreen(
     }
 }
 
-private fun <T> MutableList<T>.move(fromIndex: Int, toIndex: Int) {
-    if (fromIndex == toIndex) return
-    val item = removeAt(fromIndex)
-    add(toIndex, item)
+private fun <T> MutableList<T>.swap(index1: Int, index2: Int) {
+    if (index1 == index2) return
+    val tmp = this[index1]
+    this[index1] = this[index2]
+    this[index2] = tmp
 }
