@@ -660,7 +660,7 @@ fun UserInputDialog(
     var deadline by remember { mutableStateOf("") }
     var duration by remember { mutableStateOf("") }
     var isSplittable by remember { mutableStateOf(false) }
-
+    val needState = rememberTimePickerState(0, 0, true)
     Log.d("date","$selectedDay")
 
     // Function to format the date to a string
@@ -862,7 +862,7 @@ fun UserInputDialog(
                             Spacer(modifier = Modifier.height(8.dp))
 
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("結束時間:", color = Color.Black)//這邊有一個小小的要抓，結束時間最早只能是當天
+                                Text("截止日期:", color = Color.Black)//這邊有一個小小的要抓，結束時間最早只能是當天
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Button(
                                     onClick = { showDatePicker = true },
@@ -896,12 +896,21 @@ fun UserInputDialog(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text("所需時間:", color = Color.Black)
                                 Spacer(modifier = Modifier.width(8.dp))
-                                TextField(
-                                    value = duration,
-                                    onValueChange = { duration = it },
-                                    modifier = Modifier.fillMaxWidth()
+                                TimeInput(
+                                    state = needState,
+                                    colors = TimePickerDefaults.colors(
+                                        timeSelectorSelectedContainerColor = Color(0xffb4cfe2),
+                                        timeSelectorSelectedContentColor = Color.Black,
+                                        timeSelectorUnselectedContainerColor = Color(0xffb4cfe2),
+                                        timeSelectorUnselectedContentColor = Color.Black
+                                    ),
+                                    modifier = Modifier
+                                        .width(200.dp)
+                                        .height(100.dp) // Adjust the width and height as needed
                                 )
                             }
+
+                        }
 
                             Spacer(modifier = Modifier.height(8.dp))
 
@@ -1052,7 +1061,6 @@ fun UserInputDialog(
             }
         }
     }
-}
 
 //抓錯誤視窗
 @Composable
