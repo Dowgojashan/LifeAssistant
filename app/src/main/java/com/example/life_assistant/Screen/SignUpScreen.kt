@@ -501,14 +501,3 @@ fun convertLongToDate(time: Long): String {
 
     return "${year}年\n${month}月${day}日"
 }
-
-
-//@Preview(widthDp = 360, heightDp = 800)
-//@Composable
-//fun RegisterScreenPreview() {
-//    val navController = rememberNavController()
-//    val auth = FirebaseAuth.getInstance()
-//    val vm = remember { MemberViewModel(auth) }
-//
-//    SignUpScreen(navController = navController, mvm = vm, modifier = Modifier)
-//}

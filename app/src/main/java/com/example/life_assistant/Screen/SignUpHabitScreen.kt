@@ -147,7 +147,6 @@ fun SignUpHabitScreen(
                     timeSelectorUnselectedContainerColor = Color(0xffb4cfe2),
                     timeSelectorUnselectedContentColor = Color.Black
                 ))
-            //Text(text = " ${sleepState.hour} : ${sleepState.minute}") //取得時間輸入值
         }
 
         //註冊按鈕
