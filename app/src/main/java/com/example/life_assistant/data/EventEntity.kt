@@ -56,16 +56,15 @@ data class EventEntity(
     val description: String = "",
 ){
     // Event 轉換成 EventEntity
-    constructor(event: Event) : this(
-        name = event.name,
-        date = event.date,
-        startTime = event.startTime,
-        endTime = event.endTime,
-        tags = event.tags,
-        alarmTime = event.alarmTime,
-        repeatEndDate = event.repeatEndDate,
-        repeatType = event.repeatType,
-        repeatGroupId = event.repeatGroupId,
-        description = event.description,
-    )
+//    constructor(event: Event) : this(
+//        name = event.name,
+//        startTime = event.startTime,
+//        endTime = event.endTime,
+//        tags = event.tags,
+//        alarmTime = event.alarmTime,
+//        repeatEndDate = event.repeatEndDate,
+//        repeatType = event.repeatType,
+//        repeatGroupId = event.repeatGroupId,
+//        description = event.description,
+//    )
 }

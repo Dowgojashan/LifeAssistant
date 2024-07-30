@@ -71,11 +71,6 @@ fun LoginScreen(
         )
     }
 
-    //檢查登入狀態，若為登入就進入主畫面
-    if (signedIn) {
-        navController.navigate(DestinationScreen.Calendar.route)
-    }
-
 
     Box(
         modifier = modifier

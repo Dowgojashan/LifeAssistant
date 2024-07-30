@@ -2,6 +2,7 @@ package com.example.life_assistant.Screen
 
 import android.annotation.SuppressLint
 import android.app.DatePickerDialog
+import android.app.TimePickerDialog
 import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
@@ -46,6 +47,7 @@ import com.example.life_assistant.data.Event
 import java.util.*
 import java.time.DayOfWeek
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
@@ -75,7 +77,7 @@ fun DailyCalendarScreen(
 
     LaunchedEffect(selectedDate, events) {
         // 確保事件和排版位置是同步的
-        evm.getEventsForDate(selectedDate.format(DateTimeFormatter.ofPattern("yyyy年M月d日")))
+        evm.getEventsForDate(selectedDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd")))
         eventPositions.clear()
     }
 
@@ -289,12 +291,12 @@ fun DailyRow(
     val eventSpacing = 4.dp // 事件之間的間距
 
     // 日期格式化器
-    val eventFormatter = DateTimeFormatter.ofPattern("yyyy年M月d日")
+    val eventFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
     val currentDayFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
 
     // 清理並解析 event.date 字符串
-    fun parseEventDate(dateString: String): LocalDate {
-        return LocalDate.parse(dateString.trim().replace("\n", ""), eventFormatter)
+    fun parseEventDate(dateString: String): LocalDateTime {
+        return LocalDateTime.parse(dateString.trim(), eventFormatter)
     }
 
     // 清理並解析 currentDay 字符串
@@ -307,18 +309,19 @@ fun DailyRow(
     // 過濾出當天的事件
     val eventsForDay = remember(events) {
         events.filter { event ->
-            parseEventDate(event.date) == currentDayFormatted
+            val eventStartDate = parseEventDate(event.startTime).toLocalDate()
+            eventStartDate == currentDayFormatted
         }
     }
 
     // 過濾當前小時的事件
     val eventsForHour = remember(eventsForDay) {
         eventsForDay.filter { event ->
-            val eventStartTime = LocalTime.parse(event.startTime, DateTimeFormatter.ofPattern("HH:mm"))
-            val eventEndTime = LocalTime.parse(event.endTime, DateTimeFormatter.ofPattern("HH:mm"))
+            val eventStartTime = parseEventDate(event.startTime)
+            val eventEndTime = parseEventDate(event.endTime)
             eventStartTime.hour <= hourInt && eventEndTime.hour >= hourInt
         }.sortedBy { event ->
-            LocalTime.parse(event.startTime, DateTimeFormatter.ofPattern("HH:mm"))
+            parseEventDate(event.startTime)
         }
     }
 
@@ -346,8 +349,8 @@ fun DailyRow(
         }
 
         // Update position for all hours the event spans
-        val eventStartTime = LocalTime.parse(event.startTime, DateTimeFormatter.ofPattern("HH:mm"))
-        val eventEndTime = LocalTime.parse(event.endTime, DateTimeFormatter.ofPattern("HH:mm"))
+        val eventStartTime = parseEventDate(event.startTime)
+        val eventEndTime = parseEventDate(event.endTime)
 
         for (h in eventStartTime.hour..eventEndTime.hour) {
             val hourKey = h.toString().padStart(2, '0')
@@ -379,8 +382,8 @@ fun DailyRow(
                 .background(Color.White)
         ) {
             eventsForHour.forEach { event ->
-                val eventStartTime = LocalTime.parse(event.startTime, DateTimeFormatter.ofPattern("HH:mm"))
-                val eventEndTime = LocalTime.parse(event.endTime, DateTimeFormatter.ofPattern("HH:mm"))
+                val eventStartTime = parseEventDate(event.startTime)
+                val eventEndTime = parseEventDate(event.endTime)
 
                 val eventDurationMinutes = ChronoUnit.MINUTES.between(eventStartTime, eventEndTime)
 
@@ -391,7 +394,7 @@ fun DailyRow(
                     }
                     eventStartTime.hour == hourInt && eventEndTime.hour > hourInt -> {
                         // Event starts in this hour but ends in the next hour
-                        val minutesInCurrentHour = ChronoUnit.MINUTES.between(eventStartTime, LocalTime.of(hourInt + 1, 0))
+                        val minutesInCurrentHour = ChronoUnit.MINUTES.between(eventStartTime.toLocalTime(), LocalTime.of(hourInt + 1, 0))
                         (minutesInCurrentHour.toFloat() / 60).coerceIn(0.1f, 1.0f)
                     }
                     eventEndTime.hour == hourInt -> {
@@ -437,6 +440,7 @@ fun DailyRow(
         EventDetailDialog(event = event, evm = evm, "daily", onDismiss = { selectedEvent = null })
     }
 }
+
 
 //事件視窗
 @Composable
@@ -498,10 +502,6 @@ fun EventDetailDialog(event: Event, evm: EventViewModel,temp: String, onDismiss:
                 Text("標籤: ${updatedEvent.value.tags}", color = Color.Black)
                 Spacer(modifier = Modifier.height(8.dp))
 
-                val replacedate = updatedEvent.value.date.replace("\n", "")
-                Text("日期: ${replacedate}", color = Color.Black)
-                Spacer(modifier = Modifier.height(8.dp))
-
                 Text("開始時間: ${updatedEvent.value.startTime}", color = Color.Black)
                 Spacer(modifier = Modifier.height(8.dp))
 
@@ -523,10 +523,15 @@ fun EventDetailDialog(event: Event, evm: EventViewModel,temp: String, onDismiss:
         }
     }
     if (showEditDialog) {
-        val formatter = DateTimeFormatter.ofPattern("yyyy年M月d日")
-        val replacedate = updatedEvent.value.date.replace("\n", "")
+        // 日期時間格式化器
+        val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+
+        // 使用 LocalDateTime 來解析包含時間的字符串
+        val selectedDateTime = LocalDateTime.parse(updatedEvent.value.startTime, formatter)
+
+        // 傳遞 LocalDateTime 給 UserInputDialog
         UserInputDialog(
-            selectedDate = LocalDate.parse(replacedate, formatter),
+            selectedDate = selectedDateTime.toLocalDate(), // 只需日期部分
             evm = evm,
             onDismiss = { showEditDialog = false },
             selectedHour = updatedEvent.value.startTime,
@@ -626,9 +631,6 @@ fun UserInputDialog(
     selectedHour: String,event: Event? = null,
     currentMonth: LocalDate? = null
 ) {
-    val context = LocalContext.current
-
-    // 確保 selectedHour 有有效的時間值
     val initialStartTime = if (selectedHour.isNotBlank()) {
         if (selectedHour.length == 2) "$selectedHour:00" else selectedHour
     } else {
@@ -652,7 +654,8 @@ fun UserInputDialog(
     var name by remember { mutableStateOf(initialName) }
     var startTime by remember { mutableStateOf(initialStartTime) }
     var endTime by remember { mutableStateOf(initialEndTimeEvent) }
-    var date by remember { mutableStateOf(selectedDate.format(DateTimeFormatter.ofPattern("MM月dd日"))) }
+    var startDateTime by remember { mutableStateOf(LocalDateTime.of(selectedDate, initialStartLocalTime)) }
+    var endDateTime by remember { mutableStateOf(LocalDateTime.of(selectedDate, initialStartLocalTime.plusHours(1))) }
     var selectedDay by remember { mutableStateOf(selectedDate) }
     var description by remember { mutableStateOf(initialDescription) }
     var alarmTime by remember { mutableStateOf(initialAlarmTime) }
@@ -668,24 +671,30 @@ fun UserInputDialog(
     var repeatType by remember { mutableStateOf(initialRepeatType) }
     var showDialog = mutableStateOf(false)
     var errorMessage = mutableStateOf("")
-    val timeState = rememberTimePickerState(
-        initialHour = initialStartLocalTime.hour,
-        initialMinute = initialStartLocalTime.minute
-    )
+//    val timeState = rememberTimePickerState(
+//        initialHour = initialStartLocalTime.hour,
+//        initialMinute = initialStartLocalTime.minute
+//    )
     var deadline by remember { mutableStateOf("") }
     var duration by remember { mutableStateOf("") }
     var isSplittable by remember { mutableStateOf(false) }
 
     Log.d("date","$selectedDay")
 
-    // Function to format the date to a string
-    fun formatDate(month: Int, day: Int): String {
-        return "${month + 1}月${day}日"
+    // 回調方法
+    fun onStartTimeSelected(dateTime: LocalDateTime) {
+        startDateTime = dateTime
+        startTime = dateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
+        endDateTime = dateTime.plusHours(1)
+        endTime = endDateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
     }
 
-    fun formattedDay(year: Int, month: Int, dayOfMonth: Int): LocalDate {
-        return LocalDate.of(year, month + 1, dayOfMonth)
+    fun onEndTimeSelected(dateTime: LocalDateTime) {
+        endDateTime = dateTime
+        endTime = dateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
     }
+
+
 
     Dialog(onDismissRequest = onDismiss) {
         Surface(
@@ -709,87 +718,25 @@ fun UserInputDialog(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                //設定日期
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("日期:", color = Color.Black)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Button(
-                        onClick = { showDatePicker = true },
-                        colors = ButtonDefaults.run { buttonColors(colorResource1(id = R.color.light_blue)) }
-                    ) {
-                        Text(if (date.isBlank()) "選擇日期" else date, color = Color.White)
-                    }
-                    if (showDatePicker) {
-                        val calendar = Calendar.getInstance()
-                        DatePickerDialog(
-                            context,
-                            { _, year, month, dayOfMonth ->
-                                date = formatDate(month, dayOfMonth)
-                                selectedDay = formattedDay(year,month, dayOfMonth)
-                                Log.d("date","$selectedDay")
-                                showDatePicker = false
-                            },
-                            calendar.get(Calendar.YEAR),
-                            calendar.get(Calendar.MONTH),
-                            calendar.get(Calendar.DAY_OF_MONTH)
-                        ).apply {
-                            setOnShowListener {
-                                getButton(DatePickerDialog.BUTTON_POSITIVE).setTextColor(android.graphics.Color.BLACK)
-                                getButton(DatePickerDialog.BUTTON_NEGATIVE).setTextColor(android.graphics.Color.LTGRAY)
-                                getButton(DatePickerDialog.BUTTON_NEUTRAL).setTextColor(android.graphics.Color.GRAY)
-                            }
-                        }.show()
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                //設定開始時間
+                // 設定開始時間
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("開始時間:", color = Color.Black)
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
                         onClick = { showStartTimeDialog = true },
-                        colors = ButtonDefaults.run { buttonColors(colorResource1(id = R.color.light_blue)) }
+                        colors = ButtonDefaults.buttonColors(colorResource1(id = R.color.light_blue))
                     ) {
                         Text(startTime.ifBlank { "選擇開始時間" }, color = Color.White)
                     }
                     if (showStartTimeDialog) {
-                        BasicAlertDialog(
-                            onDismissRequest = { showStartTimeDialog = false },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .background(color = Color.LightGray.copy(alpha = .3f))
-                                    .padding(
-                                        top = 28.dp,
-                                        start = 20.dp,
-                                        end = 20.dp,
-                                        bottom = 12.dp
-                                    ),
-                                verticalArrangement = Arrangement.Center,
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                TimePicker(state = timeState)
-                                Row(
-                                    modifier = Modifier
-                                        .padding(top = 12.dp)
-                                        .fillMaxWidth(), horizontalArrangement = Arrangement.End
-                                ) {
-                                    TextButton(onClick = { showStartTimeDialog = false }) {
-                                        Text(text = "取消", color = Color.Black)
-                                    }
-                                    TextButton(onClick = {
-                                        showStartTimeDialog = false
-                                        val startLocalTime = LocalTime.of(timeState.hour, timeState.minute)
-                                        startTime = startLocalTime.format(DateTimeFormatter.ofPattern("HH:mm"))
-                                    }) {
-                                        Text(text = "確認", color = Color.Black)
-                                    }
-                                }
-                            }
-                        }
+                        DateTimePickerDialog(
+                            initialDateTime = startDateTime,
+                            onDateTimeSelected = { dateTime ->
+                                onStartTimeSelected(dateTime)
+                                showStartTimeDialog = false
+                            },
+                            onDismissRequest = { showStartTimeDialog = false }
+                        )
                     }
                 }
 
@@ -801,46 +748,19 @@ fun UserInputDialog(
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
                         onClick = { showEndTimeDialog = true },
-                        colors = ButtonDefaults.run { buttonColors(colorResource1(id = R.color.light_blue)) }
+                        colors = ButtonDefaults.buttonColors(colorResource1(id = R.color.light_blue))
                     ) {
                         Text(endTime.ifBlank { "選擇結束時間" }, color = Color.White)
                     }
                     if (showEndTimeDialog) {
-                        BasicAlertDialog(
-                            onDismissRequest = { showEndTimeDialog = false },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .background(color = Color.LightGray.copy(alpha = .3f))
-                                    .padding(
-                                        top = 28.dp,
-                                        start = 20.dp,
-                                        end = 20.dp,
-                                        bottom = 12.dp
-                                    ),
-                                verticalArrangement = Arrangement.Center,
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                TimePicker(state = timeState)
-                                Row(
-                                    modifier = Modifier
-                                        .padding(top = 12.dp)
-                                        .fillMaxWidth(), horizontalArrangement = Arrangement.End
-                                ) {
-                                    TextButton(onClick = { showEndTimeDialog = false }) {
-                                        Text(text = "取消", color = Color.Black)
-                                    }
-                                    TextButton(onClick = {
-                                        showEndTimeDialog = false
-                                        val endLocalTime = LocalTime.of(timeState.hour, timeState.minute)
-                                        endTime = endLocalTime.format(DateTimeFormatter.ofPattern("HH:mm"))
-                                    }) {
-                                        Text(text = "確認", color = Color.Black)
-                                    }
-                                }
-                            }
-                        }
+                        DateTimePickerDialog(
+                            initialDateTime = endDateTime,
+                            onDateTimeSelected = { dateTime ->
+                                onEndTimeSelected(dateTime)
+                                showEndTimeDialog = false
+                            },
+                            onDismissRequest = { showEndTimeDialog = false }
+                        )
                     }
                 }
 
@@ -1027,22 +947,22 @@ fun UserInputDialog(
                                 showDialog.value = true
                                 return@Button
                             }
-                            val startLocalTime = LocalTime.parse(startTime, DateTimeFormatter.ofPattern("HH:mm"))
-                            val endLocalTime = LocalTime.parse(endTime, DateTimeFormatter.ofPattern("HH:mm"))
+                            val startLocalTime = LocalTime.parse(startTime, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
+                            val endLocalTime = LocalTime.parse(endTime, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
 
                             if (endLocalTime.isAfter(startLocalTime)) {
                                 if (event == null && currentMonth == null) {
                                     Log.d("date","$selectedDay")
-                                    evm.addEvent(name, localDateToLong(selectedDay), startTime, endTime, tags, alarmTime,repeatEndDate ,repeatType, description)
+                                    evm.addEvent(name, startTime, endTime, tags, alarmTime,repeatEndDate ,repeatType, description)
                                 }
                                 else if (event != null && currentMonth == null) {
-                                    evm.updateEvent(event.uid,name, localDateToLong(selectedDay), startTime, endTime, tags, alarmTime, repeatEndDate ,repeatType, description)
+                                    evm.updateEvent(event.uid,name, startTime, endTime, tags, alarmTime, repeatEndDate ,repeatType, description)
                                 }
                                 else if(event == null && currentMonth != null){
-                                    evm.addEvent(name, localDateToLong(selectedDay), startTime, endTime, tags, alarmTime, repeatEndDate ,repeatType, description,currentMonth)
+                                    evm.addEvent(name, startTime, endTime, tags, alarmTime, repeatEndDate ,repeatType, description,currentMonth)
                                 }
                                 else if(event != null && currentMonth != null){
-                                    evm.updateEvent(event.uid,name, localDateToLong(selectedDay), startTime, endTime, tags, alarmTime, repeatEndDate ,repeatType, description,currentMonth)
+                                    evm.updateEvent(event.uid,name, startTime, endTime, tags, alarmTime, repeatEndDate ,repeatType, description,currentMonth)
                                 }
                                 onDismiss()
                             } else {
@@ -1067,6 +987,71 @@ fun UserInputDialog(
             }
         }
     }
+}
+
+//設置日期、時間對話框
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DateTimePickerDialog(
+    initialDateTime: LocalDateTime,
+    onDateTimeSelected: (LocalDateTime) -> Unit,
+    onDismissRequest: () -> Unit
+) {
+    val context = LocalContext.current
+    val initialDate = initialDateTime.toLocalDate()
+    val initialTime = initialDateTime.toLocalTime()
+
+    var date by remember { mutableStateOf(initialDate) }
+    var time by remember { mutableStateOf(initialTime.withMinute(0)) } // 預設分鐘為 00
+
+    AlertDialog(
+        onDismissRequest = onDismissRequest,
+        modifier = Modifier.fillMaxWidth(),
+        text = {
+            Column(
+                modifier = Modifier
+                    .background(color = Color.LightGray.copy(alpha = .3f))
+                    .padding(
+                        top = 28.dp,
+                        start = 20.dp,
+                        end = 20.dp,
+                        bottom = 12.dp
+                    ),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                TextButton(onClick = {
+                    DatePickerDialog(context, { _, year, month, dayOfMonth ->
+                        date = LocalDate.of(year, month + 1, dayOfMonth)
+                    }, initialDate.year, initialDate.monthValue - 1, initialDate.dayOfMonth).show()
+                }) {
+                    Text(text = "選擇日期: ${date.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))}")
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                TextButton(onClick = {
+                    TimePickerDialog(context, { _, hour, _ ->  // 忽略分鐘
+                        time = LocalTime.of(hour, 0)  // 預設分鐘為 00
+                    }, initialTime.hour, initialTime.minute, true).show()
+                }) {
+                    Text(text = "選擇時間: ${time.format(DateTimeFormatter.ofPattern("HH:mm"))}")
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                onDateTimeSelected(LocalDateTime.of(date, time))
+            }) {
+                Text(text = "確認", color = Color.Black)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismissRequest) {
+                Text(text = "取消", color = Color.Black)
+            }
+        }
+    )
 }
 
 //抓錯誤視窗

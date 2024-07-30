@@ -3,7 +3,6 @@ package com.example.life_assistant.data
 data class Event(
     var uid: String = "",
     val name: String = "",
-    val date: String,
     val startTime: String,
     val endTime: String,
     val tags: String = "",
@@ -20,7 +19,6 @@ data class Event(
     // EventEntity 改變成 Event
     constructor(eventEntity: EventEntity) : this(
         name = eventEntity.name,
-        date = eventEntity.date,
         startTime = eventEntity.startTime,
         endTime = eventEntity.endTime,
         tags = eventEntity.tags,

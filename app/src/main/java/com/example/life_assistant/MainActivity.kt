@@ -31,7 +31,6 @@ import com.example.life_assistant.Screen.MonthCalendarScreen
 import com.example.life_assistant.Screen.SignUpHabitScreen
 import com.example.life_assistant.Screen.SignUpScreen
 import com.example.life_assistant.Screen.WeekCalendarScreen
-import com.example.life_assistant.Screen.calendarScreen
 import com.example.life_assistant.ViewModel.EventViewModel
 import com.example.life_assistant.ViewModel.MemberViewModel
 import java.time.LocalDate
@@ -62,7 +61,6 @@ sealed class DestinationScreen(val route: String){
     object Main: DestinationScreen("main")
     object SignUpHabit: DestinationScreen("signuphabit")
     object ForgetPassword: DestinationScreen("forgetpassword")
-    object Calendar: DestinationScreen("calendar")
     //object DailyCalendar: DestinationScreen("dailycalendar")
     object DailyCalendar : DestinationScreen("daily_calendar_screen/{date}")
     object MonthCalendar: DestinationScreen("monthcalendar")
@@ -113,10 +111,6 @@ fun AuthenticationApp(){
         }
         composable(DestinationScreen.ForgetPassword.route){
             ForgetPasswordScreen(navController,mvm)
-        }
-
-        composable(DestinationScreen.Calendar.route){
-            calendarScreen(navController,evm,mvm)
         }
 
         composable("daily_calendar_screen/{date}") { backStackEntry ->

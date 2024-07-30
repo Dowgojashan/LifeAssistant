@@ -59,7 +59,7 @@ fun MonthCalendarScreen(
     var selectedEvent by remember { mutableStateOf<Event?>(null) }
 
     val events by evm.events.observeAsState(emptyList())
-    val eventsByDate = events.groupBy { LocalDate.parse(it.date, DateTimeFormatter.ofPattern("yyyy年\nM月d日")) }
+    val eventsByDate = events.groupBy { LocalDate.parse(it.startTime, DateTimeFormatter.ofPattern("yyyy年\nM月d日")) }
 
     LaunchedEffect(currentMonth) {
         evm.getEventsForMonth(currentMonth)
