@@ -106,7 +106,7 @@ fun DailyCalendarScreen(
                                 Text("月行事曆")
                             }
                         )
-                        androidx.compose.material3.DropdownMenuItem(
+                        DropdownMenuItem(
                             onClick = {
                                 expanded = false
                                 navController.navigate(DestinationScreen.Main.route)
@@ -115,13 +115,22 @@ fun DailyCalendarScreen(
                                 Text("個人資料")
                             }
                         )
-                        androidx.compose.material3.DropdownMenuItem(
+                        DropdownMenuItem(
                             onClick = {
                                 expanded = false
                                 navController.navigate(DestinationScreen.Classification.route)
                             },
                             text = {
                                 Text("標籤分類")
+                            }
+                        )
+                        DropdownMenuItem(
+                            onClick = {
+                                expanded = false
+                                navController.navigate(DestinationScreen.TimeReport.route)
+                            },
+                            text = {
+                                Text("行程分析")
                             }
                         )
 //                        DropdownMenuItem(

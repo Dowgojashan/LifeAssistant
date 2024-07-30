@@ -8,4 +8,12 @@
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
     <color name="light_blue">#B4CFE2</color>
+    //分類標籤顏色
+    <color name="red">#FFDB697A</color>
+    <color name="orange">#FFEE8575</color>
+    <color name="yellow">#FFFFE9AF</color>
+    <color name="green">#FF8DCCB3</color>
+    <color name="blue">#FF7FABD1</color>
+    <color name="purple">#FF867BB9</color>
+    <color name="light_orange">#FFF4D6D8</color>
 </resources>

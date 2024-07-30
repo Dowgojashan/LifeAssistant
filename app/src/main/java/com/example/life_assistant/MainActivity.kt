@@ -68,6 +68,7 @@ sealed class DestinationScreen(val route: String){
     object MonthCalendar: DestinationScreen("monthcalendar")
     object WeekCalendar: DestinationScreen("weekcalendar")
     object Classification: DestinationScreen("Classification")
+    object TimeReport: DestinationScreen("timereport")
 }
 
 @Composable
@@ -141,6 +142,9 @@ fun AuthenticationApp(){
             WeekCalendarScreen(navController, evm, mvm)
         }
         composable(DestinationScreen.Classification.route){
+            ClassificationScreen(navController,mvm)
+        }
+        composable(DestinationScreen.TimeReport.route){
             ClassificationScreen(navController,mvm)
         }
     }
