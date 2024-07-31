@@ -178,6 +178,8 @@ class EventViewModel @Inject constructor(
 
         eventRef.get().addOnSuccessListener { snapshot ->
             val eventsList = mutableListOf<Event>()
+            val targetDate = parseCurrentDay(date)
+
             for (data in snapshot.children) {
                 // 讀取 Firebase 數據
                 val eventMap = data.value as? Map<*, *>
@@ -207,8 +209,8 @@ class EventViewModel @Inject constructor(
                         description = description
                     )
 
-                    // 確保事件的日期符合今天的日期
-                    if (parseEventDate(event.startTime) == parseCurrentDay(date)) {
+                    // 確保事件的日期與今天的日期重疊
+                    if (isDateInRange(targetDate, event.startTime, event.endTime)) {
                         eventsList.add(event)
                     }
                 }
@@ -222,6 +224,14 @@ class EventViewModel @Inject constructor(
                 getEventsByDate(date)
             }
         }
+    }
+
+    fun isDateInRange(date: LocalDate, startTime: String, endTime: String): Boolean {
+        val eventStartDate = parseEventDate(startTime)
+        val eventEndDate = parseEventDate(endTime)
+
+        // 檢查事件是否橫跨當前日期
+        return !date.isBefore(eventStartDate) && !date.isAfter(eventEndDate)
     }
 
     fun parseEventDate(dateString: String): LocalDate {
@@ -263,7 +273,6 @@ class EventViewModel @Inject constructor(
         eventRef.get().addOnSuccessListener { snapshot ->
             val eventsList = mutableListOf<Event>()
             for (data in snapshot.children) {
-                // 讀取 Firebase 數據
                 val eventMap = data.value as? Map<*, *>
                 if (eventMap != null) {
                     val uid = eventMap["uid"] as? String ?: ""
@@ -277,7 +286,6 @@ class EventViewModel @Inject constructor(
                     val repeatGroupId = eventMap["repeatGroupId"] as? String ?: ""
                     val description = eventMap["description"] as? String ?: ""
 
-                    // 創建 Event 物件
                     val event = Event(
                         uid = uid,
                         name = name,
@@ -291,22 +299,26 @@ class EventViewModel @Inject constructor(
                         description = description
                     )
 
-                    // 判斷是否在當前月份
-                    val eventDate = LocalDate.parse(startTime, DateTimeFormatter.ofPattern("yyyy年\nM月d日"))
-                    if (eventDate.year == year && eventDate.monthValue == monthValue) {
+                    val eventStartDate = parseEventDate(event.startTime)
+                    val eventEndDate = parseEventDate(event.endTime)
+
+                    if (isDateInMonth(month, eventStartDate, eventEndDate)) {
                         eventsList.add(event)
                     }
                 }
             }
-            _events.value = eventsList  // 更新 MutableLiveData
+            _events.value = eventsList
         }.addOnFailureListener { exception ->
             handleException(exception, "Unable to fetch events for month $month")
-            // Firebase 失敗時從 Room 取得資料
-            viewModelScope.launch {
-                Log.d("test", "roomdatabase")
-                //getEventsForMonthFromRoom(month) // 從 Room 取得當月事件
-            }
         }
+    }
+
+    fun isDateInMonth(month: LocalDate, startDate: LocalDate, endDate: LocalDate): Boolean {
+        // 確保事件的開始和結束時間都在指定的月份範圍內
+        val monthStart = month.withDayOfMonth(1)
+        val monthEnd = month.withDayOfMonth(month.lengthOfMonth())
+
+        return !(endDate.isBefore(monthStart) || startDate.isAfter(monthEnd))
     }
 
 //    fun getEventsForMonthFromRoom(month: LocalDate) {
@@ -335,6 +347,7 @@ class EventViewModel @Inject constructor(
         val memberId = auth.currentUser?.uid ?: return
         val eventUid = event.uid
         val eventGroupId = event.repeatGroupId
+        val date = parseEventDate(event.startTime).toString()
         val eventRef = database.getReference("members").child(memberId).child("events")
         Log.d("uid", eventGroupId)
 
@@ -353,11 +366,10 @@ class EventViewModel @Inject constructor(
                     Log.d("Firebase", "Attempting to delete events with repeatGroupId: $eventGroupId")
                     Log.d("Firebase", "No matching events found for repeatGroupId: ${event.repeatGroupId}")
                 }
-                val replacedDate = event.startTime.replace("\n", "")
                 if (temp == "daily") {
-                    getEventsForDate(replacedDate) // 更新 UI，顯示新的事件列表
+                    getEventsForDate(date) // 更新 UI，顯示新的事件列表
                 } else if (temp == "month") {
-                    val eventDate = LocalDate.parse(replacedDate, DateTimeFormatter.ofPattern("yyyy年M月d日")) // 解析日期字串為 LocalDate
+                    val eventDate = LocalDate.parse(date, DateTimeFormatter.ofPattern("yyyy-MM-dd")) // 解析日期字串為 LocalDate
                     getEventsForMonth(eventDate)
                 }
                 onSuccess()
@@ -368,11 +380,10 @@ class EventViewModel @Inject constructor(
             // 僅刪除單個事件
             eventRef.child(eventUid).removeValue().addOnSuccessListener {
                 Log.d("Firebase", "Event deleted successfully")
-                val replacedDate = event.startTime.replace("\n", "")
                 if (temp == "daily") {
-                    getEventsForDate(replacedDate) // 更新 UI，顯示新的事件列表
+                    getEventsForDate(date) // 更新 UI，顯示新的事件列表
                 } else if (temp == "month") {
-                    val eventDate = LocalDate.parse(replacedDate, DateTimeFormatter.ofPattern("yyyy年M月d日")) // 解析日期字串為 LocalDate
+                    val eventDate = LocalDate.parse(date, DateTimeFormatter.ofPattern("yyyy-MM-dd")) // 解析日期字串為 LocalDate
                     getEventsForMonth(eventDate)
                 }
                 onSuccess()
@@ -392,7 +403,7 @@ class EventViewModel @Inject constructor(
     fun updateEvent(uid: String,name: String, startTime: String, endTime: String, tags: String, alarmTime: String, repeatEndDate: String ,repeatType:String, description: String,currentMonth: LocalDate? = null) {
         // 確保用戶已登入
         val memberId = auth.currentUser?.uid ?: return
-
+        val date = parseEventDate(startTime).toString()
         // Firebase 的事件參考路徑
         val eventRef = database.getReference("members").child(memberId).child("events").child(uid)
 
@@ -411,8 +422,9 @@ class EventViewModel @Inject constructor(
         // 開始更新 Firebase 中的事件資料
         eventRef.updateChildren(updatedEvent).addOnSuccessListener {
             Log.d("firebase","updated successfully")
-            getEventsForDate(startTime)
+            getEventsForDate(date)
 
+            Log.d("Month","$currentMonth")
             if (currentMonth != null) {
                 getEventsForMonth(currentMonth)
             }

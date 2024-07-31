@@ -309,12 +309,14 @@ fun DailyRow(
     // 過濾出當天的事件
     val eventsForDay = remember(events) {
         events.filter { event ->
-            val eventStartDate = parseEventDate(event.startTime).toLocalDate()
-            eventStartDate == currentDayFormatted
+            val eventStartTime = parseEventDate(event.startTime)
+            val eventEndTime = parseEventDate(event.endTime)
+            val eventStartDate = eventStartTime.toLocalDate()
+            val eventEndDate = eventEndTime.toLocalDate()
+            (eventStartDate <= currentDayFormatted && eventEndDate >= currentDayFormatted)
         }
     }
 
-    // 過濾當前小時的事件
     val eventsForHour = remember(eventsForDay) {
         eventsForDay.filter { event ->
             val eventStartTime = parseEventDate(event.startTime)
@@ -352,6 +354,7 @@ fun DailyRow(
         val eventStartTime = parseEventDate(event.startTime)
         val eventEndTime = parseEventDate(event.endTime)
 
+        // Loop through each hour the event spans
         for (h in eventStartTime.hour..eventEndTime.hour) {
             val hourKey = h.toString().padStart(2, '0')
             val positionsForHour = eventPositions.getOrPut(hourKey) { mutableMapOf() }
@@ -409,6 +412,7 @@ fun DailyRow(
 
                 // Retrieve horizontal offset for the event
                 val offsetPx = computeEventOffset(event)
+                Log.d("EventOffset", "Event UID: ${event.uid}, Offset: $offsetPx")
 
                 Box(
                     modifier = Modifier
@@ -442,9 +446,11 @@ fun DailyRow(
 }
 
 
+
+
 //事件視窗
 @Composable
-fun EventDetailDialog(event: Event, evm: EventViewModel,temp: String, onDismiss: () -> Unit) {
+fun EventDetailDialog(event: Event, evm: EventViewModel,temp: String, onDismiss: () -> Unit, currentMonth: LocalDate? = null) {
     var showEditDialog by remember { mutableStateOf(false) }
     val updatedEvent = remember { mutableStateOf(event) }
     var showDeleteOptionsDialog by remember { mutableStateOf(false) }
@@ -535,7 +541,8 @@ fun EventDetailDialog(event: Event, evm: EventViewModel,temp: String, onDismiss:
             evm = evm,
             onDismiss = { showEditDialog = false },
             selectedHour = updatedEvent.value.startTime,
-            event = updatedEvent.value // 傳遞更新後的事件對象給編輯視窗
+            event = updatedEvent.value, // 傳遞更新後的事件對象給編輯視窗
+            currentMonth = currentMonth
         )
     }
 
@@ -631,13 +638,13 @@ fun UserInputDialog(
     selectedHour: String,event: Event? = null,
     currentMonth: LocalDate? = null
 ) {
-    val initialStartTime = if (selectedHour.isNotBlank()) {
+    val initialStartHour = if (selectedHour.isNotBlank()) {
         if (selectedHour.length == 2) "$selectedHour:00" else selectedHour
     } else {
-        "00:00"
+        ""
     }
     val initialStartLocalTime = try {
-        LocalTime.parse(initialStartTime)
+        LocalTime.parse(initialStartHour)
     } catch (e: DateTimeParseException) {
         LocalTime.of(0, 0)  // 如果無法解析 selectedHour，則設置為默認時間 "00:00"
     }
@@ -647,7 +654,8 @@ fun UserInputDialog(
     val initialDescription = event?.description ?: ""
     val initialTags = event?.tags ?: ""
     val initialAlarmTime = event?.alarmTime ?: "1天前"
-    val initialEndTimeEvent = event?.endTime ?: initialStartLocalTime.plusHours(1).format(DateTimeFormatter.ofPattern("HH:mm"))
+    val initialStartTime = event?.startTime ?: ""
+    val initialEndTimeEvent = event?.endTime ?: ""
     val initialRepeatType = event?.repeatType ?: "無"
     val initialRepeatEndDate = event?.repeatEndDate ?: ""
 
@@ -947,8 +955,19 @@ fun UserInputDialog(
                                 showDialog.value = true
                                 return@Button
                             }
-                            val startLocalTime = LocalTime.parse(startTime, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
-                            val endLocalTime = LocalTime.parse(endTime, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
+                            if(startTime.isBlank()){
+                                errorMessage.value = "選擇開始日期不可為空"
+                                showDialog.value = true
+                                return@Button
+                            }
+                            if(endTime.isBlank()){
+                                errorMessage.value = "選擇結束日期不可為空"
+                                showDialog.value = true
+                                return@Button
+                            }
+
+                            val startLocalTime = LocalDateTime.parse(startTime, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
+                            val endLocalTime = LocalDateTime.parse(endTime, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
 
                             if (endLocalTime.isAfter(startLocalTime)) {
                                 if (event == null && currentMonth == null) {

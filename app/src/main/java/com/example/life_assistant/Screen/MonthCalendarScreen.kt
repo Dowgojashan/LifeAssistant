@@ -39,6 +39,7 @@ import com.example.life_assistant.ViewModel.MemberViewModel
 import com.example.life_assistant.data.Event
 import java.time.DayOfWeek
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 
@@ -59,7 +60,7 @@ fun MonthCalendarScreen(
     var selectedEvent by remember { mutableStateOf<Event?>(null) }
 
     val events by evm.events.observeAsState(emptyList())
-    val eventsByDate = events.groupBy { LocalDate.parse(it.startTime, DateTimeFormatter.ofPattern("yyyy年\nM月d日")) }
+    val eventsByDate = events.groupBy { LocalDate.parse(it.startTime, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")) }
 
     LaunchedEffect(currentMonth) {
         evm.getEventsForMonth(currentMonth)
@@ -206,7 +207,8 @@ fun MonthCalendarScreen(
                 event = event,
                 evm = evm,
                 temp = "month",
-                onDismiss = { showEventDetailDialog = false }
+                onDismiss = { showEventDetailDialog = false },
+                currentMonth = currentMonth
             )
         }
     }
@@ -254,7 +256,13 @@ fun MonthBody(
 
             items(daysInMonth) { day ->
                 val date = currentMonth.withDayOfMonth(day + 1)
-                val dayEvents = eventsByDate[date] ?: emptyList()
+                val dayEvents = eventsByDate.values.flatten().filter { event ->
+                    val eventStartDate = LocalDateTime.parse(event.startTime, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
+                    val eventEndDate = LocalDateTime.parse(event.endTime, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
+
+                    // 检查事件是否与当月日期相交
+                    isDateInMonth(date, eventStartDate.toLocalDate(), eventEndDate.toLocalDate())
+                }
 
                 DayCell(
                     day = date,
@@ -266,6 +274,10 @@ fun MonthBody(
             }
         }
     }
+}
+
+fun isDateInMonth(date: LocalDate, startDate: LocalDate, endDate: LocalDate): Boolean {
+    return !date.isBefore(startDate) && !date.isAfter(endDate)
 }
 
 @RequiresApi(Build.VERSION_CODES.O)
