@@ -390,6 +390,13 @@ fun DailyRow(
 
                 val eventDurationMinutes = ChronoUnit.MINUTES.between(eventStartTime, eventEndTime)
 
+                // 計算事件在當前小時中的相對開始位置
+                val startFraction = if (eventStartTime.hour == hourInt) {
+                    eventStartTime.minute.toFloat() / 60
+                } else {
+                    0f
+                }
+
                 val heightFraction = when {
                     eventStartTime.hour == hourInt && eventEndTime.hour == hourInt -> {
                         // Event starts and ends within this hour
@@ -416,7 +423,7 @@ fun DailyRow(
 
                 Box(
                     modifier = Modifier
-                        .offset(x = with(LocalDensity.current) { offsetPx.toDp() })
+                        .offset(x = with(LocalDensity.current) { offsetPx.toDp() }, y = with(LocalDensity.current) { (startFraction * 60.dp.toPx()).toDp() })
                         .width(eventWidth)
                         .fillMaxHeight(heightFraction)
                         .background(Color.Blue)
@@ -445,15 +452,14 @@ fun DailyRow(
     }
 }
 
-
-
-
 //事件視窗
 @Composable
-fun EventDetailDialog(event: Event, evm: EventViewModel,temp: String, onDismiss: () -> Unit, currentMonth: LocalDate? = null) {
+fun EventDetailDialog(event: Event, evm: EventViewModel, temp: String, onDismiss: () -> Unit, currentMonth: LocalDate? = null) {
     var showEditDialog by remember { mutableStateOf(false) }
+    var showEditOptionsDialog by remember { mutableStateOf(false) }
     val updatedEvent = remember { mutableStateOf(event) }
     var showDeleteOptionsDialog by remember { mutableStateOf(false) }
+    var editAll by remember { mutableStateOf(false) }
 
     // 觀察 LiveData 中的 events 變化
     val events by evm.events.observeAsState(emptyList())
@@ -462,7 +468,6 @@ fun EventDetailDialog(event: Event, evm: EventViewModel,temp: String, onDismiss:
     LaunchedEffect(events) {
         updatedEvent.value = events.find { it.uid == event.uid } ?: event
     }
-
 
     Dialog(onDismissRequest = onDismiss) {
         Surface(
@@ -482,7 +487,13 @@ fun EventDetailDialog(event: Event, evm: EventViewModel,temp: String, onDismiss:
                 ) {
                     Text("事件詳情", fontWeight = FontWeight.Bold, color = Color.Black)
                     IconButton(onClick = {
-                        showEditDialog = true
+                        if(event.repeatType != "無"){
+                            showEditOptionsDialog = true
+                        }
+                        else{
+                            editAll = false
+                            showEditDialog = true
+                        }
                     }) {
                         Icon(Icons.Default.Edit, contentDescription = "編輯", tint = Color.Blue)
                     }
@@ -490,7 +501,7 @@ fun EventDetailDialog(event: Event, evm: EventViewModel,temp: String, onDismiss:
                         if (event.repeatType != "無") {
                             showDeleteOptionsDialog = true
                         } else {
-                            evm.deleteEventFromFirebase(event, temp,deleteAll = false) {
+                            evm.deleteEventFromFirebase(event, temp, deleteAll = false) {
                                 showDeleteOptionsDialog = false
                                 onDismiss() // 成功刪除後關閉視窗
                             }
@@ -528,21 +539,68 @@ fun EventDetailDialog(event: Event, evm: EventViewModel,temp: String, onDismiss:
             }
         }
     }
-    if (showEditDialog) {
-        // 日期時間格式化器
-        val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
 
-        // 使用 LocalDateTime 來解析包含時間的字符串
+    if (showEditOptionsDialog) {
+        Dialog(onDismissRequest = { showEditOptionsDialog = false }) {
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .padding(16.dp)
+                        .fillMaxWidth()
+                ) {
+                    Text("編輯重複事件", fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("這是一個重複事件。您要修改所有重複項目，還是僅修改此項目？")
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Row(
+                        horizontalArrangement = Arrangement.End,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        TextButton(onClick = {
+                            editAll = false
+                            showEditDialog = true
+                            showEditOptionsDialog = false
+                        }) {
+                            Text("僅修改此項")
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        TextButton(onClick = {
+                            // 修改所有重複項目的邏輯
+                            editAll = true
+                            showEditDialog = true
+                            showEditOptionsDialog = false
+                        }) {
+                            Text("修改所有")
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        TextButton(onClick = {
+                            showEditOptionsDialog = false
+                        }) {
+                            Text("取消")
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (showEditDialog) {
+        val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
         val selectedDateTime = LocalDateTime.parse(updatedEvent.value.startTime, formatter)
 
-        // 傳遞 LocalDateTime 給 UserInputDialog
         UserInputDialog(
-            selectedDate = selectedDateTime.toLocalDate(), // 只需日期部分
+            selectedDate = selectedDateTime.toLocalDate(),
             evm = evm,
             onDismiss = { showEditDialog = false },
             selectedHour = updatedEvent.value.startTime,
-            event = updatedEvent.value, // 傳遞更新後的事件對象給編輯視窗
-            currentMonth = currentMonth
+            event = updatedEvent.value,
+            currentMonth = currentMonth,
+            editAll = editAll
         )
     }
 
@@ -635,8 +693,9 @@ private fun DayCell(
 @Composable
 fun UserInputDialog(
     selectedDate: LocalDate, evm: EventViewModel, onDismiss: () -> Unit,
-    selectedHour: String,event: Event? = null,
-    currentMonth: LocalDate? = null
+    selectedHour: String, event: Event? = null,
+    currentMonth: LocalDate? = null,
+    editAll: Boolean?= false
 ) {
     val initialStartHour = if (selectedHour.isNotBlank()) {
         if (selectedHour.length == 2) "$selectedHour:00" else selectedHour
@@ -675,7 +734,7 @@ fun UserInputDialog(
     var tags by remember { mutableStateOf(initialTags) }  // 當前標籤
     var showTagMenu by remember { mutableStateOf(false) }  // 控制標籤選單的顯示
     var showRepeatDialog by remember { mutableStateOf(false) }
-    var repeatEndDate by remember {mutableStateOf(initialRepeatEndDate)}
+    var repeatEndDate by remember { mutableStateOf(initialRepeatEndDate) }
     var repeatType by remember { mutableStateOf(initialRepeatType) }
     var showDialog = mutableStateOf(false)
     var errorMessage = mutableStateOf("")
@@ -701,8 +760,6 @@ fun UserInputDialog(
         endDateTime = dateTime
         endTime = dateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
     }
-
-
 
     Dialog(onDismissRequest = onDismiss) {
         Surface(
@@ -966,23 +1023,58 @@ fun UserInputDialog(
                                 return@Button
                             }
 
+                            if (repeatEndDate.isNotBlank() && repeatEndDate <= startTime) {
+                                errorMessage.value = "重複結束日期不可早於或等於開始日期"
+                                showDialog.value = true
+                                return@Button
+                            }
+
                             val startLocalTime = LocalDateTime.parse(startTime, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
                             val endLocalTime = LocalDateTime.parse(endTime, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
+
+                            if (repeatType == "每日" && repeatEndDate.isBlank()) {
+                                val repeatEndDateLocalDate = startLocalTime.plusDays(30).toLocalDate()
+                                repeatEndDate = repeatEndDateLocalDate.toString()
+                            }
+
+                            if(repeatType == "每週" && repeatEndDate.isBlank()){
+                                val repeatEndDateLocalDate = startLocalTime.plusWeeks(4).toLocalDate()
+                                repeatEndDate = repeatEndDateLocalDate.toString()
+                            }
+
+                            if(repeatType == "每月" && repeatEndDate.isBlank()){
+                                val repeatEndDateLocalDate = startLocalTime.plusMonths(6).toLocalDate()
+                                repeatEndDate = repeatEndDateLocalDate.toString()
+                            }
+
+                            if(repeatType == "每年" && repeatEndDate.isBlank()){
+                                val repeatEndDateLocalDate = startLocalTime.plusYears(5).toLocalDate()
+                                repeatEndDate = repeatEndDateLocalDate.toString()
+                            }
+
 
                             if (endLocalTime.isAfter(startLocalTime)) {
                                 if (event == null && currentMonth == null) {
                                     Log.d("date","$selectedDay")
                                     evm.addEvent(name, startTime, endTime, tags, alarmTime,repeatEndDate ,repeatType, description)
                                 }
-                                else if (event != null && currentMonth == null) {
-                                    evm.updateEvent(event.uid,name, startTime, endTime, tags, alarmTime, repeatEndDate ,repeatType, description)
-                                }
                                 else if(event == null && currentMonth != null){
                                     evm.addEvent(name, startTime, endTime, tags, alarmTime, repeatEndDate ,repeatType, description,currentMonth)
                                 }
-                                else if(event != null && currentMonth != null){
-                                    evm.updateEvent(event.uid,name, startTime, endTime, tags, alarmTime, repeatEndDate ,repeatType, description,currentMonth)
+                                else if(editAll == false && event != null && currentMonth == null){
+                                    evm.updateEvent(event.uid,name, startTime, endTime, tags, alarmTime, repeatEndDate ,repeatType, description,null,false)
                                 }
+                                else if(editAll == false && event != null && currentMonth != null){
+                                    evm.updateEvent(event.uid,name, startTime, endTime, tags, alarmTime, repeatEndDate ,repeatType, description,currentMonth,false)
+                                }
+                                else if (editAll == true && event != null && currentMonth == null) {
+                                    Log.d("test","$editAll")
+                                    evm.updateEvent(event.uid,name, startTime, endTime, tags, alarmTime, repeatEndDate ,repeatType, description,null ,true)
+                                }
+                                else if(editAll == true && event != null && currentMonth != null){
+                                    evm.updateEvent(event.uid, name, startTime, endTime, tags, alarmTime, repeatEndDate, repeatType, description, currentMonth, true)
+                                }
+
                                 onDismiss()
                             } else {
                                 errorMessage.value = "結束時間必須晚於開始時間"
@@ -1021,7 +1113,7 @@ fun DateTimePickerDialog(
     val initialTime = initialDateTime.toLocalTime()
 
     var date by remember { mutableStateOf(initialDate) }
-    var time by remember { mutableStateOf(initialTime.withMinute(0)) } // 預設分鐘為 00
+    var time by remember { mutableStateOf(initialTime) }
 
     AlertDialog(
         onDismissRequest = onDismissRequest,
@@ -1050,8 +1142,8 @@ fun DateTimePickerDialog(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 TextButton(onClick = {
-                    TimePickerDialog(context, { _, hour, _ ->  // 忽略分鐘
-                        time = LocalTime.of(hour, 0)  // 預設分鐘為 00
+                    TimePickerDialog(context, { _, hour, minute ->
+                        time = LocalTime.of(hour, minute)
                     }, initialTime.hour, initialTime.minute, true).show()
                 }) {
                     Text(text = "選擇時間: ${time.format(DateTimeFormatter.ofPattern("HH:mm"))}")

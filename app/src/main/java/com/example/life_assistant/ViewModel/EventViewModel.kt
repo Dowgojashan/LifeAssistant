@@ -64,21 +64,7 @@ class EventViewModel @Inject constructor(
             ""  // 不使用 repeatGroupId
         }
 
-        Log.d("UUID",repeatGroupId)
-
-        // Room Database 物件
-//        val newEvent = EventEntity(
-//            memberuid = memberId,
-//            name = name,
-//            startTime = startTime,
-//            endTime = endTime,
-//            tags = tags,
-//            alarmTime = alarmTime,
-//            repeatEndDate = repeatEndDate,
-//            repeatType = repeatType,
-//            repeatGroupId = repeatGroupId,
-//            description = description,
-//        )
+        Log.d("UUID", repeatGroupId)
 
         // Firebase 物件
         val event = Event(
@@ -106,24 +92,32 @@ class EventViewModel @Inject constructor(
         // 設置 Firebase 中的 Event
         eventRef.setValue(event).addOnSuccessListener {
             Log.d("Firebase", "Event saved successfully with UID: $eventUid")
-            // 新增 UID 到 Room Database 物件中
-            // val newEventWithUid = newEvent.copy(uid = eventUid ?: "")
-            // insertEvent(newEventWithUid) // 儲存到 Room 資料庫
 
             // 根據 repeatType 和 repeatEndDate 新增重複事件
             if (repeatType != "無") {
                 val endDate = parseDate(repeatEndDate)
-                val initialDate = parseDate(date.replace("年\n", "-").replace("月", "-").replace("日", ""))
-                var nextDate = when (repeatType) {
-                    "每日" -> initialDate.plusDays(1)
-                    "每週" -> initialDate.plusWeeks(1)
-                    "每月" -> initialDate.plusMonths(1)
-                    "每年" -> initialDate.plusYears(1)
-                    else -> initialDate
+                val initialStartDateTime = parseEventDateTime(startTime)
+                val initialEndDateTime = parseEventDateTime(endTime)
+                var nextStartDateTime = when (repeatType) {
+                    "每日" -> initialStartDateTime.plusDays(1)
+                    "每週" -> initialStartDateTime.plusWeeks(1)
+                    "每月" -> initialStartDateTime.plusMonths(1)
+                    "每年" -> initialStartDateTime.plusYears(1)
+                    else -> initialStartDateTime
+                }
+                var nextEndDateTime = when (repeatType) {
+                    "每日" -> initialEndDateTime.plusDays(1)
+                    "每週" -> initialEndDateTime.plusWeeks(1)
+                    "每月" -> initialEndDateTime.plusMonths(1)
+                    "每年" -> initialEndDateTime.plusYears(1)
+                    else -> initialEndDateTime
                 }
 
-                while (nextDate <= endDate) {
-                    val newRepeatEvent = event.copy(startTime = formatDate(nextDate))
+                while (nextStartDateTime.toLocalDate() <= endDate) {
+                    val newRepeatEvent = event.copy(
+                        startTime = formatEventDateTime(nextStartDateTime),
+                        endTime = formatEventDateTime(nextEndDateTime)
+                    )
                     val newRepeatEventRef = database.getReference("members")
                         .child(memberId)
                         .child("events")
@@ -135,12 +129,19 @@ class EventViewModel @Inject constructor(
                         handleException(exception, "Unable to save repeat event")
                     }
 
-                    nextDate = when (repeatType) {
-                        "每日" -> nextDate.plusDays(1)
-                        "每週" -> nextDate.plusWeeks(1)
-                        "每月" -> nextDate.plusMonths(1)
-                        "每年" -> nextDate.plusYears(1)
-                        else -> nextDate
+                    nextStartDateTime = when (repeatType) {
+                        "每日" -> nextStartDateTime.plusDays(1)
+                        "每週" -> nextStartDateTime.plusWeeks(1)
+                        "每月" -> nextStartDateTime.plusMonths(1)
+                        "每年" -> nextStartDateTime.plusYears(1)
+                        else -> nextStartDateTime
+                    }
+                    nextEndDateTime = when (repeatType) {
+                        "每日" -> nextEndDateTime.plusDays(1)
+                        "每週" -> nextEndDateTime.plusWeeks(1)
+                        "每月" -> nextEndDateTime.plusMonths(1)
+                        "每年" -> nextEndDateTime.plusYears(1)
+                        else -> nextEndDateTime
                     }
                 }
             }
@@ -154,14 +155,20 @@ class EventViewModel @Inject constructor(
         }
     }
 
+    fun parseEventDateTime(dateTimeString: String): LocalDateTime {
+        val cleanedString = dateTimeString.replace("T", " ")
+        val eventFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+        return LocalDateTime.parse(cleanedString.trim(), eventFormatter)
+    }
+
+    fun formatEventDateTime(dateTime: LocalDateTime): String {
+        val eventFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+        return dateTime.format(eventFormatter)
+    }
+
     private fun parseDate(date: String): LocalDate {
         val formatter = DateTimeFormatter.ofPattern("yyyy-M-d")
         return LocalDate.parse(date, formatter)
-    }
-
-    private fun formatDate(date: LocalDate): String {
-        val formatter = DateTimeFormatter.ofPattern("yyyy年\nM月d日")
-        return date.format(formatter)
     }
 
     //roomdatabase新增事件
@@ -400,14 +407,25 @@ class EventViewModel @Inject constructor(
     }
 
     //修改事件
-    fun updateEvent(uid: String,name: String, startTime: String, endTime: String, tags: String, alarmTime: String, repeatEndDate: String ,repeatType:String, description: String,currentMonth: LocalDate? = null) {
+    fun updateEvent(
+        uid: String,
+        name: String,
+        startTime: String,
+        endTime: String,
+        tags: String,
+        alarmTime: String,
+        repeatEndDate: String,
+        repeatType: String,
+        description: String,
+        currentMonth: LocalDate? = null,
+        updateAll: Boolean
+    ) {
         // 確保用戶已登入
         val memberId = auth.currentUser?.uid ?: return
         val date = parseEventDate(startTime).toString()
-        // Firebase 的事件參考路徑
         val eventRef = database.getReference("members").child(memberId).child("events").child(uid)
+        Log.d("test", "$updateAll")
 
-        // 將要更新的事件資料
         val updatedEvent = mapOf(
             "name" to name,
             "startTime" to startTime,
@@ -419,19 +437,92 @@ class EventViewModel @Inject constructor(
             "description" to description
         )
 
-        // 開始更新 Firebase 中的事件資料
-        eventRef.updateChildren(updatedEvent).addOnSuccessListener {
-            Log.d("firebase","updated successfully")
-            getEventsForDate(date)
+        if (updateAll) {
+            // 查找所有重複事件
+            eventRef.get().addOnSuccessListener { snapshot ->
+                val event = snapshot.getValue(Event::class.java) ?: return@addOnSuccessListener
+                val eventGroupId = event.repeatGroupId
 
-            Log.d("Month","$currentMonth")
-            if (currentMonth != null) {
-                getEventsForMonth(currentMonth)
+                // 刪除所有具有相同 repeatGroupId 的事件
+                val eventsRef = database.getReference("members").child(memberId).child("events")
+                eventsRef.orderByChild("repeatGroupId").equalTo(eventGroupId).get().addOnSuccessListener { snapshot ->
+                    if (snapshot.exists()) {
+                        snapshot.children.forEach { child ->
+                            val childRef = child.ref
+                            childRef.removeValue().addOnSuccessListener {
+                                Log.d("Firebase", "Deleted event with uid: ${child.key}")
+                            }.addOnFailureListener { exception ->
+                                handleException(exception, "Unable to delete event with uid: ${child.key}")
+                            }
+                        }
+                        Log.d("Firebase", "All repeat events deleted successfully")
+
+                        // 根據 repeatType 和 repeatEndDate 新增重複事件
+                        if (repeatType != "無") {
+                            val endDate = parseDate(repeatEndDate)
+                            val initialStartDateTime = parseEventDateTime(startTime)
+                            val initialEndDateTime = parseEventDateTime(endTime)
+                            var nextStartDateTime = initialStartDateTime
+                            var nextEndDateTime = initialEndDateTime
+
+                            while (nextStartDateTime.toLocalDate() <= endDate) {
+                                val newRepeatEvent = event.copy(
+                                    startTime = formatEventDateTime(nextStartDateTime),
+                                    endTime = formatEventDateTime(nextEndDateTime)
+                                )
+                                val newRepeatEventRef = database.getReference("members")
+                                    .child(memberId)
+                                    .child("events")
+                                    .push()
+                                newRepeatEvent.uid = newRepeatEventRef.key ?: ""
+                                newRepeatEventRef.setValue(newRepeatEvent).addOnSuccessListener {
+                                    Log.d("Firebase", "Repeat event saved successfully with UID: ${newRepeatEvent.uid}")
+                                }.addOnFailureListener { exception ->
+                                    handleException(exception, "Unable to save repeat event")
+                                }
+
+                                nextStartDateTime = when (repeatType) {
+                                    "每日" -> nextStartDateTime.plusDays(1)
+                                    "每週" -> nextStartDateTime.plusWeeks(1)
+                                    "每月" -> nextStartDateTime.plusMonths(1)
+                                    "每年" -> nextStartDateTime.plusYears(1)
+                                    else -> nextStartDateTime
+                                }
+                                nextEndDateTime = when (repeatType) {
+                                    "每日" -> nextEndDateTime.plusDays(1)
+                                    "每週" -> nextEndDateTime.plusWeeks(1)
+                                    "每月" -> nextEndDateTime.plusMonths(1)
+                                    "每年" -> nextEndDateTime.plusYears(1)
+                                    else -> nextEndDateTime
+                                }
+                            }
+                        }
+
+                        getEventsForDate(date)
+                        currentMonth?.let { getEventsForMonth(it) }
+                    } else {
+                        Log.d("Firebase", "No matching repeat events found for repeatGroupId: $eventGroupId")
+                        getEventsForDate(date)
+                        currentMonth?.let { getEventsForMonth(it) }
+                    }
+                }.addOnFailureListener { exception ->
+                    handleException(exception, "Unable to delete all repeat events")
+                }
+            }.addOnFailureListener { exception ->
+                handleException(exception, "Unable to find event for updating")
             }
-        }.addOnFailureListener { exception ->
-            handleException(exception, "無法更新事件資料")
+        } else {
+            // 只更新當前事件
+            eventRef.updateChildren(updatedEvent).addOnSuccessListener {
+                Log.d("Firebase", "Updated event successfully")
+                getEventsForDate(date)
+                currentMonth?.let { getEventsForMonth(it) }
+            }.addOnFailureListener { exception ->
+                handleException(exception, "Unable to update event")
+            }
         }
     }
+
 
     //抓錯誤
     fun handleException(exception: Exception? = null, customMessage: String = "") {
