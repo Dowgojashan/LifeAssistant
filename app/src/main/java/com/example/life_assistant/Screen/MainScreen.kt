@@ -99,7 +99,10 @@ fun MainScreen(
         AlertDialog(
             onDismissRequest = { showDialoghint = false },
             title = { Text("提示") },
-            text = { Text("修改資料後，\n記得按下確認修改喔!") },
+            text = {
+                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                Text("修改資料後，\n記得按下確認修改喔!")
+            } },
             confirmButton = {
                 TextButton(onClick = { showDialoghint = false }) {
                     Text("我瞭解了!")
@@ -115,7 +118,7 @@ fun MainScreen(
     ) {
         Column{
             IconButton(onClick = { expanded = true }) {
-                androidx.compose.material3.Icon(
+                Icon(
                     painter = painterResource(id = R.drawable.change),
                     contentDescription = "More Options",
                     modifier = Modifier.size(32.dp)
@@ -146,28 +149,28 @@ fun MainScreen(
                 DropdownMenuItem(
                     onClick = {
                         expanded = false
+                        navController.navigate(DestinationScreen.Classification.route)
+                    },
+                    text = {
+                        Text("標籤分類")
+                    }
+                )
+                DropdownMenuItem(
+                    onClick = {
+                        expanded = false
                         navController.navigate(DestinationScreen.TimeReport.route)
                     },
                     text = {
                         Text("行程分析")
                     }
                 )
-//                            androidx.compose.material3.DropdownMenuItem(
-//                                onClick = {
-//                                    expanded = false
-//                                    navController.navigate(DestinationScreen.WeekCalendar.route)
-//                                },
-//                                text = {
-//                                    androidx.compose.material3.Text("週行事曆")
-//                                }
-//                            )
                 DropdownMenuItem(
                     onClick = {
                         expanded = false
                         mvm.logout()
                     },
                     text = {
-                        androidx.compose.material3.Text("登出")
+                        Text("登出")
                     }
                 )
             }
@@ -179,7 +182,7 @@ fun MainScreen(
             modifier = Modifier
                 .requiredSize(size = 85.dp)
                 .align(Alignment.TopEnd)
-                .offset(x = -20.dp)
+                .offset(x = (-20).dp)
         )
 
         Text(
@@ -221,7 +224,7 @@ fun MainScreen(
                 Spacer(modifier = Modifier.width(5.dp))
 
                 Text(
-                    text = name,
+                    text = member?.name ?: "",
                     color = Color.Black,
                     fontSize =16.sp,
                     modifier = modifier

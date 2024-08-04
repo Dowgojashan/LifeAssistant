@@ -108,7 +108,7 @@ fun DailyCalendarScreen(
                                 Text("月行事曆")
                             }
                         )
-                        androidx.compose.material3.DropdownMenuItem(
+                        DropdownMenuItem(
                             onClick = {
                                 expanded = false
                                 navController.navigate(DestinationScreen.Main.route)
@@ -117,7 +117,7 @@ fun DailyCalendarScreen(
                                 Text("個人資料")
                             }
                         )
-                        androidx.compose.material3.DropdownMenuItem(
+                        DropdownMenuItem(
                             onClick = {
                                 expanded = false
                                 navController.navigate(DestinationScreen.Classification.route)
@@ -126,16 +126,15 @@ fun DailyCalendarScreen(
                                 Text("標籤分類")
                             }
                         )
-//                        DropdownMenuItem(
-//                            onClick = {
-//                                expanded = false
-//                                navController.navigate(DestinationScreen.WeekCalendar.route)
-//                            },
-//                            text = {
-//                                androidx.compose.material3.Text("週行事曆")
-//                            }
-//                        )
-
+                        DropdownMenuItem(
+                            onClick = {
+                                expanded = false
+                                navController.navigate(DestinationScreen.TimeReport.route)
+                            },
+                            text = {
+                                Text("行程分析")
+                            }
+                        )
                         DropdownMenuItem(
                             onClick = {
                                 expanded = false
@@ -199,7 +198,7 @@ fun DailyCalendarScreen(
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                val startOfWeek = currentDate.value.with(DayOfWeek.MONDAY)
+                val startOfWeek = currentDate.value.with(DayOfWeek.MONDAY) //计算当前日期所在周的开始日期（星期一）
                 (0..6).forEach { i ->
                     val date = startOfWeek.plusDays(i.toLong())
                     DayCell(
@@ -317,6 +316,7 @@ fun DailyRow(
         }
     }
 
+    //過濾出當前小時的事件
     val eventsForHour = remember(eventsForDay) {
         eventsForDay.filter { event ->
             val eventStartTime = parseEventDate(event.startTime)

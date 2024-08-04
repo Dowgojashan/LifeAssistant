@@ -118,6 +118,15 @@ fun MonthCalendarScreen(
                                     androidx.compose.material3.Text("標籤分類")
                                 }
                             )
+                            androidx.compose.material3.DropdownMenuItem(
+                                onClick = {
+                                    expanded = false
+                                    navController.navigate(DestinationScreen.TimeReport.route)
+                                },
+                                text = {
+                                    androidx.compose.material3.Text("行程分析")
+                                }
+                            )
 //                            androidx.compose.material3.DropdownMenuItem(
 //                                onClick = {
 //                                    expanded = false
