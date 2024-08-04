@@ -107,9 +107,7 @@ fun ClassificationScreen(
 
             data class ItemState(
                 val label: String,
-                var color: Color,
-                var isExpanded: Boolean = false,
-                var isColorMenuExpanded: Boolean = false
+                var color: Color
             )
 
             val items = remember {
@@ -127,6 +125,8 @@ fun ClassificationScreen(
             LazyColumn {
                 items(items.size) { index ->
                     val item = items[index]
+                    var isExpanded by remember { mutableStateOf(false) }
+                    var isColorMenuExpanded by remember { mutableStateOf(false) }
 
                     Box(
                         modifier = Modifier
@@ -147,41 +147,43 @@ fun ClassificationScreen(
                                     modifier = Modifier.weight(0.7f)
                                 )
                                 IconButton(onClick = {
-                                    item.isExpanded = !item.isExpanded
+                                    isExpanded = !isExpanded
                                 }) {
                                     Icon(
-                                        painter = painterResource(id = if (item.isExpanded) R.drawable.up else R.drawable.down),
-                                        contentDescription = if (item.isExpanded) "Collapse" else "Expand",
+                                        painter = painterResource(id = if (isExpanded) R.drawable.up else R.drawable.down),
+                                        contentDescription = if (isExpanded) "Collapse" else "Expand",
                                         modifier = Modifier.size(24.dp)
                                     )
                                 }
-                                IconButton(onClick = {
-                                    item.isColorMenuExpanded = !item.isColorMenuExpanded
-                                }) {
-                                    Icon(
-                                        painter = painterResource(id = R.drawable.mdi_palette),
-                                        contentDescription = "Change Color",
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                }
-                                DropdownMenu(
-                                    expanded = item.isColorMenuExpanded,
-                                    onDismissRequest = { item.isColorMenuExpanded = false }
-                                ) {
-                                    colors.forEach { color ->
-                                        DropdownMenuItem(
-                                            onClick = {
-                                                item.color = color
-                                                item.isColorMenuExpanded = false
-                                            },
-                                            text = {
-                                                Box(
-                                                    modifier = Modifier
-                                                        .size(24.dp)
-                                                        .background(color)
-                                                )
-                                            }
+                                Box {
+                                    IconButton(onClick = {
+                                        isColorMenuExpanded = true
+                                    }) {
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.mdi_palette),
+                                            contentDescription = "Change Color",
+                                            modifier = Modifier.size(24.dp)
                                         )
+                                    }
+                                    DropdownMenu(
+                                        expanded = isColorMenuExpanded,
+                                        onDismissRequest = { isColorMenuExpanded = false }
+                                    ) {
+                                        colors.forEach { color ->
+                                            DropdownMenuItem(
+                                                onClick = {
+                                                    item.color = color
+                                                    isColorMenuExpanded = false
+                                                },
+                                                text = {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .size(24.dp)
+                                                            .background(color)
+                                                    )
+                                                }
+                                            )
+                                        }
                                     }
                                 }
                                 IconButton(onClick = {
@@ -208,7 +210,7 @@ fun ClassificationScreen(
                                 }
                             }
 
-                            AnimatedVisibility(visible = item.isExpanded) {
+                            AnimatedVisibility(visible = isExpanded) {
                                 Column(modifier = Modifier.padding(start = 16.dp, top = 8.dp)) {
                                     Text(
                                         text = "詳細內容 ${item.label}",

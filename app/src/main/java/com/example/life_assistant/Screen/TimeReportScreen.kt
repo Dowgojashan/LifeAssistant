@@ -96,7 +96,7 @@ fun TimeReportScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(colorResource(id = R.color.light_blue))
+            .background(colorResource(id = R.color.white))
     ) {
 
         Column (
@@ -243,7 +243,7 @@ fun TimeReportScreen(
                 .fillMaxWidth()
                 .requiredHeight(460.dp)
                 .background(
-                    color = Color.White,
+                    color = colorResource(id = R.color.light_blue).copy(alpha = 0.7f),
                     shape = RoundedCornerShape(topStart = 50.dp, topEnd = 50.dp) // Rounded corners
                 )
                 .align(Alignment.BottomCenter)
