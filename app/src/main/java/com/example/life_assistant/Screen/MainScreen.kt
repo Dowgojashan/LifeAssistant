@@ -99,7 +99,7 @@ fun MainScreen(
         AlertDialog(
             onDismissRequest = { showDialoghint = false },
             title = { Text("提示") },
-            text = { Text("如欲修改資料，請直接點選該欄位~\n之後，按下確認修改按鈕即可完成修改") },
+            text = { Text("修改資料後，\n記得按下確認修改喔!") },
             confirmButton = {
                 TextButton(onClick = { showDialoghint = false }) {
                     Text("我瞭解了!")
@@ -719,5 +719,5 @@ fun convertMillisToDateString(timeInMillis: Long): String {
     val month = calendar.get(Calendar.MONTH) + 1
     val day = calendar.get(Calendar.DAY_OF_MONTH)
 
-    return "${year}年\n${month}月${day}日"
+    return "${year}年${month}月${day}日"
 }

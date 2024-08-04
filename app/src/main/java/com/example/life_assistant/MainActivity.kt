@@ -30,6 +30,7 @@ import com.example.life_assistant.Screen.MainScreen
 import com.example.life_assistant.Screen.MonthCalendarScreen
 import com.example.life_assistant.Screen.SignUpHabitScreen
 import com.example.life_assistant.Screen.SignUpScreen
+import com.example.life_assistant.Screen.TimeReportScreen
 import com.example.life_assistant.Screen.WeekCalendarScreen
 import com.example.life_assistant.Screen.calendarScreen
 import com.example.life_assistant.ViewModel.EventViewModel
@@ -145,7 +146,7 @@ fun AuthenticationApp(){
             ClassificationScreen(navController,mvm)
         }
         composable(DestinationScreen.TimeReport.route){
-            ClassificationScreen(navController,mvm)
+            TimeReportScreen(navController,mvm)
         }
     }
 }
