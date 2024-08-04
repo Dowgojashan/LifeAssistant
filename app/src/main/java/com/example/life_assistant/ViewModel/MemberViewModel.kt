@@ -7,6 +7,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
+import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -17,7 +18,10 @@ import com.example.life_assistant.data.Member
 import com.example.life_assistant.data.MemberEntity
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthException
+import com.google.firebase.database.DataSnapshot
+import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.database.ValueEventListener
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -39,7 +43,6 @@ class MemberViewModel @Inject constructor(
     val errorMessage = mutableStateOf<String?>(null)
     val member = mutableStateOf<Member?>(null)
     val email: MutableLiveData<String> = MutableLiveData()
-    val showDialog = mutableStateOf(false)
     val dialogMessage = mutableStateOf("")
 
     //一開啟就檢查使用者是否登入
@@ -111,7 +114,7 @@ class MemberViewModel @Inject constructor(
     fun saveHabitTimes(wakeHour: Int, wakeMinute: Int, sleepHour: Int, sleepMinute: Int) {
         val memberId = auth.currentUser?.uid ?: return
 
-        val habitRef = database.getReference("members").child(memberId).child("habits")
+        val habitRef = database.getReference("members").child(memberId)
         val wakeTime = String.format("%02d:%02d", wakeHour, wakeMinute)
         val sleepTime = String.format("%02d:%02d", sleepHour, sleepMinute)
 
@@ -310,36 +313,79 @@ class MemberViewModel @Inject constructor(
     }
 
     //修改資料
-    fun updateMemberData(newName: String) {
+    fun updateMemberData(name: String, birthday: String, sleepTime: String, wakeTime: String) {
         val memberId = auth.currentUser?.uid ?: return
 
         val memberRef = database.getReference("members").child(memberId)
-        memberRef.child("name").setValue(newName).addOnSuccessListener {
-            showDialog.value = true
-            viewModelScope.launch(Dispatchers.IO) { // 確保在IO執行緒上運行
-                try {
-                    // 從 Room Database 獲取當前成員資料
-                    val currentMember = memberRepository.getMemberByUid(memberId)
-                    if (currentMember != null) {
-                        // 更新成員資料
-                        val updatedMember = currentMember.copy(name = newName)
-                        memberRepository.update(updatedMember)
-                        // 在主執行緒上顯示對話框和更新UI
-                        withContext(Dispatchers.Main) {
-                            showDialog.value = true
-                            getData() // 獲取更新後的資料
+
+        memberRef.child("name").setValue(name).addOnSuccessListener {
+            memberRef.child("birthday").setValue(birthday).addOnSuccessListener {
+                memberRef.child("sleepTime").setValue(sleepTime).addOnSuccessListener {
+                    memberRef.child("wakeTime").setValue(wakeTime).addOnSuccessListener {
+                        viewModelScope.launch(Dispatchers.IO) { // 確保在IO執行緒上運行
+                            try {
+                                // 從 Room Database 獲取當前成員資料
+                                val currentMember = memberRepository.getMemberByUid(memberId)
+                                if (currentMember != null) {
+                                    // 更新成員資料
+//                                    val updatedMember = currentMember.copy(name = name, birthday = birthday, sleepTime = sleepTime, wakeTime = wakeTime)
+//                                    memberRepository.update(updatedMember)
+//                                    // 在主執行緒上顯示對話框和更新UI
+//                                    withContext(Dispatchers.Main) {
+//                                        showDialog.value = true
+//                                        getData() // 獲取更新後的資料
+//                                    }
+                                } else {
+                                    Log.d("AlertDialog", "沒有找到該成員資料")
+                                }
+                            } catch (exception: Exception) {
+                                withContext(Dispatchers.Main) {
+                                    handleException(exception, "無法更新資料")
+                                }
+                            }
                         }
-                    } else {
-                        Log.d("AlertDialog", "沒有找到該成員資料")
+                    }.addOnFailureListener { exception ->
+                        handleException(exception, "無法更新 wakeTime")
                     }
-                } catch (exception: Exception) {
-                    withContext(Dispatchers.Main) {
-                        handleException(exception, "無法更新資料")
-                    }
+                }.addOnFailureListener { exception ->
+                    handleException(exception, "無法更新 sleepTime")
                 }
+            }.addOnFailureListener { exception ->
+                handleException(exception, "無法更新 birthday")
             }
         }.addOnFailureListener { exception ->
-            handleException(exception, "無法更新資料")
+            handleException(exception, "無法更新 name")
         }
+    }
+
+    private val _sleepTime = MutableLiveData<String>()
+    val sleepTime: LiveData<String> = _sleepTime
+
+    private val _wakeTime = MutableLiveData<String>()
+    val wakeTime: LiveData<String> = _wakeTime
+
+    fun fetchSleepAndWakeTime() {
+        val userId = auth.currentUser?.uid ?: return
+        val habitsRef = database.getReference("habits").child(userId)
+
+        habitsRef.child("sleepTime").addListenerForSingleValueEvent(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                _sleepTime.value = snapshot.getValue(String::class.java) ?: ""
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                // 處理錯誤
+            }
+        })
+
+        habitsRef.child("wakeTime").addListenerForSingleValueEvent(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                _wakeTime.value = snapshot.getValue(String::class.java) ?: ""
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                // 處理錯誤
+            }
+        })
     }
 }

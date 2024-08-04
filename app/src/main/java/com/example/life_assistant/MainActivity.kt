@@ -77,16 +77,6 @@ fun AuthenticationApp(){
     val navController = rememberNavController()
     val start = remember{ mutableStateOf(DestinationScreen.Login.route) }
 
-    val currentMonth = remember { mutableStateOf(LocalDate.now().withDayOfMonth(1)) }
-
-    fun goToNextMonth() {
-        currentMonth.value = currentMonth.value.plusMonths(1)
-    }
-
-    fun goToPreviousMonth() {
-        currentMonth.value = currentMonth.value.minusMonths(1)
-    }
-
     NotificationMessage(mvm)
 
     // Determine the initial start destination based on signed-in status

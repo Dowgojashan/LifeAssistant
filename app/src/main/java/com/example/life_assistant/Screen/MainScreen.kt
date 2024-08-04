@@ -78,15 +78,26 @@ fun MainScreen(
 
     //編輯前的原始資料
     val initialName = member?.name ?: ""
-    val initialEmail = getEmail
     val initialBirthday = member?.birthday ?: ""
+    val initialSleepTime = member?.sleepTime ?: ""
+    val initialWakeTime = member?.wakeTime ?: ""
 
-    val wakeState = rememberTimePickerState(0, 0, true)
-    val sleepState = rememberTimePickerState(0, 0, true)
 
-    var name by remember { mutableStateOf(initialName) }
-    var email by remember { mutableStateOf(initialEmail) }
-    var birthday by remember { mutableStateOf(initialBirthday) }
+// 使用 `rememberTimePickerState` 設置初始時間
+    val initialWakeHour = initialWakeTime.split(":").getOrElse(0) { "0" }.toIntOrNull() ?: 0
+    val initialWakeMinute = initialWakeTime.split(":").getOrElse(1) { "0" }.toIntOrNull() ?: 0
+    val wakeState = rememberTimePickerState(initialWakeHour, initialWakeMinute, true)
+
+    val initialSleepHour = initialSleepTime.split(":").getOrElse(0) { "0" }.toIntOrNull() ?: 0
+    val initialSleepMinute = initialSleepTime.split(":").getOrElse(1) { "0" }.toIntOrNull() ?: 0
+    val sleepState = rememberTimePickerState(initialSleepHour, initialSleepMinute, true)
+
+// 使用 `remember` 記住狀態
+    var name by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf("") }
+    var birthday by remember { mutableStateOf("") }
+    var wakeTime by remember { mutableStateOf("") }
+    var sleepTime by remember { mutableStateOf("") }
     var success by remember { mutableStateOf(false) }
     var expanded by remember { mutableStateOf(false) }
     val showDialog = remember { mutableStateOf(false) }
@@ -95,6 +106,15 @@ fun MainScreen(
         mvm.getData()
     }
 
+    LaunchedEffect(member, getEmail) {
+        name = member?.name ?: ""
+        email = getEmail
+        birthday = member?.birthday ?: ""
+        wakeTime = member?.wakeTime ?: ""
+        sleepTime = member?.sleepTime ?: ""
+    }
+
+    Log.d("name",name)
     if (showDialoghint) {
         AlertDialog(
             onDismissRequest = { showDialoghint = false },
@@ -223,8 +243,9 @@ fun MainScreen(
 
                 Spacer(modifier = Modifier.width(5.dp))
 
+                Log.d("test",name)
                 Text(
-                    text = member?.name ?: "",
+                    text = name,
                     color = Color.Black,
                     fontSize =16.sp,
                     modifier = modifier
@@ -250,7 +271,7 @@ fun MainScreen(
                         confirmButton = {
                             Button(onClick = {
                                 showDialogName = false
-                                // TODO: handle nickname change
+
                             }) {
                                 Text("暫存")
                             }
@@ -287,19 +308,6 @@ fun MainScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
             ){
-                var showDialogEmail by remember { mutableStateOf(false) }
-                /*TextField(
-                    value = email,
-                    onValueChange = {email = it},
-                    label = {Text ("電子郵件: $getEmail",fontWeight = FontWeight.Bold) },
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = containerColor,
-                        unfocusedContainerColor = containerColor,
-                        disabledContainerColor = Color.Transparent),
-                    modifier = Modifier
-                        .requiredWidth(width = 280.dp)
-                        .requiredHeight(height = 60.dp)
-                )*/
                 Box(
                     modifier = Modifier.width(90.dp) // 固定寬度的Box
                 ) {
@@ -321,37 +329,6 @@ fun MainScreen(
                 )
 
                 Spacer(modifier = Modifier.weight(1f))//占用剩餘空間
-
-                IconButton(onClick = { showDialogEmail = true }) {
-                    Icon(Icons.Default.Edit, contentDescription = "Edit email")
-                }
-
-                if (showDialogEmail) {
-                    AlertDialog(
-                        onDismissRequest = { showDialogEmail = false },
-                        title = { Text(text = "修改電子郵件") },
-                        text = {
-                            TextField(
-                                value = email,
-                                onValueChange = { email = it },
-                                placeholder = { Text(text = "輸入新電子郵件") }
-                            )
-                        },
-                        confirmButton = {
-                            Button(onClick = {
-                                showDialogEmail = false
-                                // TODO: handle nickname change
-                            }) {
-                                Text("暫存")
-                            }
-                        },
-                        dismissButton = {
-                            Button(onClick = { showDialogEmail = false }) {
-                                Text("取消")
-                            }
-                        }
-                    )
-                }
             }
 
         }
@@ -503,14 +480,12 @@ fun MainScreen(
                 .requiredWidth(width = 310.dp)
                 .requiredHeight(height = 30.dp)
                 .align(Alignment.TopCenter)
-                .offset(
-                    y = 330.dp
-                )
+                .offset(y = 330.dp)
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
-            ){
+            ) {
                 var showDialogWakeupTime by remember { mutableStateOf(false) }
                 Box(
                     modifier = Modifier.width(90.dp) // 固定寬度的Box
@@ -523,18 +498,17 @@ fun MainScreen(
                     )
                 }
 
-
                 Text(
-                    text = getEmail,
+                    text = wakeTime,
                     color = Color.Black,
                     fontSize = 16.sp,
                     modifier = modifier
                 )
 
-                Spacer(modifier = Modifier.weight(1f))//占用剩餘空間
+                Spacer(modifier = Modifier.weight(1f)) //占用剩餘空間
 
                 IconButton(onClick = { showDialogWakeupTime = true }) {
-                    Icon(Icons.Default.Edit, contentDescription = "Edit email")
+                    Icon(Icons.Default.Edit, contentDescription = "Edit wake-up time")
                 }
 
                 if (showDialogWakeupTime) {
@@ -549,12 +523,17 @@ fun MainScreen(
                                     timeSelectorSelectedContentColor = Color.Black,
                                     timeSelectorUnselectedContainerColor = Color(0xffb4cfe2),
                                     timeSelectorUnselectedContentColor = Color.Black
-                                ))
+                                )
+                            )
                         },
                         confirmButton = {
                             Button(onClick = {
+                                // 獲取使用者選擇的時間
+                                val selectedHour = wakeState.hour
+                                val selectedMinute = wakeState.minute
+                                // 格式化時間為 HH:mm
+                                wakeTime = String.format("%02d:%02d", selectedHour, selectedMinute)
                                 showDialogWakeupTime = false
-                                // TODO: handle nickname change
                             }) {
                                 Text("暫存")
                             }
@@ -567,7 +546,6 @@ fun MainScreen(
                     )
                 }
             }
-
         }
 
         Divider(
@@ -583,15 +561,12 @@ fun MainScreen(
                 .requiredWidth(width = 310.dp)
                 .requiredHeight(height = 30.dp)
                 .align(Alignment.TopCenter)
-                .offset(
-                    y = 390.dp
-                )
-
+                .offset(y = 390.dp)
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
-            ){
+            ) {
                 var showDialogSleepTime by remember { mutableStateOf(false) }
 
                 Box(
@@ -605,9 +580,8 @@ fun MainScreen(
                     )
                 }
 
-
                 Text(
-                    text = getEmail,
+                    text = sleepTime,
                     color = Color.Black,
                     fontSize = 16.sp,
                     modifier = modifier
@@ -616,7 +590,7 @@ fun MainScreen(
                 Spacer(modifier = Modifier.weight(1f))//占用剩餘空間
 
                 IconButton(onClick = { showDialogSleepTime = true }) {
-                    Icon(Icons.Default.Edit, contentDescription = "Edit email")
+                    Icon(Icons.Default.Edit, contentDescription = "Edit sleep time")
                 }
 
                 if (showDialogSleepTime) {
@@ -624,19 +598,24 @@ fun MainScreen(
                         onDismissRequest = { showDialogSleepTime = false },
                         title = { Text(text = "修改睡覺時間") },
                         text = {
-                            TimeInput(  //時間輸入框
+                            TimeInput( //時間輸入框
                                 state = sleepState,
                                 colors = TimePickerDefaults.colors(
                                     timeSelectorSelectedContainerColor = Color(0xffb4cfe2),
                                     timeSelectorSelectedContentColor = Color.Black,
                                     timeSelectorUnselectedContainerColor = Color(0xffb4cfe2),
                                     timeSelectorUnselectedContentColor = Color.Black
-                                ))
+                                )
+                            )
                         },
                         confirmButton = {
                             Button(onClick = {
+                                // 獲取使用者選擇的時間
+                                val selectedHour = sleepState.hour
+                                val selectedMinute = sleepState.minute
+                                // 格式化時間為 HH:mm
+                                sleepTime = String.format("%02d:%02d", selectedHour, selectedMinute)
                                 showDialogSleepTime = false
-                                // TODO: handle nickname change
                             }) {
                                 Text("暫存")
                             }
@@ -649,7 +628,6 @@ fun MainScreen(
                     )
                 }
             }
-
         }
 
         Divider(
@@ -671,8 +649,14 @@ fun MainScreen(
         ) {
             Button(
                 onClick = {
-                    mvm.updateMemberData(name)
-                    success = true },
+                    val finalName = if (name.isBlank()) initialName else name
+                    val finalBirthday = if (birthday.isBlank()) initialBirthday else birthday
+                    val finalSleepTime = if (sleepTime.isBlank()) initialSleepTime else sleepTime
+                    val finalWakeTime = if (wakeTime.isBlank()) initialWakeTime else wakeTime
+
+                    mvm.updateMemberData(finalName, finalBirthday, finalSleepTime, finalWakeTime)
+                    success = true
+                          },
                 colors = ButtonDefaults.buttonColors(containerColor = colorResource(id = R.color.light_blue)),
                 modifier = Modifier
                     .requiredWidth(width = 100.dp)

@@ -1055,7 +1055,6 @@ fun UserInputDialog(
 
                             if (endLocalTime.isAfter(startLocalTime)) {
                                 if (event == null && currentMonth == null) {
-                                    Log.d("date","$selectedDay")
                                     evm.addEvent(name, startTime, endTime, tags, alarmTime,repeatEndDate ,repeatType, description)
                                 }
                                 else if(event == null && currentMonth != null){

@@ -4,4 +4,6 @@ package com.example.life_assistant.data
 data class Member(
     val name: String = "",
     val birthday: String = "",
+    val sleepTime: String = "",
+    val wakeTime: String = "",
 )

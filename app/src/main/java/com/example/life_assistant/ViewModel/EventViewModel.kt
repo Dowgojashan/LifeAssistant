@@ -55,7 +55,6 @@ class EventViewModel @Inject constructor(
         currentMonth: LocalDate? = null
     ) {
         val memberId = auth.currentUser?.uid ?: return
-        val date = "2024/07/31"
 
         // 生成唯一的 repeatGroupId
         val repeatGroupId = if (repeatType != "無") {
