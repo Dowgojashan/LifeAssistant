@@ -5,6 +5,7 @@ import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import android.os.Build
 import android.util.Log
+import android.widget.NumberPicker
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -14,6 +15,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -34,9 +36,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.navigation.NavController
 import com.example.life_assistant.DestinationScreen
@@ -743,8 +747,10 @@ fun UserInputDialog(
 //        initialMinute = initialStartLocalTime.minute
 //    )
     var deadline by remember { mutableStateOf("") }
-    var duration by remember { mutableStateOf("") }
+    val duration = rememberTimePickerState(0, 0, true)
     var isSplittable by remember { mutableStateOf(false) }
+    val shortesttime = rememberTimePickerState(0, 0, true)
+    val longesttime = rememberTimePickerState(0, 0, true)
 
     Log.d("date","$selectedDay")
 
@@ -773,7 +779,7 @@ fun UserInputDialog(
                     .verticalScroll(rememberScrollState())
                     .padding(16.dp)
             ) {
-                //設定事件名稱
+                // 設定事件名稱
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
@@ -807,7 +813,7 @@ fun UserInputDialog(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                //設定結束時間
+                // 設定結束時間
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("結束時間:", color = Color.Black)
                     Spacer(modifier = Modifier.width(8.dp))
@@ -842,7 +848,7 @@ fun UserInputDialog(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                //自動排程(待修正)
+                // 自動排程
                 Column {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("自動排程:", color = Color.Black)
@@ -862,20 +868,28 @@ fun UserInputDialog(
                             Spacer(modifier = Modifier.height(8.dp))
 
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("結束時間:", color = Color.Black)//這邊有一個小小的要抓，結束時間最早只能是當天
+                                Text("結束時間:", color = Color.Black)
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Button(
                                     onClick = { showDatePicker = true },
-                                    colors = ButtonDefaults.run { buttonColors(colorResource1(id = R.color.light_blue)) }
+                                    colors = ButtonDefaults.buttonColors(colorResource1(id = R.color.light_blue))
                                 ) {
-                                    Text(if (deadline.isBlank()) "選擇日期" else deadline, color = Color.White)
+                                    Text(
+                                        if (deadline.isBlank()) "選擇日期" else deadline,
+                                        color = Color.White
+                                    )
                                 }
                                 if (showDatePicker) {
                                     val calendar = Calendar.getInstance()
                                     DatePickerDialog(
                                         LocalContext.current,
                                         { _, year, month, dayOfMonth ->
-                                            deadline = String.format("%d-%02d-%02d", year, month + 1, dayOfMonth)
+                                            deadline = String.format(
+                                                "%d-%02d-%02d",
+                                                year,
+                                                month + 1,
+                                                dayOfMonth
+                                            )
                                             showDatePicker = false
                                         },
                                         calendar.get(Calendar.YEAR),
@@ -883,9 +897,15 @@ fun UserInputDialog(
                                         calendar.get(Calendar.DAY_OF_MONTH)
                                     ).apply {
                                         setOnShowListener {
-                                            getButton(DatePickerDialog.BUTTON_POSITIVE).setTextColor(android.graphics.Color.BLACK)
-                                            getButton(DatePickerDialog.BUTTON_NEGATIVE).setTextColor(android.graphics.Color.LTGRAY)
-                                            getButton(DatePickerDialog.BUTTON_NEUTRAL).setTextColor(android.graphics.Color.GRAY)
+                                            getButton(DatePickerDialog.BUTTON_POSITIVE).setTextColor(
+                                                android.graphics.Color.BLACK
+                                            )
+                                            getButton(DatePickerDialog.BUTTON_NEGATIVE).setTextColor(
+                                                android.graphics.Color.LTGRAY
+                                            )
+                                            getButton(DatePickerDialog.BUTTON_NEUTRAL).setTextColor(
+                                                android.graphics.Color.GRAY
+                                            )
                                         }
                                     }.show()
                                 }
@@ -893,13 +913,26 @@ fun UserInputDialog(
 
                             Spacer(modifier = Modifier.height(8.dp))
 
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("所需時間:", color = Color.Black)
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically // 水平中线对齐
+                            ) {
+                                Text(
+                                    text = "所需時間",
+                                    color = Color.Black,
+                                    modifier = Modifier.align(Alignment.CenterVertically) // 水平中线对齐
+                                )
                                 Spacer(modifier = Modifier.width(8.dp))
-                                TextField(
-                                    value = duration,
-                                    onValueChange = { duration = it },
-                                    modifier = Modifier.fillMaxWidth()
+                                TimeInput( // 時間輸入框
+                                    state = duration,
+                                    colors = TimePickerDefaults.colors(
+                                        timeSelectorSelectedContainerColor = Color(0xffb4cfe2),
+                                        timeSelectorSelectedContentColor = Color.Black,
+                                        timeSelectorUnselectedContainerColor = Color(0xffb4cfe2),
+                                        timeSelectorUnselectedContentColor = Color.Black
+                                    ),
+                                    modifier = Modifier
+                                        .size(180.dp, 70.dp)
+                                        .align(Alignment.CenterVertically) // 水平中线对齐
                                 )
                             }
 
@@ -917,12 +950,49 @@ fun UserInputDialog(
                                     )
                                 )
                             }
+
+                            //可以分割的話
+                            if (isSplittable) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text("最短時間", color = Color.Black)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    TimeInput( // 時間輸入框
+                                        state = shortesttime,
+                                        colors = TimePickerDefaults.colors(
+                                            timeSelectorSelectedContainerColor = Color(0xffb4cfe2),
+                                            timeSelectorSelectedContentColor = Color.Black,
+                                            timeSelectorUnselectedContainerColor = Color(0xffb4cfe2),
+                                            timeSelectorUnselectedContentColor = Color.Black
+                                        ),
+                                        modifier = Modifier
+                                            .size(180.dp, 70.dp)
+                                            .align(Alignment.CenterVertically) // 水平中线对齐
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text("最長時間:", color = Color.Black)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    TimeInput( // 時間輸入框
+                                        state = longesttime,
+                                        colors = TimePickerDefaults.colors(
+                                            timeSelectorSelectedContainerColor = Color(0xffb4cfe2),
+                                            timeSelectorSelectedContentColor = Color.Black,
+                                            timeSelectorUnselectedContainerColor = Color(0xffb4cfe2),
+                                            timeSelectorUnselectedContentColor = Color.Black
+                                        ),
+                                        modifier = Modifier
+                                            .size(180.dp, 70.dp)
+                                            .align(Alignment.CenterVertically) // 水平中线对齐
+                                    )
+                                }
+                            }
                         }
                     }
                 }
 
-
-                Spacer(modifier = Modifier.height(8.dp))
+                  Spacer(modifier = Modifier.height(8.dp))
 
                 // 提醒時間選擇
                 Row(verticalAlignment = Alignment.CenterVertically) {
