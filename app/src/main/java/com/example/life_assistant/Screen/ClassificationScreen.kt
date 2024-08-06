@@ -66,6 +66,15 @@ fun ClassificationScreen(
                     DropdownMenuItem(
                         onClick = {
                             expanded = false
+                            navController.navigate(DestinationScreen.Main.route)
+                        },
+                        text = {
+                            Text("個人資料")
+                        }
+                    )
+                    DropdownMenuItem(
+                        onClick = {
+                            expanded = false
                             navController.navigate(DestinationScreen.TimeReport.route)
                         },
                         text = {

@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -334,6 +335,15 @@ fun DailyRow(
                         (eventStartDate.isBefore(currentDayFormatted) && eventEndDate.isEqual(currentDayFormatted) && eventEndTime.hour >= hourInt) ||
                         (eventStartDate.isEqual(currentDayFormatted) && eventEndDate.isAfter(currentDayFormatted) && eventStartTime.hour <= hourInt)
             } else {
+                // 處理跨日事件
+                val eventSpanDays = ChronoUnit.DAYS.between(eventStartDate, eventEndDate).toInt()
+                if (eventSpanDays > 1) {
+                    for (day in 1 until eventSpanDays) {
+                        if (eventStartDate.plusDays(day.toLong()).isEqual(currentDayFormatted)) {
+                            return@filter true
+                        }
+                    }
+                }
                 false
             }
             isForHour
@@ -344,12 +354,14 @@ fun DailyRow(
 
     var selectedEvent by remember { mutableStateOf<Event?>(null) }
 
+    // 用於追蹤已顯示過名稱的事件
+    val shownEvents = rememberSaveable { mutableSetOf<String>() }
 
     // Define a function to compute position outside of the Composable
     val eventWidthPx = with(LocalDensity.current) { eventWidth.toPx() }
     val eventSpacingPx = with(LocalDensity.current) { eventSpacing.toPx() }
 
-    fun computeEventOffset(event: Event): Float {
+    fun computeEventOffset(event: Event, eventsForHour: List<Event>): Float {
         val eventKey = event.uid
 
         // If position is already computed for any hour, return it
@@ -360,9 +372,19 @@ fun DailyRow(
         // Compute new position if not found
         val position = run {
             var newPosition = 0f
-            while (eventPositions[hour]?.values?.contains(newPosition) == true) {
-                newPosition += (eventWidthPx + eventSpacingPx)
-            }
+            var isPositionFound: Boolean
+
+            do {
+                isPositionFound = true
+                for (e in eventsForHour) {
+                    if (event != e && eventPositions[hour]?.get(e.uid) == newPosition) {
+                        isPositionFound = false
+                        newPosition += (eventWidthPx + eventSpacingPx)
+                        break
+                    }
+                }
+            } while (!isPositionFound)
+
             newPosition
         }
 
@@ -379,10 +401,6 @@ fun DailyRow(
 
         return position
     }
-
-    // 用於追蹤已顯示過名稱的事件
-    // 在 Composable 的 key 改變時，重置 `shownEvents`
-    val shownEvents = remember(currentDay) { mutableSetOf<String>() }
 
     // UI
     Row(
@@ -417,20 +435,14 @@ fun DailyRow(
                     0f
                 }
 
-                fun isEventAtMidnight(): Boolean {
+                val isEventAtMidnight = {
                     val startTime = eventStartTime.toLocalTime()
                     val endTime = eventEndTime.toLocalTime()
 
                     // Check if the event starts before midnight and ends after midnight
-                    val spansMidnight = (eventStartTime.toLocalDate().isBefore(eventEndTime.toLocalDate()) ||
+                    (eventStartTime.toLocalDate().isBefore(eventEndTime.toLocalDate()) ||
                             (eventStartTime.toLocalDate().isEqual(eventEndTime.toLocalDate()) && endTime.isBefore(startTime))) ||
                             (startTime == LocalTime.MIDNIGHT || endTime == LocalTime.MIDNIGHT)
-
-                    // Log details to debug
-                    Log.d("test", "Event Start Time: $startTime, Event End Time: $endTime")
-                    Log.d("test", "Spans Midnight: $spansMidnight")
-
-                    return spansMidnight
                 }
 
                 val heightFraction = when {
@@ -454,8 +466,9 @@ fun DailyRow(
                 }
 
                 // Retrieve horizontal offset for the event
-                val offsetPx = computeEventOffset(event)
-                Log.d("EventOffset", "Event UID: ${event.uid}, Offset: $offsetPx")
+                val offsetPx = computeEventOffset(event, eventsForHour)
+                var uid = event.uid
+                Log.d("location", "$uid,$offsetPx")
 
                 Box(
                     modifier = Modifier
@@ -467,7 +480,7 @@ fun DailyRow(
                         .clickable { selectedEvent = event }
                 ) {
                     if (eventStartTime.toLocalDate() == currentDayFormatted &&
-                        (eventStartTime.hour == hourInt) && !shownEvents.contains(event.uid)
+                        (eventStartTime.hour == hourInt)
                     ) {
                         Text(
                             text = event.name,
@@ -481,7 +494,8 @@ fun DailyRow(
                                 .padding(4.dp)
                         )
                         shownEvents.add(event.uid) // 標記該事件名稱已顯示
-                    }else if(eventStartTime.toLocalDate() == currentDayFormatted && isEventAtMidnight()){
+                    } else if (hourInt == 0 && isEventAtMidnight()) {
+                        // Check if the event spans midnight and it's the next day at 00:00
                         Text(
                             text = event.name,
                             color = Color.White,
@@ -498,13 +512,14 @@ fun DailyRow(
                 }
             }
         }
-        HorizontalDivider(modifier = Modifier.width(1.dp))
     }
 
     selectedEvent?.let { event ->
         EventDetailDialog(event = event, evm = evm, "daily", onDismiss = { selectedEvent = null })
     }
 }
+
+
 
 
 //事件視窗
