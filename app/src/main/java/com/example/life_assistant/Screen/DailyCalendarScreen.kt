@@ -320,18 +320,30 @@ fun DailyRow(
         }
     }
 
-    //過濾出當前小時的事件
+    // 過濾出當前小時的事件
     val eventsForHour = remember(eventsForDay) {
         eventsForDay.filter { event ->
             val eventStartTime = parseEventDate(event.startTime)
             val eventEndTime = parseEventDate(event.endTime)
-            eventStartTime.hour <= hourInt && eventEndTime.hour >= hourInt
+            val eventStartDate = eventStartTime.toLocalDate()
+            val eventEndDate = eventEndTime.toLocalDate()
+
+            // 確保事件在當天，並檢查事件是否在當前小時內
+            val isForHour = if (eventStartDate.isEqual(currentDayFormatted) || eventEndDate.isEqual(currentDayFormatted)) {
+                (eventStartTime.hour <= hourInt && eventEndTime.hour >= hourInt) ||
+                        (eventStartDate.isBefore(currentDayFormatted) && eventEndDate.isEqual(currentDayFormatted) && eventEndTime.hour >= hourInt) ||
+                        (eventStartDate.isEqual(currentDayFormatted) && eventEndDate.isAfter(currentDayFormatted) && eventStartTime.hour <= hourInt)
+            } else {
+                false
+            }
+            isForHour
         }.sortedBy { event ->
             parseEventDate(event.startTime)
         }
     }
 
     var selectedEvent by remember { mutableStateOf<Event?>(null) }
+
 
     // Define a function to compute position outside of the Composable
     val eventWidthPx = with(LocalDensity.current) { eventWidth.toPx() }
@@ -368,6 +380,10 @@ fun DailyRow(
         return position
     }
 
+    // 用於追蹤已顯示過名稱的事件
+    // 在 Composable 的 key 改變時，重置 `shownEvents`
+    val shownEvents = remember(currentDay) { mutableSetOf<String>() }
+
     // UI
     Row(
         modifier = Modifier.fillMaxWidth()
@@ -399,6 +415,22 @@ fun DailyRow(
                     eventStartTime.minute.toFloat() / 60
                 } else {
                     0f
+                }
+
+                fun isEventAtMidnight(): Boolean {
+                    val startTime = eventStartTime.toLocalTime()
+                    val endTime = eventEndTime.toLocalTime()
+
+                    // Check if the event starts before midnight and ends after midnight
+                    val spansMidnight = (eventStartTime.toLocalDate().isBefore(eventEndTime.toLocalDate()) ||
+                            (eventStartTime.toLocalDate().isEqual(eventEndTime.toLocalDate()) && endTime.isBefore(startTime))) ||
+                            (startTime == LocalTime.MIDNIGHT || endTime == LocalTime.MIDNIGHT)
+
+                    // Log details to debug
+                    Log.d("test", "Event Start Time: $startTime, Event End Time: $endTime")
+                    Log.d("test", "Spans Midnight: $spansMidnight")
+
+                    return spansMidnight
                 }
 
                 val heightFraction = when {
@@ -434,17 +466,35 @@ fun DailyRow(
                         .clip(RoundedCornerShape(4.dp))
                         .clickable { selectedEvent = event }
                 ) {
-                    Text(
-                        text = event.name,
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier
-                            .align(Alignment.Center)
-                            .padding(4.dp)
-                    )
+                    if (eventStartTime.toLocalDate() == currentDayFormatted &&
+                        (eventStartTime.hour == hourInt) && !shownEvents.contains(event.uid)
+                    ) {
+                        Text(
+                            text = event.name,
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier
+                                .align(Alignment.Center)
+                                .padding(4.dp)
+                        )
+                        shownEvents.add(event.uid) // 標記該事件名稱已顯示
+                    }else if(eventStartTime.toLocalDate() == currentDayFormatted && isEventAtMidnight()){
+                        Text(
+                            text = event.name,
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier
+                                .align(Alignment.Center)
+                                .padding(4.dp)
+                        )
+                        shownEvents.add(event.uid) // 標記該事件名稱已顯示
+                    }
                 }
             }
         }
@@ -455,6 +505,7 @@ fun DailyRow(
         EventDetailDialog(event = event, evm = evm, "daily", onDismiss = { selectedEvent = null })
     }
 }
+
 
 //事件視窗
 @Composable
@@ -746,11 +797,10 @@ fun UserInputDialog(
 //        initialHour = initialStartLocalTime.hour,
 //        initialMinute = initialStartLocalTime.minute
 //    )
-    var deadline by remember { mutableStateOf("") }
     val duration = rememberTimePickerState(0, 0, true)
     var isSplittable by remember { mutableStateOf(false) }
-    val shortesttime = rememberTimePickerState(0, 0, true)
-    val longesttime = rememberTimePickerState(0, 0, true)
+    val shortestTime = rememberTimePickerState(0, 0, true)
+    val longestTime = rememberTimePickerState(0, 0, true)
 
     Log.d("date","$selectedDay")
 
@@ -867,52 +917,6 @@ fun UserInputDialog(
                         Column {
                             Spacer(modifier = Modifier.height(8.dp))
 
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("結束時間:", color = Color.Black)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Button(
-                                    onClick = { showDatePicker = true },
-                                    colors = ButtonDefaults.buttonColors(colorResource1(id = R.color.light_blue))
-                                ) {
-                                    Text(
-                                        if (deadline.isBlank()) "選擇日期" else deadline,
-                                        color = Color.White
-                                    )
-                                }
-                                if (showDatePicker) {
-                                    val calendar = Calendar.getInstance()
-                                    DatePickerDialog(
-                                        LocalContext.current,
-                                        { _, year, month, dayOfMonth ->
-                                            deadline = String.format(
-                                                "%d-%02d-%02d",
-                                                year,
-                                                month + 1,
-                                                dayOfMonth
-                                            )
-                                            showDatePicker = false
-                                        },
-                                        calendar.get(Calendar.YEAR),
-                                        calendar.get(Calendar.MONTH),
-                                        calendar.get(Calendar.DAY_OF_MONTH)
-                                    ).apply {
-                                        setOnShowListener {
-                                            getButton(DatePickerDialog.BUTTON_POSITIVE).setTextColor(
-                                                android.graphics.Color.BLACK
-                                            )
-                                            getButton(DatePickerDialog.BUTTON_NEGATIVE).setTextColor(
-                                                android.graphics.Color.LTGRAY
-                                            )
-                                            getButton(DatePickerDialog.BUTTON_NEUTRAL).setTextColor(
-                                                android.graphics.Color.GRAY
-                                            )
-                                        }
-                                    }.show()
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(8.dp))
-
                             Row(
                                 verticalAlignment = Alignment.CenterVertically // 水平中线对齐
                             ) {
@@ -958,7 +962,7 @@ fun UserInputDialog(
                                     Text("最短時間", color = Color.Black)
                                     Spacer(modifier = Modifier.width(8.dp))
                                     TimeInput( // 時間輸入框
-                                        state = shortesttime,
+                                        state = shortestTime,
                                         colors = TimePickerDefaults.colors(
                                             timeSelectorSelectedContainerColor = Color(0xffb4cfe2),
                                             timeSelectorSelectedContentColor = Color.Black,
@@ -975,7 +979,7 @@ fun UserInputDialog(
                                     Text("最長時間:", color = Color.Black)
                                     Spacer(modifier = Modifier.width(8.dp))
                                     TimeInput( // 時間輸入框
-                                        state = longesttime,
+                                        state = longestTime,
                                         colors = TimePickerDefaults.colors(
                                             timeSelectorSelectedContainerColor = Color(0xffb4cfe2),
                                             timeSelectorSelectedContentColor = Color.Black,
@@ -984,7 +988,7 @@ fun UserInputDialog(
                                         ),
                                         modifier = Modifier
                                             .size(180.dp, 70.dp)
-                                            .align(Alignment.CenterVertically) // 水平中线对齐
+                                            .align(Alignment.CenterVertically)
                                     )
                                 }
                             }

@@ -7,9 +7,12 @@ data class Event(
     val endTime: String,
     val tags: String = "",
     val alarmTime: String,
-    var repeatEndDate: String = "", // 新增字段
+    var repeatEndDate: String = "",
     var repeatType: String = "",
     val repeatGroupId: String = "",
+    val duration: String = "", //選擇自動排程，該事件需要做多久時間
+    val shortestTime: String = "", //如有切割，一個單位最少多長
+    val longestTime: String = "", //如有切割，一個單位最長多長
     val description: String = "",
 ){
     // 建構子

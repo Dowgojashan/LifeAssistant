@@ -52,6 +52,15 @@ data class EventEntity(
     @SerialName("repeatGroupId")
     val repeatGroupId: String,
 
+    @SerialName("duration")
+    val duration: String,
+
+    @SerialName("shortestTime")
+    val shortestTime: String,
+
+    @SerialName("longestTime")
+    val longestTime: String,
+
     @SerialName("description")
     val description: String = "",
 ){
