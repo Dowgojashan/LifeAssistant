@@ -472,7 +472,9 @@ fun DailyRow(
 
                 Box(
                     modifier = Modifier
-                        .offset(x = with(LocalDensity.current) { offsetPx.toDp() }, y = with(LocalDensity.current) { (startFraction * 60.dp.toPx()).toDp() })
+                        .offset(
+                            x = with(LocalDensity.current) { offsetPx.toDp() },
+                            y = with(LocalDensity.current) { (startFraction * 60.dp.toPx()).toDp() })
                         .width(eventWidth)
                         .fillMaxHeight(heightFraction)
                         .background(Color.Blue)
@@ -536,7 +538,13 @@ fun EventDetailDialog(event: Event, evm: EventViewModel, temp: String, onDismiss
 
     // 監控事件列表變化，當事件列表更新時，更新 updatedEvent 的值
     LaunchedEffect(events) {
-        updatedEvent.value = events.find { it.uid == event.uid } ?: event
+        val check = events.find { it.repeatType != "無" } != null
+        if(check){
+            updatedEvent.value = events.find { it.repeatGroupId == event.repeatGroupId } ?: event
+        }
+        else{
+            updatedEvent.value = events.find { it.uid == event.uid } ?: event
+        }
     }
 
     Dialog(onDismissRequest = onDismiss) {
@@ -1141,7 +1149,6 @@ fun UserInputDialog(
                                 repeatEndDate = repeatEndDateLocalDate.toString()
                             }
 
-
                             if (endLocalTime.isAfter(startLocalTime)) {
                                 if (event == null && currentMonth == null) {
                                     evm.addEvent(name, startTime, endTime, tags, alarmTime,repeatEndDate ,repeatType, description)
@@ -1156,13 +1163,11 @@ fun UserInputDialog(
                                     evm.updateEvent(event.uid,name, startTime, endTime, tags, alarmTime, repeatEndDate ,repeatType, description,currentMonth,false)
                                 }
                                 else if (editAll == true && event != null && currentMonth == null) {
-                                    Log.d("test","$editAll")
                                     evm.updateEvent(event.uid,name, startTime, endTime, tags, alarmTime, repeatEndDate ,repeatType, description,null ,true)
                                 }
                                 else if(editAll == true && event != null && currentMonth != null){
                                     evm.updateEvent(event.uid, name, startTime, endTime, tags, alarmTime, repeatEndDate, repeatType, description, currentMonth, true)
                                 }
-
                                 onDismiss()
                             } else {
                                 errorMessage.value = "結束時間必須晚於開始時間"

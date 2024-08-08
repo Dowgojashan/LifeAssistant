@@ -52,13 +52,19 @@ class EventViewModel @Inject constructor(
         repeatEndDate: String,
         repeatType: String,
         description: String,
-        currentMonth: LocalDate? = null
+        currentMonth: LocalDate? = null,
+        edituid: String? = null
     ) {
         val memberId = auth.currentUser?.uid ?: return
 
         // 生成唯一的 repeatGroupId
         val repeatGroupId = if (repeatType != "無") {
-            UUID.randomUUID().toString()  // 使用 UUID 生成唯一的 repeatGroupId
+            if(edituid?.isNotBlank() == true){
+                edituid
+            }
+            else{
+                UUID.randomUUID().toString()  // 使用 UUID 生成唯一的 repeatGroupId
+            }
         } else {
             ""  // 不使用 repeatGroupId
         }
@@ -457,48 +463,7 @@ class EventViewModel @Inject constructor(
                         Log.d("Firebase", "All repeat events deleted successfully")
 
                         // 根據 repeatType 和 repeatEndDate 新增重複事件
-                        if (repeatType != "無") {
-                            val endDate = parseDate(repeatEndDate)
-                            val initialStartDateTime = parseEventDateTime(startTime)
-                            val initialEndDateTime = parseEventDateTime(endTime)
-                            var nextStartDateTime = initialStartDateTime
-                            var nextEndDateTime = initialEndDateTime
-
-                            while (nextStartDateTime.toLocalDate() <= endDate) {
-                                val newRepeatEvent = event.copy(
-                                    startTime = formatEventDateTime(nextStartDateTime),
-                                    endTime = formatEventDateTime(nextEndDateTime)
-                                )
-                                val newRepeatEventRef = database.getReference("members")
-                                    .child(memberId)
-                                    .child("events")
-                                    .push()
-                                newRepeatEvent.uid = newRepeatEventRef.key ?: ""
-                                newRepeatEventRef.setValue(newRepeatEvent).addOnSuccessListener {
-                                    Log.d("Firebase", "Repeat event saved successfully with UID: ${newRepeatEvent.uid}")
-                                }.addOnFailureListener { exception ->
-                                    handleException(exception, "Unable to save repeat event")
-                                }
-
-                                nextStartDateTime = when (repeatType) {
-                                    "每日" -> nextStartDateTime.plusDays(1)
-                                    "每週" -> nextStartDateTime.plusWeeks(1)
-                                    "每月" -> nextStartDateTime.plusMonths(1)
-                                    "每年" -> nextStartDateTime.plusYears(1)
-                                    else -> nextStartDateTime
-                                }
-                                nextEndDateTime = when (repeatType) {
-                                    "每日" -> nextEndDateTime.plusDays(1)
-                                    "每週" -> nextEndDateTime.plusWeeks(1)
-                                    "每月" -> nextEndDateTime.plusMonths(1)
-                                    "每年" -> nextEndDateTime.plusYears(1)
-                                    else -> nextEndDateTime
-                                }
-                            }
-                        }
-
-                        getEventsForDate(date)
-                        currentMonth?.let { getEventsForMonth(it) }
+                        addEvent(name,startTime,endTime,tags,alarmTime,repeatEndDate,repeatType,description,currentMonth,eventGroupId)
                     } else {
                         Log.d("Firebase", "No matching repeat events found for repeatGroupId: $eventGroupId")
                         getEventsForDate(date)
