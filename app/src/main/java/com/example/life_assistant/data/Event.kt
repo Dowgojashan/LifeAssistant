@@ -11,8 +11,11 @@ data class Event(
     var repeatType: String = "",
     val repeatGroupId: String = "",
     val duration: String = "", //選擇自動排程，該事件需要做多久時間
+    val idealTime: String = "", //儲存方式用"xx:xx|before(or after)"
     val shortestTime: String = "", //如有切割，一個單位最少多長
     val longestTime: String = "", //如有切割，一個單位最長多長
+    val dailyRepeat: Boolean = false,
+    val disturb: Boolean = false,
     val description: String = "",
 ){
     // 建構子

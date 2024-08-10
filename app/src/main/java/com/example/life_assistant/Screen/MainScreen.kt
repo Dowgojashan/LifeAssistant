@@ -674,6 +674,42 @@ fun MainScreen(
             )
         }
 
+        Box(
+            modifier = modifier
+                .requiredWidth(width = 120.dp)
+                .requiredHeight(height = 60.dp)
+                .offset(
+                    y = 450.dp
+                )
+                .align(Alignment.TopCenter)
+        ) {
+            Button(
+                onClick = {
+                    val finalName = if (name.isBlank()) initialName else name
+                    val finalBirthday = if (birthday.isBlank()) initialBirthday else birthday
+                    val finalSleepTime = if (sleepTime.isBlank()) initialSleepTime else sleepTime
+                    val finalWakeTime = if (wakeTime.isBlank()) initialWakeTime else wakeTime
+
+                    mvm.updateMemberData(finalName, finalBirthday, finalSleepTime, finalWakeTime)
+                    success = true
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = colorResource(id = R.color.light_blue)),
+                modifier = Modifier
+                    .requiredWidth(width = 100.dp)
+                    .requiredHeight(height = 50.dp)
+                    .align(Alignment.Center)
+            ) {}
+            Text(
+                text = "確認修改",
+                color = Color.Black.copy(alpha = 0.5f),
+                fontSize = 20.sp,
+                style = MaterialTheme.typography.displaySmall,
+                modifier = Modifier
+                    .align(Alignment.Center),
+                fontWeight = FontWeight.Bold
+            )
+        }
+
         Image(
             painter = painterResource(id = R.drawable.workplace),
             contentDescription = "lamp",

@@ -817,19 +817,17 @@ fun UserInputDialog(
     var repeatType by remember { mutableStateOf(initialRepeatType) }
     var showDialog = mutableStateOf(false)
     var errorMessage = mutableStateOf("")
-//    val timeState = rememberTimePickerState(
-//        initialHour = initialStartLocalTime.hour,
-//        initialMinute = initialStartLocalTime.minute
-//    )
+
+
     val duration = rememberTimePickerState(0, 0, true)//所需時間
-    val ideal = rememberTimePickerState(0, 0, true)//理想時間
+    val idealTime = rememberTimePickerState(0, 0, true)//理想時間
     var isSplittable by remember { mutableStateOf(false) }//能否分割
-    var isSplittable1 by remember { mutableStateOf(false) }//能否被干擾
-    var isSplittable2 by remember { mutableStateOf(false) }//自動排程裡的每天重複
+    var disturb by remember { mutableStateOf(false) }//能否被干擾
+    var dailyRepeat by remember { mutableStateOf(false) }//自動排程裡的每天重複
     var showSplitDialog by remember { mutableStateOf(false) }//至少時間
     var showSplitDialog1 by remember { mutableStateOf(false) }//至多時間
-    var selectedInterval by remember { mutableStateOf<String?>(null) }//至少用
-    var selectedInterval1 by remember { mutableStateOf<String?>(null) }//至多用
+    var shortestTime by remember { mutableStateOf("") }//至少用
+    var longestTime by remember { mutableStateOf("") }//至多用
     var selectedOption by remember { mutableStateOf("之前") }
 
 
@@ -939,7 +937,7 @@ fun UserInputDialog(
                         checked = autoSchedule,
                         onCheckedChange = {
                             autoSchedule = it
-                            if (it) showDialog = true // 当开关为开时显示对话框
+                            if (it) showDialog = true // 當開關為打開時打開對話框
                             },
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = colorResource1(id = R.color.light_blue),
@@ -986,7 +984,9 @@ fun UserInputDialog(
                                             .align(Alignment.CenterVertically)
                                     )
                                 }
+
                                 Spacer(modifier = Modifier.height(8.dp))
+
                                 //理想時間
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text(
@@ -996,7 +996,7 @@ fun UserInputDialog(
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
                                     TimeInput(
-                                        state = ideal,
+                                        state = idealTime,
                                         colors = TimePickerDefaults.colors(
                                             timeSelectorSelectedContainerColor = Color(0xffb4cfe2),
                                             timeSelectorSelectedContentColor = Color.Black,
@@ -1060,16 +1060,16 @@ fun UserInputDialog(
                                                                 modifier = Modifier
                                                                     .fillMaxWidth()
                                                                     .clickable {
-                                                                        selectedInterval = interval
+                                                                        shortestTime = interval
                                                                         showSplitDialog = false
                                                                     }
                                                                     .padding(8.dp),
                                                                 verticalAlignment = Alignment.CenterVertically
                                                             ) {
                                                                 RadioButton(
-                                                                    selected = selectedInterval == interval,
+                                                                    selected = shortestTime == interval,
                                                                     onClick = {
-                                                                        selectedInterval = interval
+                                                                        shortestTime = interval
                                                                         showSplitDialog = false
                                                                     }
                                                                 )
@@ -1082,7 +1082,7 @@ fun UserInputDialog(
                                             )
                                         }
                                         // 在其他地方显示选中的时间间隔
-                                        selectedInterval?.let {
+                                        shortestTime?.let {
                                             Text("最少: $it", color = Color.Black, modifier = Modifier.padding(top = 16.dp))
                                         }
                                     }
@@ -1115,16 +1115,16 @@ fun UserInputDialog(
                                                                 modifier = Modifier
                                                                     .fillMaxWidth()
                                                                     .clickable {
-                                                                        selectedInterval1 = interval
+                                                                        longestTime = interval
                                                                         showSplitDialog1 = false
                                                                     }
                                                                     .padding(8.dp),
                                                                 verticalAlignment = Alignment.CenterVertically
                                                             ) {
                                                                 RadioButton(
-                                                                    selected = selectedInterval1 == interval,
+                                                                    selected = longestTime == interval,
                                                                     onClick = {
-                                                                        selectedInterval1 = interval
+                                                                        longestTime = interval
                                                                         showSplitDialog1 = false
                                                                     }
                                                                 )
@@ -1136,8 +1136,7 @@ fun UserInputDialog(
                                                 }
                                             )
                                         }
-// 在其他地方显示选中的时间间隔
-                                        selectedInterval1?.let {
+                                        longestTime?.let {
                                             Text("最多: $it", color = Color.Black, modifier = Modifier.padding(top = 16.dp))
                                         }
 
@@ -1149,8 +1148,8 @@ fun UserInputDialog(
                                     Text("是否要每天重複:", color = Color.Black)
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Checkbox(
-                                        checked = isSplittable2,
-                                        onCheckedChange = { isSplittable2 = it },
+                                        checked = dailyRepeat,
+                                        onCheckedChange = { dailyRepeat = it },
                                         colors = CheckboxDefaults.colors(
                                             checkedColor = colorResource1(id = R.color.light_blue),
                                             uncheckedColor = Color.Gray
@@ -1189,8 +1188,8 @@ fun UserInputDialog(
                     Text("是否能夠同時進行兩件事:", color = Color.Black)
                     Spacer(modifier = Modifier.width(8.dp))
                     Checkbox(
-                        checked = isSplittable1,
-                        onCheckedChange = { isSplittable1 = it },
+                        checked = disturb,
+                        onCheckedChange = { disturb = it },
                         colors = CheckboxDefaults.colors(
                             checkedColor = colorResource1(id = R.color.light_blue),
                             uncheckedColor = Color.Gray
@@ -1311,22 +1310,23 @@ fun UserInputDialog(
 
                         if (endLocalTime.isAfter(startLocalTime)) {
                             if (event == null && currentMonth == null) {
-                                evm.addEvent(name, startTime, endTime, tags, alarmTime,repeatEndDate ,repeatType, description)
+                                evm.addEvent(name, startTime, endTime, tags, alarmTime,repeatEndDate ,repeatType,
+                                    duration.toString(), idealTime.toString(),shortestTime,longestTime,dailyRepeat,disturb, description)
                             }
                             else if(event == null && currentMonth != null){
-                                evm.addEvent(name, startTime, endTime, tags, alarmTime, repeatEndDate ,repeatType, description,currentMonth)
+                                evm.addEvent(name, startTime, endTime, tags, alarmTime, repeatEndDate ,repeatType,duration.toString(), idealTime.toString(),shortestTime,longestTime,dailyRepeat,disturb ,description,currentMonth)
                             }
                             else if(editAll == false && event != null && currentMonth == null){
-                                evm.updateEvent(event.uid,name, startTime, endTime, tags, alarmTime, repeatEndDate ,repeatType, description,null,false)
+                                evm.updateEvent(event.uid,name, startTime, endTime, tags, alarmTime, repeatEndDate ,repeatType,duration.toString(), idealTime.toString(),shortestTime,longestTime,dailyRepeat,disturb ,description,null,false)
                             }
                             else if(editAll == false && event != null && currentMonth != null){
-                                evm.updateEvent(event.uid,name, startTime, endTime, tags, alarmTime, repeatEndDate ,repeatType, description,currentMonth,false)
+                                evm.updateEvent(event.uid,name, startTime, endTime, tags, alarmTime, repeatEndDate ,repeatType,duration.toString(), idealTime.toString(),shortestTime,longestTime,dailyRepeat,disturb ,description,currentMonth,false)
                             }
                             else if (editAll == true && event != null && currentMonth == null) {
-                                evm.updateEvent(event.uid,name, startTime, endTime, tags, alarmTime, repeatEndDate ,repeatType, description,null ,true)
+                                evm.updateEvent(event.uid,name, startTime, endTime, tags, alarmTime, repeatEndDate ,repeatType,duration.toString(), idealTime.toString(),shortestTime,longestTime,dailyRepeat,disturb ,description,null ,true)
                             }
                             else if(editAll == true && event != null && currentMonth != null){
-                                evm.updateEvent(event.uid, name, startTime, endTime, tags, alarmTime, repeatEndDate, repeatType, description, currentMonth, true)
+                                evm.updateEvent(event.uid, name, startTime, endTime, tags, alarmTime, repeatEndDate, repeatType,duration.toString(), idealTime.toString(),shortestTime,longestTime,dailyRepeat,disturb ,description, currentMonth, true)
                             }
                             onDismiss()
                         } else {
