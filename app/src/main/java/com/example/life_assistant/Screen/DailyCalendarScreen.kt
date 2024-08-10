@@ -12,6 +12,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -820,10 +821,17 @@ fun UserInputDialog(
 //        initialHour = initialStartLocalTime.hour,
 //        initialMinute = initialStartLocalTime.minute
 //    )
-    val duration = rememberTimePickerState(0, 0, true)
-    var isSplittable by remember { mutableStateOf(false) }
-    val shortestTime = rememberTimePickerState(0, 0, true)
-    val longestTime = rememberTimePickerState(0, 0, true)
+    val duration = rememberTimePickerState(0, 0, true)//所需時間
+    val ideal = rememberTimePickerState(0, 0, true)//理想時間
+    var isSplittable by remember { mutableStateOf(false) }//能否分割
+    var isSplittable1 by remember { mutableStateOf(false) }//能否被干擾
+    var isSplittable2 by remember { mutableStateOf(false) }//自動排程裡的每天重複
+    var showSplitDialog by remember { mutableStateOf(false) }//至少時間
+    var showSplitDialog1 by remember { mutableStateOf(false) }//至多時間
+    var selectedInterval by remember { mutableStateOf<String?>(null) }//至少用
+    var selectedInterval1 by remember { mutableStateOf<String?>(null) }//至多用
+    var selectedOption by remember { mutableStateOf("之前") }
+
 
     Log.d("date","$selectedDay")
 
@@ -921,88 +929,52 @@ fun UserInputDialog(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
+                var showDialog by remember { mutableStateOf(false) }
+
                 // 自動排程
-                Column {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("自動排程:", color = Color.Black)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Switch(
-                            checked = autoSchedule,
-                            onCheckedChange = { autoSchedule = it },
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("自動排程:", color = Color.Black)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Switch(
+                        checked = autoSchedule,
+                        onCheckedChange = {
+                            autoSchedule = it
+                            if (it) showDialog = true // 当开关为开时显示对话框
+                            },
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = colorResource1(id = R.color.light_blue),
                                 uncheckedThumbColor = Color.Gray
                             )
                         )
-                    }
 
-                    if (autoSchedule) {
-                        Column {
-                            Spacer(modifier = Modifier.height(8.dp))
-
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically // 水平中线对齐
-                            ) {
-                                Text(
-                                    text = "所需時間",
-                                    color = Color.Black,
-                                    modifier = Modifier.align(Alignment.CenterVertically) // 水平中线对齐
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                TimeInput( // 時間輸入框
-                                    state = duration,
-                                    colors = TimePickerDefaults.colors(
-                                        timeSelectorSelectedContainerColor = Color(0xffb4cfe2),
-                                        timeSelectorSelectedContentColor = Color.Black,
-                                        timeSelectorUnselectedContainerColor = Color(0xffb4cfe2),
-                                        timeSelectorUnselectedContentColor = Color.Black
-                                    ),
-                                    modifier = Modifier
-                                        .size(180.dp, 70.dp)
-                                        .align(Alignment.CenterVertically) // 水平中线对齐
-                                )
+                    if (showDialog) AlertDialog(
+                        onDismissRequest = { showDialog = false },
+                        confirmButton = {
+                            Button(onClick = { showDialog = false })
+                            {
+                                Text("確認")
+                                autoSchedule=true
                             }
-
-                            Spacer(modifier = Modifier.height(8.dp))
-
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("能否分割:", color = Color.Black)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Checkbox(
-                                    checked = isSplittable,
-                                    onCheckedChange = { isSplittable = it },
-                                    colors = CheckboxDefaults.colors(
-                                        checkedColor = colorResource1(id = R.color.light_blue),
-                                        uncheckedColor = Color.Gray
-                                    )
-                                )
+                        },
+                        dismissButton = {
+                            Button(onClick = { showDialog = false }) {
+                                Text("取消")
+                                autoSchedule=false
                             }
-
-                            //可以分割的話
-                            if (isSplittable) {
+                        },
+                        text = {
+                            Column {
                                 Spacer(modifier = Modifier.height(8.dp))
+                                //所需時間
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text("最短時間", color = Color.Black)
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    TimeInput( // 時間輸入框
-                                        state = shortestTime,
-                                        colors = TimePickerDefaults.colors(
-                                            timeSelectorSelectedContainerColor = Color(0xffb4cfe2),
-                                            timeSelectorSelectedContentColor = Color.Black,
-                                            timeSelectorUnselectedContainerColor = Color(0xffb4cfe2),
-                                            timeSelectorUnselectedContentColor = Color.Black
-                                        ),
-                                        modifier = Modifier
-                                            .size(180.dp, 70.dp)
-                                            .align(Alignment.CenterVertically) // 水平中线对齐
+                                    Text(
+                                        text = "所需時間",
+                                        color = Color.Black,
+                                        modifier = Modifier.align(Alignment.CenterVertically)
                                     )
-                                }
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text("最長時間:", color = Color.Black)
                                     Spacer(modifier = Modifier.width(8.dp))
-                                    TimeInput( // 時間輸入框
-                                        state = longestTime,
+                                    TimeInput(
+                                        state = duration,
                                         colors = TimePickerDefaults.colors(
                                             timeSelectorSelectedContainerColor = Color(0xffb4cfe2),
                                             timeSelectorSelectedContentColor = Color.Black,
@@ -1014,12 +986,183 @@ fun UserInputDialog(
                                             .align(Alignment.CenterVertically)
                                     )
                                 }
+                                Spacer(modifier = Modifier.height(8.dp))
+                                //理想時間
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = "理想時間",
+                                        color = Color.Black,
+                                        modifier = Modifier.align(Alignment.CenterVertically)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    TimeInput(
+                                        state = ideal,
+                                        colors = TimePickerDefaults.colors(
+                                            timeSelectorSelectedContainerColor = Color(0xffb4cfe2),
+                                            timeSelectorSelectedContentColor = Color.Black,
+                                            timeSelectorUnselectedContainerColor = Color(0xffb4cfe2),
+                                            timeSelectorUnselectedContentColor = Color.Black
+                                        ),
+                                        modifier = Modifier
+                                            .size(120.dp, 70.dp)
+                                            .align(Alignment.CenterVertically)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Button(onClick = {
+                                        selectedOption = if (selectedOption == "之前") "之後" else "之前"
+                                    }) {
+                                        Text(text = selectedOption)
+                                    }
+
+                                }
+                                Spacer(modifier = Modifier.height(8.dp))
+                                //能否分割
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text("能否分割:", color = Color.Black)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Checkbox(
+                                        checked = isSplittable,
+                                        onCheckedChange = { isSplittable = it },
+                                        colors = CheckboxDefaults.colors(
+                                            checkedColor = colorResource1(id = R.color.light_blue),
+                                            uncheckedColor = Color.Gray
+                                        )
+                                    )
+                                }
+                                if(isSplittable != false)
+                                {
+                                    Text("選擇至少分割時間:", color = Color.Black)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Button(
+                                        onClick = { showSplitDialog = true },
+                                        colors = ButtonDefaults.run { buttonColors(colorResource1(id = R.color.light_blue)) }
+                                    ){
+                                        if (showSplitDialog) {
+                                            AlertDialog(
+                                                onDismissRequest = { showSplitDialog = false },
+                                                confirmButton = {
+                                                    Button(
+                                                        onClick = { showSplitDialog = false }
+                                                    ) {
+                                                        Text("確認")
+                                                    }
+                                                },
+                                                dismissButton = {
+                                                    Button(onClick = { showSplitDialog = false }) {
+                                                        Text("取消")
+                                                    }
+                                                },
+                                                text = {
+                                                    LazyColumn {
+                                                        items(listOf("15min", "30min", "45min", "1hr", "1hr15min", "1hr30min", "1hr45min", "2hr"))
+                                                        { interval ->
+                                                            Row(
+                                                                modifier = Modifier
+                                                                    .fillMaxWidth()
+                                                                    .clickable {
+                                                                        selectedInterval = interval
+                                                                        showSplitDialog = false
+                                                                    }
+                                                                    .padding(8.dp),
+                                                                verticalAlignment = Alignment.CenterVertically
+                                                            ) {
+                                                                RadioButton(
+                                                                    selected = selectedInterval == interval,
+                                                                    onClick = {
+                                                                        selectedInterval = interval
+                                                                        showSplitDialog = false
+                                                                    }
+                                                                )
+                                                                Spacer(modifier = Modifier.width(8.dp))
+                                                                Text(text = interval)
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            )
+                                        }
+                                        // 在其他地方显示选中的时间间隔
+                                        selectedInterval?.let {
+                                            Text("最少: $it", color = Color.Black, modifier = Modifier.padding(top = 16.dp))
+                                        }
+                                    }
+                                    Text("選擇最多分割時間:", color = Color.Black)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Button(
+                                        onClick = { showSplitDialog1 = true },
+                                        colors = ButtonDefaults.run { buttonColors(colorResource1(id = R.color.light_blue)) }
+                                    ){
+                                        if (showSplitDialog1) {
+                                            AlertDialog(
+                                                onDismissRequest = { showSplitDialog1 = false },
+                                                confirmButton = {
+                                                    Button(
+                                                        onClick = { showSplitDialog1 = false }
+                                                    ) {
+                                                        Text("確認")
+                                                    }
+                                                },
+                                                dismissButton = {
+                                                    Button(onClick = { showSplitDialog1 = false }) {
+                                                        Text("取消")
+                                                    }
+                                                },
+                                                text = {
+                                                    LazyColumn {
+                                                        items(listOf("30min", "45min", "1hr", "1hr15min", "1hr30min", "1hr45min", "2hr","2hr15min"))
+                                                        { interval ->
+                                                            Row(
+                                                                modifier = Modifier
+                                                                    .fillMaxWidth()
+                                                                    .clickable {
+                                                                        selectedInterval1 = interval
+                                                                        showSplitDialog1 = false
+                                                                    }
+                                                                    .padding(8.dp),
+                                                                verticalAlignment = Alignment.CenterVertically
+                                                            ) {
+                                                                RadioButton(
+                                                                    selected = selectedInterval1 == interval,
+                                                                    onClick = {
+                                                                        selectedInterval1 = interval
+                                                                        showSplitDialog1 = false
+                                                                    }
+                                                                )
+                                                                Spacer(modifier = Modifier.width(8.dp))
+                                                                Text(text = interval)
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            )
+                                        }
+// 在其他地方显示选中的时间间隔
+                                        selectedInterval1?.let {
+                                            Text("最多: $it", color = Color.Black, modifier = Modifier.padding(top = 16.dp))
+                                        }
+
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(8.dp))
+                                //是否要每天重複排
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text("是否要每天重複:", color = Color.Black)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Checkbox(
+                                        checked = isSplittable2,
+                                        onCheckedChange = { isSplittable2 = it },
+                                        colors = CheckboxDefaults.colors(
+                                            checkedColor = colorResource1(id = R.color.light_blue),
+                                            uncheckedColor = Color.Gray
+                                        )
+                                    )
+                                }
                             }
-                        }
-                    }
+                        },
+                    )
                 }
 
-                  Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 // 提醒時間選擇
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1041,37 +1184,53 @@ fun UserInputDialog(
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
-
-                // 重複選單
+                // 是否能夠同時進行兩件事
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("設定重複:", color = Color.Black)
+                    Text("是否能夠同時進行兩件事:", color = Color.Black)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Button(
-                        onClick = { showRepeatDialog = true },
-                        colors = ButtonDefaults.run { buttonColors(colorResource1(id = R.color.light_blue)) }
-                    ) {
-                        Text(
-                            text = if (repeatType.isNotBlank()) {
-                                if (repeatEndDate.isNotBlank()) {
-                                    "$repeatType 直到 $repeatEndDate"
+                    Checkbox(
+                        checked = isSplittable1,
+                        onCheckedChange = { isSplittable1 = it },
+                        colors = CheckboxDefaults.colors(
+                            checkedColor = colorResource1(id = R.color.light_blue),
+                            uncheckedColor = Color.Gray
+                        )
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+                // 重複選單
+                if(autoSchedule!=true){
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("設定重複:", color = Color.Black)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Button(
+                            onClick = { showRepeatDialog = true },
+                            colors = ButtonDefaults.run { buttonColors(colorResource1(id = R.color.light_blue)) }
+                        ) {
+                            Text(
+                                text = if (repeatType.isNotBlank()) {
+                                    if (repeatEndDate.isNotBlank()) {
+                                        "$repeatType 直到 $repeatEndDate"
+                                    } else {
+                                        repeatType
+                                    }
                                 } else {
-                                    repeatType
-                                }
-                            } else {
-                                "無"
+                                    "無"
+                                },
+                                color = Color.White
+                            )
+                        }
+                    }
+                    if (showRepeatDialog) {
+                        RepeatDialog(
+                            onRepeatSettingChanged = { newRepeatType, newRepeatEndDate ->
+                                repeatType = newRepeatType
+                                repeatEndDate = newRepeatEndDate.toString()
                             },
-                            color = Color.White
+                            onDismiss = { showRepeatDialog = false }
                         )
                     }
-                }
-                if (showRepeatDialog) {
-                    RepeatDialog(
-                        onRepeatSettingChanged = { newRepeatType, newRepeatEndDate ->
-                            repeatType = newRepeatType
-                            repeatEndDate = newRepeatEndDate.toString()
-                        },
-                        onDismiss = { showRepeatDialog = false }
-                    )
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -1083,110 +1242,110 @@ fun UserInputDialog(
                     label = { Text("備註", color = Color.Black) },
                     modifier = Modifier.fillMaxWidth()
                 )
-
                 Spacer(modifier = Modifier.height(16.dp))
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
+            }
+            //暫時解決不了把確認放在裡面沒有bug
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                Button(
+                    onClick = { onDismiss() },
+                    colors = ButtonDefaults.run { buttonColors(colorResource1(id = R.color.light_blue)) }
                 ) {
-                    Button(
-                        onClick = { onDismiss() },
-                        colors = ButtonDefaults.run { buttonColors(colorResource1(id = R.color.light_blue)) }
-                    ) {
-                        Text("取消", color = Color.White)
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Button(
-                        onClick = {
-                            if (name.isBlank()) {
-                                errorMessage.value = "名稱不可為空"
-                                showDialog.value = true
-                                return@Button
-                            }
-                            if (tags.isBlank()) {
-                                errorMessage.value = "標籤不可為空"
-                                showDialog.value = true
-                                return@Button
-                            }
-                            if(startTime.isBlank()){
-                                errorMessage.value = "選擇開始日期不可為空"
-                                showDialog.value = true
-                                return@Button
-                            }
-                            if(endTime.isBlank()){
-                                errorMessage.value = "選擇結束日期不可為空"
-                                showDialog.value = true
-                                return@Button
-                            }
+                    Text("取消", color = Color.White)
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Button(
+                    onClick = {
+                        if (name.isBlank()) {
+                            errorMessage.value = "名稱不可為空"
+                            showDialog.value = true
+                            return@Button
+                        }
+                        if (tags.isBlank()) {
+                            errorMessage.value = "標籤不可為空"
+                            showDialog.value = true
+                            return@Button
+                        }
+                        if(startTime.isBlank()){
+                            errorMessage.value = "選擇開始日期不可為空"
+                            showDialog.value = true
+                            return@Button
+                        }
+                        if(endTime.isBlank()){
+                            errorMessage.value = "選擇結束日期不可為空"
+                            showDialog.value = true
+                            return@Button
+                        }
 
-                            if (repeatEndDate.isNotBlank() && repeatEndDate <= startTime) {
-                                errorMessage.value = "重複結束日期不可早於或等於開始日期"
-                                showDialog.value = true
-                                return@Button
-                            }
+                        if (repeatEndDate.isNotBlank() && repeatEndDate <= startTime) {
+                            errorMessage.value = "重複結束日期不可早於或等於開始日期"
+                            showDialog.value = true
+                            return@Button
+                        }
 
-                            val startLocalTime = LocalDateTime.parse(startTime, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
-                            val endLocalTime = LocalDateTime.parse(endTime, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
+                        val startLocalTime = LocalDateTime.parse(startTime, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
+                        val endLocalTime = LocalDateTime.parse(endTime, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
 
-                            if (repeatType == "每日" && repeatEndDate.isBlank()) {
-                                val repeatEndDateLocalDate = startLocalTime.plusDays(30).toLocalDate()
-                                repeatEndDate = repeatEndDateLocalDate.toString()
-                            }
+                        if (repeatType == "每日" && repeatEndDate.isBlank()) {
+                            val repeatEndDateLocalDate = startLocalTime.plusDays(30).toLocalDate()
+                            repeatEndDate = repeatEndDateLocalDate.toString()
+                        }
 
-                            if(repeatType == "每週" && repeatEndDate.isBlank()){
-                                val repeatEndDateLocalDate = startLocalTime.plusWeeks(4).toLocalDate()
-                                repeatEndDate = repeatEndDateLocalDate.toString()
-                            }
+                        if(repeatType == "每週" && repeatEndDate.isBlank()){
+                            val repeatEndDateLocalDate = startLocalTime.plusWeeks(4).toLocalDate()
+                            repeatEndDate = repeatEndDateLocalDate.toString()
+                        }
 
-                            if(repeatType == "每月" && repeatEndDate.isBlank()){
-                                val repeatEndDateLocalDate = startLocalTime.plusMonths(6).toLocalDate()
-                                repeatEndDate = repeatEndDateLocalDate.toString()
-                            }
+                        if(repeatType == "每月" && repeatEndDate.isBlank()){
+                            val repeatEndDateLocalDate = startLocalTime.plusMonths(6).toLocalDate()
+                            repeatEndDate = repeatEndDateLocalDate.toString()
+                        }
 
-                            if(repeatType == "每年" && repeatEndDate.isBlank()){
-                                val repeatEndDateLocalDate = startLocalTime.plusYears(5).toLocalDate()
-                                repeatEndDate = repeatEndDateLocalDate.toString()
-                            }
+                        if(repeatType == "每年" && repeatEndDate.isBlank()){
+                            val repeatEndDateLocalDate = startLocalTime.plusYears(5).toLocalDate()
+                            repeatEndDate = repeatEndDateLocalDate.toString()
+                        }
 
-                            if (endLocalTime.isAfter(startLocalTime)) {
-                                if (event == null && currentMonth == null) {
-                                    evm.addEvent(name, startTime, endTime, tags, alarmTime,repeatEndDate ,repeatType, description)
-                                }
-                                else if(event == null && currentMonth != null){
-                                    evm.addEvent(name, startTime, endTime, tags, alarmTime, repeatEndDate ,repeatType, description,currentMonth)
-                                }
-                                else if(editAll == false && event != null && currentMonth == null){
-                                    evm.updateEvent(event.uid,name, startTime, endTime, tags, alarmTime, repeatEndDate ,repeatType, description,null,false)
-                                }
-                                else if(editAll == false && event != null && currentMonth != null){
-                                    evm.updateEvent(event.uid,name, startTime, endTime, tags, alarmTime, repeatEndDate ,repeatType, description,currentMonth,false)
-                                }
-                                else if (editAll == true && event != null && currentMonth == null) {
-                                    evm.updateEvent(event.uid,name, startTime, endTime, tags, alarmTime, repeatEndDate ,repeatType, description,null ,true)
-                                }
-                                else if(editAll == true && event != null && currentMonth != null){
-                                    evm.updateEvent(event.uid, name, startTime, endTime, tags, alarmTime, repeatEndDate, repeatType, description, currentMonth, true)
-                                }
-                                onDismiss()
-                            } else {
-                                errorMessage.value = "結束時間必須晚於開始時間"
-                                showDialog.value = true
+                        if (endLocalTime.isAfter(startLocalTime)) {
+                            if (event == null && currentMonth == null) {
+                                evm.addEvent(name, startTime, endTime, tags, alarmTime,repeatEndDate ,repeatType, description)
                             }
-                        },
-                        colors = ButtonDefaults.run { buttonColors(colorResource1(id = R.color.light_blue)) }
-                    ) {
-                        Text("確認", color = Color.White)
-                    }
-                    // 錯誤提示對話框
-                    if (showDialog.value) {
-                        Log.d("error","$showDialog")
-                        ErrorAlertDialog(
-                            showDialog = mutableStateOf(showDialog.value),
-                            message = errorMessage.value,
-                            onDismiss = { showDialog.value = false }
-                        )
-                    }
+                            else if(event == null && currentMonth != null){
+                                evm.addEvent(name, startTime, endTime, tags, alarmTime, repeatEndDate ,repeatType, description,currentMonth)
+                            }
+                            else if(editAll == false && event != null && currentMonth == null){
+                                evm.updateEvent(event.uid,name, startTime, endTime, tags, alarmTime, repeatEndDate ,repeatType, description,null,false)
+                            }
+                            else if(editAll == false && event != null && currentMonth != null){
+                                evm.updateEvent(event.uid,name, startTime, endTime, tags, alarmTime, repeatEndDate ,repeatType, description,currentMonth,false)
+                            }
+                            else if (editAll == true && event != null && currentMonth == null) {
+                                evm.updateEvent(event.uid,name, startTime, endTime, tags, alarmTime, repeatEndDate ,repeatType, description,null ,true)
+                            }
+                            else if(editAll == true && event != null && currentMonth != null){
+                                evm.updateEvent(event.uid, name, startTime, endTime, tags, alarmTime, repeatEndDate, repeatType, description, currentMonth, true)
+                            }
+                            onDismiss()
+                        } else {
+                            errorMessage.value = "結束時間必須晚於開始時間"
+                            showDialog.value = true
+                        }
+                    },
+                    colors = ButtonDefaults.run { buttonColors(colorResource1(id = R.color.light_blue)) }
+                ) {
+                    Text("確認", color = Color.White)
+                }
+                // 錯誤提示對話框
+                if (showDialog.value) {
+                    Log.d("error","$showDialog")
+                    ErrorAlertDialog(
+                        showDialog = mutableStateOf(showDialog.value),
+                        message = errorMessage.value,
+                        onDismiss = { showDialog.value = false }
+                    )
                 }
             }
         }
