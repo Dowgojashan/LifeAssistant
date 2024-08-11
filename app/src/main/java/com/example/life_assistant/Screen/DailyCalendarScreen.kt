@@ -792,21 +792,43 @@ fun UserInputDialog(
     val initialEndTimeEvent = event?.endTime ?: ""
     val initialRepeatType = event?.repeatType ?: "無"
     val initialRepeatEndDate = event?.repeatEndDate ?: ""
+    val initialDuration = event?.duration ?: ""
+    val initialIdealTime = event?.idealTime ?: ""
+    val initialShortestTime = event?.shortestTime ?: ""
+    val initialLongestTime = event?.longestTime ?: ""
+    val initialDailyRepeat = event?.dailyRepeat ?: false
+    val initialDisturb = event?.disturb ?: false
+    val initialAutoSchedule = initialDuration != ""
+    val initialIsSplittable = initialShortestTime != "" || initialLongestTime != ""
 
     var name by remember { mutableStateOf(initialName) }
     var startTime by remember { mutableStateOf(initialStartTime) }
     var endTime by remember { mutableStateOf(initialEndTimeEvent) }
-    var startDateTime by remember { mutableStateOf(LocalDateTime.of(selectedDate, initialStartLocalTime)) }
-    var endDateTime by remember { mutableStateOf(LocalDateTime.of(selectedDate, initialStartLocalTime.plusHours(1))) }
+    var startDateTime by remember {
+        mutableStateOf(
+            LocalDateTime.of(
+                selectedDate,
+                initialStartLocalTime
+            )
+        )
+    }
+    var endDateTime by remember {
+        mutableStateOf(
+            LocalDateTime.of(
+                selectedDate,
+                initialStartLocalTime.plusHours(1)
+            )
+        )
+    }
     val selectedDay by remember { mutableStateOf(selectedDate) }
     var description by remember { mutableStateOf(initialDescription) }
     var alarmTime by remember { mutableStateOf(initialAlarmTime) }
-    var autoSchedule by remember { mutableStateOf(false) }
     var showStartTimeDialog by remember { mutableStateOf(false) }
     var showEndTimeDialog by remember { mutableStateOf(false) }
     var showAlarmTimeDialog by remember { mutableStateOf(false) }
     var tags by remember { mutableStateOf(initialTags) }  // 當前標籤
     var showTagMenu by remember { mutableStateOf(false) }  // 控制標籤選單的顯示
+    var autoSchedule by remember { mutableStateOf(initialAutoSchedule) }
     var showRepeatDialog by remember { mutableStateOf(false) }
     var repeatEndDate by remember { mutableStateOf(initialRepeatEndDate) }
     var repeatType by remember { mutableStateOf(initialRepeatType) }
@@ -814,19 +836,21 @@ fun UserInputDialog(
     val errorMessage = mutableStateOf("")
 
 
-    var duration by remember { mutableStateOf("") }//所需時間
-    var idealTime by remember { mutableStateOf("") }//理想時間
-    var isSplittable by remember { mutableStateOf(false) }//能否分割
-    var disturb by remember { mutableStateOf(false) }//能否被干擾
-    var dailyRepeat by remember { mutableStateOf(false) }//自動排程裡的每天重複
-    var showSplitDialog by remember { mutableStateOf(false) }//至少時間
-    var showSplitDialog1 by remember { mutableStateOf(false) }//至多時間
-    var shortestTime by remember { mutableStateOf("") }//至少用
-    var longestTime by remember { mutableStateOf("") }//至多用
-    var selectedOption by remember { mutableStateOf("之前") }
+    var duration by remember { mutableStateOf(initialDuration) }//所需時間
+    var idealTime by remember { mutableStateOf(initialIdealTime) }//理想時間
+    var isSplittable by remember { mutableStateOf(initialIsSplittable) }//能否分割
+    var disturb by remember { mutableStateOf(initialDisturb) }//能否被干擾
+    var dailyRepeat by remember { mutableStateOf(initialDailyRepeat) }//自動排程裡的每天重複
+    var showSplitDialog by remember { mutableStateOf(false) }//至少時間顯示畫面
+    var showSplitDialog1 by remember { mutableStateOf(false) }//至多時間顯示畫面
+    var shortestTime by remember { mutableStateOf(initialShortestTime) }//至少用
+    var longestTime by remember { mutableStateOf(initialLongestTime) }//至多用
+
+    val (timePart, optionPart) = parseIdealTimeString(idealTime)
+    var selectedOption by remember { mutableStateOf(optionPart) }
 
 
-    Log.d("date","$selectedDay")
+    Log.d("date", "$selectedDay")
 
     // 回調方法
     fun onStartTimeSelected(dateTime: LocalDateTime) {
@@ -933,18 +957,18 @@ fun UserInputDialog(
                         onCheckedChange = {
                             autoSchedule = it
                             if (it) showAutoScheduleDialog = true // 當開關為打開時打開對話框
-                            },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = colorResource1(id = R.color.light_blue),
-                                uncheckedThumbColor = Color.Gray
-                            )
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = colorResource1(id = R.color.light_blue),
+                            uncheckedThumbColor = Color.Gray
                         )
+                    )
 
                     if (showAutoScheduleDialog) AlertDialog(
                         onDismissRequest = { showAutoScheduleDialog = false },
                         confirmButton = {
                             Button(onClick = {
-                                if(autoSchedule && (duration == "00:00")){
+                                if (autoSchedule && (duration == "00:00")) {
                                     errorMessage.value = "所需時間不可為0"
                                     showDialog.value = true
                                     return@Button
@@ -966,20 +990,22 @@ fun UserInputDialog(
                             })
                             {
                                 Text("確認")
-                                autoSchedule=true
+                                autoSchedule = true
                             }
                         },
                         dismissButton = {
                             Button(onClick = { showAutoScheduleDialog = false }) {
                                 Text("取消")
-                                autoSchedule=false
+                                autoSchedule = false
                             }
                         },
                         text = {
                             Column {
                                 Spacer(modifier = Modifier.height(8.dp))
 
-                                val dur = rememberTimePickerState(0, 0, true)
+                                val (initialHour, initialMinute) = parseDurationString(duration)
+
+                                val dur = rememberTimePickerState(initialHour, initialMinute, true)
                                 // 所需時間
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text(
@@ -1006,7 +1032,7 @@ fun UserInputDialog(
                                 Spacer(modifier = Modifier.height(8.dp))
 
 
-                                val ideal = remember { mutableStateOf(LocalTime.of(0, 0)) }
+                                val ideal = rememberTimePickerState(timePart.first, timePart.second, true)
                                 // 理想時間顯示 仍有選填的問題
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text(
@@ -1016,11 +1042,7 @@ fun UserInputDialog(
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
                                     TimeInput(
-                                        state = rememberTimePickerState(
-                                            ideal.value.hour,
-                                            ideal.value.minute,
-                                            true
-                                        ),
+                                        state = ideal,
                                         colors = TimePickerDefaults.colors(
                                             timeSelectorSelectedContainerColor = Color(0xffb4cfe2),
                                             timeSelectorSelectedContentColor = Color.Black,
@@ -1033,14 +1055,18 @@ fun UserInputDialog(
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Button(onClick = {
-                                        selectedOption = if (selectedOption == "之前") "之後" else "之前"
+                                        selectedOption =
+                                            if (selectedOption == "之前") "之後" else "之前"
                                     }) {
                                         Text(text = selectedOption)
                                     }
                                 }
 
                                 // 格式化理想時間
-                                idealTime = formatIdealTime(idealTime = ideal, selectedOption = selectedOption)
+                                idealTime = formatIdealTime(
+                                    idealTime = ideal,
+                                    selectedOption = selectedOption
+                                )
 
 
                                 Spacer(modifier = Modifier.height(8.dp))
@@ -1058,13 +1084,13 @@ fun UserInputDialog(
                                         )
                                     )
                                 }
-                                if(isSplittable) {
+                                if (isSplittable) {
                                     Text("選擇至少分割時間:", color = Color.Black)
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Button(
                                         onClick = { showSplitDialog = true },
                                         colors = ButtonDefaults.run { buttonColors(colorResource1(id = R.color.light_blue)) }
-                                    ){
+                                    ) {
                                         if (showSplitDialog) {
                                             AlertDialog(
                                                 onDismissRequest = { showSplitDialog = false },
@@ -1082,7 +1108,10 @@ fun UserInputDialog(
                                                 },
                                                 text = {
                                                     LazyColumn {
-                                                        items(listOf("15min", "30min", "45min", "1hr", "1hr15min", "1hr30min", "1hr45min", "2hr"))
+                                                        items(
+                                                            listOf("15min", "30min", "45min", "1hr", "1hr15min", "1hr30min", "1hr45min", "2hr"
+                                                            )
+                                                        )
                                                         { interval ->
                                                             Row(
                                                                 modifier = Modifier
@@ -1110,7 +1139,11 @@ fun UserInputDialog(
                                             )
                                         }
                                         shortestTime?.let {
-                                            Text("最少: $it", color = Color.Black, modifier = Modifier.padding(top = 16.dp))
+                                            Text(
+                                                "最少: $it",
+                                                color = Color.Black,
+                                                modifier = Modifier.padding(top = 16.dp)
+                                            )
                                         }
                                     }
                                     Text("選擇最多分割時間:", color = Color.Black)
@@ -1118,7 +1151,7 @@ fun UserInputDialog(
                                     Button(
                                         onClick = { showSplitDialog1 = true },
                                         colors = ButtonDefaults.run { buttonColors(colorResource1(id = R.color.light_blue)) }
-                                    ){
+                                    ) {
                                         if (showSplitDialog1) {
                                             AlertDialog(
                                                 onDismissRequest = { showSplitDialog1 = false },
@@ -1136,7 +1169,9 @@ fun UserInputDialog(
                                                 },
                                                 text = {
                                                     LazyColumn {
-                                                        items(listOf("30min", "45min", "1hr", "1hr15min", "1hr30min", "1hr45min", "2hr","2hr15min"))
+                                                        items(
+                                                            listOf("30min", "45min", "1hr", "1hr15min", "1hr30min", "1hr45min", "2hr", "2hr15min")
+                                                        )
                                                         { interval ->
                                                             Row(
                                                                 modifier = Modifier
@@ -1164,7 +1199,11 @@ fun UserInputDialog(
                                             )
                                         }
                                         longestTime?.let {
-                                            Text("最多: $it", color = Color.Black, modifier = Modifier.padding(top = 16.dp))
+                                            Text(
+                                                "最多: $it",
+                                                color = Color.Black,
+                                                modifier = Modifier.padding(top = 16.dp)
+                                            )
                                         }
 
                                     }
@@ -1226,7 +1265,7 @@ fun UserInputDialog(
 
                 Spacer(modifier = Modifier.height(8.dp))
                 // 重複選單
-                if(!autoSchedule){
+                if (!autoSchedule) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("設定重複:", color = Color.Black)
                         Spacer(modifier = Modifier.width(8.dp))
@@ -1295,12 +1334,12 @@ fun UserInputDialog(
                             showDialog.value = true
                             return@Button
                         }
-                        if(startTime.isBlank()){
+                        if (startTime.isBlank()) {
                             errorMessage.value = "選擇開始日期不可為空"
                             showDialog.value = true
                             return@Button
                         }
-                        if(endTime.isBlank()){
+                        if (endTime.isBlank()) {
                             errorMessage.value = "選擇結束日期不可為空"
                             showDialog.value = true
                             return@Button
@@ -1312,48 +1351,60 @@ fun UserInputDialog(
                             return@Button
                         }
 
-                        val startLocalTime = LocalDateTime.parse(startTime, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
-                        val endLocalTime = LocalDateTime.parse(endTime, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
+                        val startLocalTime = LocalDateTime.parse(
+                            startTime,
+                            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+                        )
+                        val endLocalTime = LocalDateTime.parse(
+                            endTime,
+                            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+                        )
 
                         if (repeatType == "每日" && repeatEndDate.isBlank()) {
                             val repeatEndDateLocalDate = startLocalTime.plusDays(30).toLocalDate()
                             repeatEndDate = repeatEndDateLocalDate.toString()
                         }
 
-                        if(repeatType == "每週" && repeatEndDate.isBlank()){
+                        if (repeatType == "每週" && repeatEndDate.isBlank()) {
                             val repeatEndDateLocalDate = startLocalTime.plusWeeks(4).toLocalDate()
                             repeatEndDate = repeatEndDateLocalDate.toString()
                         }
 
-                        if(repeatType == "每月" && repeatEndDate.isBlank()){
+                        if (repeatType == "每月" && repeatEndDate.isBlank()) {
                             val repeatEndDateLocalDate = startLocalTime.plusMonths(6).toLocalDate()
                             repeatEndDate = repeatEndDateLocalDate.toString()
                         }
 
-                        if(repeatType == "每年" && repeatEndDate.isBlank()){
+                        if (repeatType == "每年" && repeatEndDate.isBlank()) {
                             val repeatEndDateLocalDate = startLocalTime.plusYears(5).toLocalDate()
                             repeatEndDate = repeatEndDateLocalDate.toString()
                         }
 
                         if (endLocalTime.isAfter(startLocalTime)) {
                             if (event == null && currentMonth == null) {
-                                evm.addEvent(name, startTime, endTime, tags, alarmTime,repeatEndDate ,repeatType,
-                                    duration.toString(), idealTime.toString(),shortestTime,longestTime,dailyRepeat,disturb, description)
-                            }
-                            else if(event == null && currentMonth != null){
-                                evm.addEvent(name, startTime, endTime, tags, alarmTime, repeatEndDate ,repeatType,duration.toString(), idealTime.toString(),shortestTime,longestTime,dailyRepeat,disturb ,description,currentMonth)
-                            }
-                            else if(editAll == false && event != null && currentMonth == null){
-                                evm.updateEvent(event.uid,name, startTime, endTime, tags, alarmTime, repeatEndDate ,repeatType,duration.toString(), idealTime.toString(),shortestTime,longestTime,dailyRepeat,disturb ,description,null,false)
-                            }
-                            else if(editAll == false && event != null && currentMonth != null){
-                                evm.updateEvent(event.uid,name, startTime, endTime, tags, alarmTime, repeatEndDate ,repeatType,duration.toString(), idealTime.toString(),shortestTime,longestTime,dailyRepeat,disturb ,description,currentMonth,false)
-                            }
-                            else if (editAll == true && event != null && currentMonth == null) {
-                                evm.updateEvent(event.uid,name, startTime, endTime, tags, alarmTime, repeatEndDate ,repeatType,duration.toString(), idealTime.toString(),shortestTime,longestTime,dailyRepeat,disturb ,description,null ,true)
-                            }
-                            else if(editAll == true && event != null && currentMonth != null){
-                                evm.updateEvent(event.uid, name, startTime, endTime, tags, alarmTime, repeatEndDate, repeatType,duration.toString(), idealTime.toString(),shortestTime,longestTime,dailyRepeat,disturb ,description, currentMonth, true)
+                                evm.addEvent(
+                                    name, startTime, endTime, tags, alarmTime, repeatEndDate, repeatType, duration, idealTime, shortestTime, longestTime, dailyRepeat, disturb, description
+                                )
+                            } else if (event == null && currentMonth != null) {
+                                evm.addEvent(
+                                    name, startTime, endTime, tags, alarmTime, repeatEndDate, repeatType, duration, idealTime, shortestTime, longestTime, dailyRepeat, disturb, description, currentMonth
+                                )
+                            } else if (editAll == false && event != null && currentMonth == null) {
+                                evm.updateEvent(
+                                    event.uid, name, startTime, endTime, tags, alarmTime, repeatEndDate, repeatType, duration, idealTime, shortestTime, longestTime, dailyRepeat, disturb, description, null, false
+                                )
+                            } else if (editAll == false && event != null && currentMonth != null) {
+                                evm.updateEvent(
+                                    event.uid, name, startTime, endTime, tags, alarmTime, repeatEndDate, repeatType, duration, idealTime, shortestTime, longestTime, dailyRepeat, disturb, description, currentMonth, false
+                                )
+                            } else if (editAll == true && event != null && currentMonth == null) {
+                                evm.updateEvent(
+                                    event.uid, name, startTime, endTime, tags, alarmTime, repeatEndDate, repeatType, duration, idealTime, shortestTime, longestTime, dailyRepeat, disturb, description, null, true
+                                )
+                            } else if (editAll == true && event != null && currentMonth != null) {
+                                evm.updateEvent(
+                                    event.uid, name, startTime, endTime, tags, alarmTime, repeatEndDate, repeatType, duration, idealTime, shortestTime, longestTime, dailyRepeat, disturb, description, currentMonth, true
+                                )
                             }
                             onDismiss()
                         } else {
@@ -1367,7 +1418,7 @@ fun UserInputDialog(
                 }
                 // 錯誤提示對話框
                 if (showDialog.value) {
-                    Log.d("error","$showDialog")
+                    Log.d("error", "$showDialog")
                     ErrorAlertDialog(
                         showDialog = mutableStateOf(showDialog.value),
                         message = errorMessage.value,
@@ -1896,11 +1947,11 @@ fun YearlyRepeatSetting(onEndDateSelected: (String) -> Unit) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun formatIdealTime(idealTime: MutableState<LocalTime>, selectedOption: String): String {
-    val time = idealTime.value // 取得 LocalTime 對象
-    val hours = time.hour
-    val minutes = time.minute
+fun formatIdealTime(idealTime: TimePickerState, selectedOption: String): String {
+    val hours = idealTime.hour
+    val minutes = idealTime.minute
     return if (hours == 0 && minutes == 0) {
         "" // 返回空字串表示未選擇時間
     } else {
@@ -1941,3 +1992,32 @@ fun parseTimeToMinutes(time: String): Int {
     return minutes
 }
 
+// 解析 duration 字串為小時和分鐘
+fun parseDurationString(durationString: String): Pair<Int, Int> {
+    return try {
+        val parts = durationString.split(":")
+        val hours = if (parts.size > 1) parts[0].toInt() else 0
+        val minutes = if (parts.size > 1) parts[1].toInt() else 0
+        Pair(hours, minutes)
+    } catch (e: Exception) {
+        Pair(0, 0) // 如果解析失敗，預設為 0 小時 0 分鐘
+    }
+}
+
+
+fun parseIdealTimeString(idealTimeString: String): Pair<Pair<Int, Int>, String> {
+    return try {
+        val parts = idealTimeString.split("|")
+        val timePart = parts[0].trim()
+        val optionPart = if (parts.size > 1) parts[1].trim() else "之前" // 預設選項為 "之前"
+
+        // 解析時間部分
+        val timeParts = timePart.split(":")
+        val hours = if (timeParts.size > 1) timeParts[0].toInt() else 0
+        val minutes = if (timeParts.size > 1) timeParts[1].toInt() else 0
+
+        Pair(Pair(hours, minutes), optionPart)
+    } catch (e: Exception) {
+        Pair(Pair(0, 0), "之前") // 如果解析失敗，預設為 0 小時 0 分鐘 和 "之前"
+    }
+}
