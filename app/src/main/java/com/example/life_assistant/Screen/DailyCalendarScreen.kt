@@ -5,7 +5,6 @@ import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import android.os.Build
 import android.util.Log
-import android.widget.NumberPicker
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -16,7 +15,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -38,11 +36,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.navigation.NavController
 import com.example.life_assistant.DestinationScreen
@@ -802,25 +798,24 @@ fun UserInputDialog(
     var endTime by remember { mutableStateOf(initialEndTimeEvent) }
     var startDateTime by remember { mutableStateOf(LocalDateTime.of(selectedDate, initialStartLocalTime)) }
     var endDateTime by remember { mutableStateOf(LocalDateTime.of(selectedDate, initialStartLocalTime.plusHours(1))) }
-    var selectedDay by remember { mutableStateOf(selectedDate) }
+    val selectedDay by remember { mutableStateOf(selectedDate) }
     var description by remember { mutableStateOf(initialDescription) }
     var alarmTime by remember { mutableStateOf(initialAlarmTime) }
     var autoSchedule by remember { mutableStateOf(false) }
     var showStartTimeDialog by remember { mutableStateOf(false) }
     var showEndTimeDialog by remember { mutableStateOf(false) }
-    var showDatePicker by remember { mutableStateOf(false) }
     var showAlarmTimeDialog by remember { mutableStateOf(false) }
     var tags by remember { mutableStateOf(initialTags) }  // 當前標籤
     var showTagMenu by remember { mutableStateOf(false) }  // 控制標籤選單的顯示
     var showRepeatDialog by remember { mutableStateOf(false) }
     var repeatEndDate by remember { mutableStateOf(initialRepeatEndDate) }
     var repeatType by remember { mutableStateOf(initialRepeatType) }
-    var showDialog = mutableStateOf(false)
-    var errorMessage = mutableStateOf("")
+    val showDialog = mutableStateOf(false)
+    val errorMessage = mutableStateOf("")
 
 
-    val duration = rememberTimePickerState(0, 0, true)//所需時間
-    val idealTime = rememberTimePickerState(0, 0, true)//理想時間
+    var duration by remember { mutableStateOf("") }//所需時間
+    var idealTime by remember { mutableStateOf("") }//理想時間
     var isSplittable by remember { mutableStateOf(false) }//能否分割
     var disturb by remember { mutableStateOf(false) }//能否被干擾
     var dailyRepeat by remember { mutableStateOf(false) }//自動排程裡的每天重複
@@ -927,7 +922,7 @@ fun UserInputDialog(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                var showDialog by remember { mutableStateOf(false) }
+                var showAutoScheduleDialog by remember { mutableStateOf(false) }
 
                 // 自動排程
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -937,7 +932,7 @@ fun UserInputDialog(
                         checked = autoSchedule,
                         onCheckedChange = {
                             autoSchedule = it
-                            if (it) showDialog = true // 當開關為打開時打開對話框
+                            if (it) showAutoScheduleDialog = true // 當開關為打開時打開對話框
                             },
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = colorResource1(id = R.color.light_blue),
@@ -945,17 +940,37 @@ fun UserInputDialog(
                             )
                         )
 
-                    if (showDialog) AlertDialog(
-                        onDismissRequest = { showDialog = false },
+                    if (showAutoScheduleDialog) AlertDialog(
+                        onDismissRequest = { showAutoScheduleDialog = false },
                         confirmButton = {
-                            Button(onClick = { showDialog = false })
+                            Button(onClick = {
+                                if(autoSchedule && (duration == "00:00")){
+                                    errorMessage.value = "所需時間不可為0"
+                                    showDialog.value = true
+                                    return@Button
+                                }
+
+                                if (shortestTime != "" && longestTime != "") {
+                                    // 將時間字串轉換為分鐘數
+                                    val minMinutes = parseTimeToMinutes(shortestTime)
+                                    val maxMinutes = parseTimeToMinutes(longestTime)
+
+                                    // 檢查最少時間是否大於最多時間
+                                    if (minMinutes > maxMinutes) {
+                                        errorMessage.value = "分割的至少時間不可大於最多時間"
+                                        showDialog.value = true
+                                        return@Button
+                                    }
+                                }
+                                showAutoScheduleDialog = false
+                            })
                             {
                                 Text("確認")
                                 autoSchedule=true
                             }
                         },
                         dismissButton = {
-                            Button(onClick = { showDialog = false }) {
+                            Button(onClick = { showAutoScheduleDialog = false }) {
                                 Text("取消")
                                 autoSchedule=false
                             }
@@ -963,7 +978,9 @@ fun UserInputDialog(
                         text = {
                             Column {
                                 Spacer(modifier = Modifier.height(8.dp))
-                                //所需時間
+
+                                val dur = rememberTimePickerState(0, 0, true)
+                                // 所需時間
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text(
                                         text = "所需時間",
@@ -972,7 +989,7 @@ fun UserInputDialog(
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
                                     TimeInput(
-                                        state = duration,
+                                        state = dur,
                                         colors = TimePickerDefaults.colors(
                                             timeSelectorSelectedContainerColor = Color(0xffb4cfe2),
                                             timeSelectorSelectedContentColor = Color.Black,
@@ -984,10 +1001,13 @@ fun UserInputDialog(
                                             .align(Alignment.CenterVertically)
                                     )
                                 }
+                                duration = formatDuration(duration = dur)
 
                                 Spacer(modifier = Modifier.height(8.dp))
 
-                                //理想時間
+
+                                val ideal = remember { mutableStateOf(LocalTime.of(0, 0)) }
+                                // 理想時間顯示 仍有選填的問題
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text(
                                         text = "理想時間",
@@ -996,7 +1016,11 @@ fun UserInputDialog(
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
                                     TimeInput(
-                                        state = idealTime,
+                                        state = rememberTimePickerState(
+                                            ideal.value.hour,
+                                            ideal.value.minute,
+                                            true
+                                        ),
                                         colors = TimePickerDefaults.colors(
                                             timeSelectorSelectedContainerColor = Color(0xffb4cfe2),
                                             timeSelectorSelectedContentColor = Color.Black,
@@ -1013,9 +1037,14 @@ fun UserInputDialog(
                                     }) {
                                         Text(text = selectedOption)
                                     }
-
                                 }
+
+                                // 格式化理想時間
+                                idealTime = formatIdealTime(idealTime = ideal, selectedOption = selectedOption)
+
+
                                 Spacer(modifier = Modifier.height(8.dp))
+
                                 //能否分割
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text("能否分割:", color = Color.Black)
@@ -1029,8 +1058,7 @@ fun UserInputDialog(
                                         )
                                     )
                                 }
-                                if(isSplittable != false)
-                                {
+                                if(isSplittable) {
                                     Text("選擇至少分割時間:", color = Color.Black)
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Button(
@@ -1081,7 +1109,6 @@ fun UserInputDialog(
                                                 }
                                             )
                                         }
-                                        // 在其他地方显示选中的时间间隔
                                         shortestTime?.let {
                                             Text("最少: $it", color = Color.Black, modifier = Modifier.padding(top = 16.dp))
                                         }
@@ -1199,7 +1226,7 @@ fun UserInputDialog(
 
                 Spacer(modifier = Modifier.height(8.dp))
                 // 重複選單
-                if(autoSchedule!=true){
+                if(!autoSchedule){
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("設定重複:", color = Color.Black)
                         Spacer(modifier = Modifier.width(8.dp))
@@ -1869,6 +1896,48 @@ fun YearlyRepeatSetting(onEndDateSelected: (String) -> Unit) {
     }
 }
 
+@Composable
+fun formatIdealTime(idealTime: MutableState<LocalTime>, selectedOption: String): String {
+    val time = idealTime.value // 取得 LocalTime 對象
+    val hours = time.hour
+    val minutes = time.minute
+    return if (hours == 0 && minutes == 0) {
+        "" // 返回空字串表示未選擇時間
+    } else {
+        "%02d:%02d | %s".format(hours, minutes, selectedOption)
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun formatDuration(duration: TimePickerState): String {
+    val hours = duration.hour
+    val minutes = duration.minute
+    return "%02d:%02d".format(hours, minutes)
+}
+
 fun formatDate(year: Int, month: Int, dayOfMonth: Int): String {
     return "$year-${month + 1}-$dayOfMonth"
 }
+
+fun parseTimeToMinutes(time: String): Int {
+    // 初始化分鐘數
+    var minutes = 0
+
+    // 判斷是否有小時和分鐘的標誌
+    val hourMatcher = Regex("""(\d+)hr""").find(time)
+    val minuteMatcher = Regex("""(\d+)min""").find(time)
+
+    // 處理小時
+    hourMatcher?.let {
+        minutes += it.groupValues[1].toInt() * 60
+    }
+
+    // 處理分鐘
+    minuteMatcher?.let {
+        minutes += it.groupValues[1].toInt()
+    }
+
+    return minutes
+}
+

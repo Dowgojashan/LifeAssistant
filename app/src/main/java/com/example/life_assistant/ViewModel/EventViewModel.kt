@@ -29,7 +29,7 @@ import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.UUID
-import kotlin.time.Duration
+import java.time.Duration
 
 @HiltViewModel
 class EventViewModel @Inject constructor(
@@ -645,7 +645,7 @@ class EventViewModel @Inject constructor(
                     //endDate要-1天 這樣他才能成為熬夜的壞小孩
                     while (current.isBefore(endDate.minusDays(1))) {
                         val startOfDay = LocalDateTime.of(current, wake)
-                        val endOfDay = LocalDateTime.of(current, sleep)
+                        val endOfDay = LocalDateTime.of(current.plusDays(1), sleep)
                         scheduleDates.add(startOfDay to endOfDay)
                         current = current.plusDays(1)
                     }
@@ -776,8 +776,6 @@ class EventViewModel @Inject constructor(
                     eventStart == start && eventEnd == end
                 }?.disturb ?: false
 
-                println("Event Start: $eventStart, Event End: $eventEnd, Disturb: $eventDisturb")
-
                 if (!eventDisturb) {
                     if (eventStart.isAfter(currentStartSlot)) {
                         availableSlots.add(currentStartSlot to eventStart)
@@ -830,73 +828,73 @@ class EventViewModel @Inject constructor(
     }
 
     //計算總共空閒時間
-//    fun calculateTotalFreeTime(availableSlots: List<Pair<LocalDateTime, LocalDateTime>>): String {
-//        // 計算總的可用時間（以毫秒為單位）
-//        val totalMillis = availableSlots.sumOf { (start, end) ->
-//            Duration.between(start, end).toMillis()
-//        }
-//
-//        // 將總的毫秒轉換為小時和分鐘
-//        val totalDuration = Duration.ofMillis(totalMillis)
-//        val hours = totalDuration.toHours()
-//        val minutes = totalDuration.toMinutes() - (hours * 60)
-//
-//        // 返回格式化的時間字符串
-//        return "%d:%02d".format(hours, minutes)
-//    }
-//
-//
-//    // 計算每日的空閒時間
-//    fun calculateDailyFreeTime(availableSlots: List<Pair<LocalDateTime, LocalDateTime>>, endTimeBoundary: LocalTime): Map<LocalDate, String> {
-//        val dailyFreeTime = mutableMapOf<LocalDate, Duration>()
-//        val nextDayStart = LocalTime.MIN
-//
-//        availableSlots.forEach { (start, end) ->
-//            var currentStart = start
-//
-//            println("Start processing slot: $currentStart to $end")
-//
-//            // 處理每個時間段，按天分割
-//            while (currentStart.toLocalDate() != end.toLocalDate()) {
-//
-//                val endOfDay = LocalDateTime.of(currentStart.toLocalDate(), LocalTime.MAX)
-//                val dayEnd = if (endOfDay.isBefore(end)) endOfDay else end
-//
-//                // 計算當天的可用時間
-//                if (currentStart.isBefore(dayEnd)) {
-//                    val duration = Duration.between(currentStart, dayEnd)
-//                    dailyFreeTime[currentStart.toLocalDate()] = dailyFreeTime.getOrDefault(currentStart.toLocalDate(), Duration.ZERO) + duration
-//                }
-//
-//                // 移動到下一天
-//                currentStart = LocalDateTime.of(currentStart.toLocalDate().plusDays(1), nextDayStart)
-//            }
-//
-//            // 處理最後一天
-//            val endOfLastDay = LocalDateTime.of(end.toLocalDate(), end.toLocalTime())
-//            if (currentStart.toLocalDate() == end.toLocalDate()) {
-//                val duration = Duration.between(currentStart, endOfLastDay)
-//                // 如果最後一天的空閒時間在早上五點之前，加到前一天
-//                if (endOfLastDay.toLocalTime().isBefore(LocalTime.of(5, 0))) {
-//                    val previousDay = currentStart.toLocalDate().minusDays(1)
-//                    dailyFreeTime[previousDay] = dailyFreeTime.getOrDefault(previousDay, Duration.ZERO) + duration
-//                }
-//                // 如果不在早上五點之前，正常處理最後一天的空閒時間
-//                else {
-//                    dailyFreeTime[end.toLocalDate()] = dailyFreeTime.getOrDefault(end.toLocalDate(), Duration.ZERO) + duration
-//                }
-//            }
-//            else{
-//
-//            }
-//        }
-//
-//        // 格式化結果
-//        return dailyFreeTime.mapValues { (date, duration) ->
-//            val hours = duration.toHours()
-//            val minutes = duration.toMinutes() % 60
-//            "%d:%02d".format(hours, minutes)
-//        }
-//    }
+    fun calculateTotalFreeTime(availableSlots: List<Pair<LocalDateTime, LocalDateTime>>): String {
+        // 計算總的可用時間（以毫秒為單位）
+        val totalMillis = availableSlots.sumOf { (start, end) ->
+            Duration.between(start, end).toMillis()
+        }
+
+        // 將總的毫秒轉換為 Duration 對象
+        val totalDuration = Duration.ofMillis(totalMillis)
+        val hours = totalDuration.toHours()
+        val minutes = totalDuration.toMinutes() - (hours * 60)
+
+        // 返回格式化的時間字符串
+        return "%d:%02d".format(hours, minutes)
+    }
+
+
+    // 計算每日的空閒時間
+    fun calculateDailyFreeTime(availableSlots: List<Pair<LocalDateTime, LocalDateTime>>, endTimeBoundary: LocalTime): Map<LocalDate, String> {
+        val dailyFreeTime = mutableMapOf<LocalDate, Duration>()
+        val nextDayStart = LocalTime.MIN
+
+        availableSlots.forEach { (start, end) ->
+            var currentStart = start
+
+            println("Start processing slot: $currentStart to $end")
+
+            // 處理每個時間段，按天分割
+            while (currentStart.toLocalDate() != end.toLocalDate()) {
+
+                val endOfDay = LocalDateTime.of(currentStart.toLocalDate(), LocalTime.MAX)
+                val dayEnd = if (endOfDay.isBefore(end)) endOfDay else end
+
+                // 計算當天的可用時間
+                if (currentStart.isBefore(dayEnd)) {
+                    val duration = Duration.between(currentStart, dayEnd)
+                    dailyFreeTime[currentStart.toLocalDate()] = dailyFreeTime.getOrDefault(currentStart.toLocalDate(), Duration.ZERO) + duration
+                }
+
+                // 移動到下一天
+                currentStart = LocalDateTime.of(currentStart.toLocalDate().plusDays(1), nextDayStart)
+            }
+
+            // 處理最後一天
+            val endOfLastDay = LocalDateTime.of(end.toLocalDate(), end.toLocalTime())
+            if (currentStart.toLocalDate() == end.toLocalDate()) {
+                val duration = Duration.between(currentStart, endOfLastDay)
+                // 如果最後一天的空閒時間在早上五點之前，加到前一天
+                if (endOfLastDay.toLocalTime().isBefore(LocalTime.of(5, 0))) {
+                    val previousDay = currentStart.toLocalDate().minusDays(1)
+                    dailyFreeTime[previousDay] = dailyFreeTime.getOrDefault(previousDay, Duration.ZERO) + duration
+                }
+                // 如果不在早上五點之前，正常處理最後一天的空閒時間
+                else {
+                    dailyFreeTime[end.toLocalDate()] = dailyFreeTime.getOrDefault(end.toLocalDate(), Duration.ZERO) + duration
+                }
+            }
+            else{
+
+            }
+        }
+
+        // 格式化結果
+        return dailyFreeTime.mapValues { (date, duration) ->
+            val hours = duration.toHours()
+            val minutes = duration.toMinutes() % 60
+            "%d:%02d".format(hours, minutes)
+        }
+    }
 
 }
