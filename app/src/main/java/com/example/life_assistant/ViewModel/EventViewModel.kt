@@ -24,6 +24,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
@@ -501,26 +503,50 @@ class EventViewModel @Inject constructor(
 
                 // 刪除所有具有相同 repeatGroupId 的事件
                 val eventsRef = database.getReference("members").child(memberId).child("events")
-                eventsRef.orderByChild("repeatGroupId").equalTo(eventGroupId).get().addOnSuccessListener { snapshot ->
-                    if (snapshot.exists()) {
-                        snapshot.children.forEach { child ->
-                            val childRef = child.ref
-                            childRef.removeValue().addOnSuccessListener {
-                                Log.d("Firebase", "Deleted event with uid: ${child.key}")
-                            }.addOnFailureListener { exception ->
-                                handleException(exception, "Unable to delete event with uid: ${child.key}")
+                eventsRef.orderByChild("repeatGroupId").equalTo(eventGroupId).get()
+                    .addOnSuccessListener { snapshot ->
+                        if (snapshot.exists()) {
+                            snapshot.children.forEach { child ->
+                                val childRef = child.ref
+                                childRef.removeValue().addOnSuccessListener {
+                                    Log.d("Firebase", "Deleted event with uid: ${child.key}")
+                                }.addOnFailureListener { exception ->
+                                    handleException(
+                                        exception,
+                                        "Unable to delete event with uid: ${child.key}"
+                                    )
+                                }
                             }
-                        }
-                        Log.d("Firebase", "All repeat events deleted successfully")
+                            Log.d("Firebase", "All repeat events deleted successfully")
 
-                        // 根據 repeatType 和 repeatEndDate 新增重複事件
-                        addEvent(name,startTime,endTime,tags,alarmTime,repeatEndDate,repeatType,duration,idealTime,shortestTime,longestTime,dailyRepeat,disturb,description,currentMonth,eventGroupId)
-                    } else {
-                        Log.d("Firebase", "No matching repeat events found for repeatGroupId: $eventGroupId")
-                        getEventsForDate(date)
-                        currentMonth?.let { getEventsForMonth(it) }
-                    }
-                }.addOnFailureListener { exception ->
+                            // 根據 repeatType 和 repeatEndDate 新增重複事件
+                            addEvent(
+                                name,
+                                startTime,
+                                endTime,
+                                tags,
+                                alarmTime,
+                                repeatEndDate,
+                                repeatType,
+                                duration,
+                                idealTime,
+                                shortestTime,
+                                longestTime,
+                                dailyRepeat,
+                                disturb,
+                                description,
+                                currentMonth,
+                                eventGroupId
+                            )
+                        } else {
+                            Log.d(
+                                "Firebase",
+                                "No matching repeat events found for repeatGroupId: $eventGroupId"
+                            )
+                            getEventsForDate(date)
+                            currentMonth?.let { getEventsForMonth(it) }
+                        }
+                    }.addOnFailureListener { exception ->
                     handleException(exception, "Unable to delete all repeat events")
                 }
             }.addOnFailureListener { exception ->
@@ -538,55 +564,6 @@ class EventViewModel @Inject constructor(
         }
     }
 
-    fun getFreeTime(
-        startTime: String,
-        endTime: String,
-        wakeTime: String,
-        sleepTime: String,
-    ): List<Pair<LocalDateTime, LocalDateTime>> {
-        // 定義時間格式
-        val dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
-        val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
-
-        // 解析時間字符串
-        val start = LocalDateTime.parse(startTime, dateTimeFormatter)
-        val end = LocalDateTime.parse(endTime, dateTimeFormatter)
-        val wake = LocalTime.parse(wakeTime, timeFormatter)
-        val sleep = LocalTime.parse(sleepTime, timeFormatter)
-
-        // 計算日期範圍
-        val startDate = start.toLocalDate()
-        val endDate = end.toLocalDate()
-
-        val scheduleDates = mutableListOf<Pair<LocalDateTime, LocalDateTime>>()
-
-        if (startDate.isEqual(endDate)) {
-            // 當 startTime 和 endTime 是同一天
-            scheduleDates.add(start to end)
-        } else {
-            // 當 startTime 和 endTime 是不同天
-
-            // 處理 startTime 那一天
-            val endOfFirstDay = LocalDateTime.of(startDate, sleep)
-            scheduleDates.add(start to endOfFirstDay)
-
-            // 處理 endTime 那一天
-            val startOfLastDay = LocalDateTime.of(endDate, wake)
-            scheduleDates.add(startOfLastDay to end)
-
-            // 處理中間的日期
-            var current = startDate.plusDays(1)
-            while (current.isBefore(endDate)) {
-                val startOfDay = LocalDateTime.of(current, wake)
-                val endOfDay = LocalDateTime.of(current, sleep)
-                scheduleDates.add(startOfDay to endOfDay)
-                current = current.plusDays(1)
-            }
-        }
-
-        return scheduleDates
-    }
-
 
     //抓錯誤
     fun handleException(exception: Exception? = null, customMessage: String = "") {
@@ -594,13 +571,32 @@ class EventViewModel @Inject constructor(
         val errorMsg = exception?.localizedMessage ?: ""
     }
 
+    private fun getWakeSleepTime(callback: (wakeTime: String, sleepTime: String) -> Unit) {
+        val userId = auth.currentUser?.uid ?: return
+
+        val memberRef = database.getReference("members").child(userId)
+
+        memberRef.child("wakeTime").get().addOnSuccessListener { wakeTimeSnapshot ->
+            val wakeTime = wakeTimeSnapshot.value as? String ?: "00:00" // 如果沒有值則設為預設時間
+            memberRef.child("sleepTime").get().addOnSuccessListener { sleepTimeSnapshot ->
+                val sleepTime = sleepTimeSnapshot.value as? String ?: "00:00" // 如果沒有值則設為預設時間
+
+                callback(wakeTime, sleepTime)
+            }.addOnFailureListener {
+                // 處理失敗情況
+                callback("00:00", "00:00")
+            }
+        }.addOnFailureListener {
+            // 處理失敗情況
+            callback("00:00", "00:00")
+        }
+    }
+
     fun getFreeTime(
         startTime: String,
         endTime: String,
-        wakeTime: String,
-        sleepTime: String,
-        events: List<Event>
-    ): List<Pair<String, String>> {
+        callback: (List<Pair<String, String>>) -> Unit
+    ) {
         // 定義時間格式
         val dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
         val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
@@ -608,200 +604,202 @@ class EventViewModel @Inject constructor(
         // 解析時間字符串
         val start = LocalDateTime.parse(startTime, dateTimeFormatter)
         val end = LocalDateTime.parse(endTime, dateTimeFormatter)
-        val endofTime = end.toLocalTime() //單純存結束時間的時分
-        val endBoundary = LocalTime.parse("05:01",timeFormatter) //可能算是同一天的跨日時間點判斷 比如說我們就是覺得凌晨三點還是同一天
-        val startBoundary = LocalTime.parse("00:00",timeFormatter) //如果是連續很多天的事件 同上拿來判斷用的
-        val wake = LocalTime.parse(wakeTime, timeFormatter)
-        val sleep = LocalTime.parse(sleepTime, timeFormatter)
+        val endofTime = end.toLocalTime()
+        val endBoundary = LocalTime.parse("05:01", timeFormatter)
+        val startBoundary = LocalTime.parse("00:00", timeFormatter)
 
-        // 定義輸出格式
-        val outputFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+        // 獲取起床和睡覺時間
+        getWakeSleepTime { wakeTime, sleepTime ->
+            val wake = LocalTime.parse(wakeTime, timeFormatter)
+            val sleep = LocalTime.parse(sleepTime, timeFormatter)
 
-        // 計算日期範圍
-        val startDate = start.toLocalDate()
-        val endDate = end.toLocalDate()
+            // 定義輸出格式
+            val outputFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
 
-        //存要檢查的時間範圍
-        val scheduleDates = mutableListOf<Pair<LocalDateTime, LocalDateTime>>()
+            // 計算日期範圍
+            val startDate = start.toLocalDate()
+            val endDate = end.toLocalDate()
 
-        // 如果睡覺時間早於起床時間(解決跨日問題)
-        if (sleep.isBefore(wake)) {
-            //如果事件的開始時間是同一天(包含過午夜十二點的)
-            if (startDate.isEqual(endDate) || (startDate.plusDays(1).isEqual(endDate) && endofTime.isBefore(endBoundary))) {
-                scheduleDates.add(start to end)
-            }
-            else {
-                // 第一天存開始到睡覺時間
-                val endOfFirstDay = LocalDateTime.of(startDate.plusDays(1), sleep)
-                scheduleDates.add(start to endOfFirstDay)
+            // 存要檢查的時間範圍
+            val scheduleDates = mutableListOf<Pair<LocalDateTime, LocalDateTime>>()
 
-
-
-                //如果最後一天有跨日的情況
-                if((endofTime.isAfter(startBoundary) || endofTime.equals(startBoundary)) &&
-                    (endofTime.isBefore(endBoundary))){
-                    // 中間日期為起床到睡覺
-                    var current = startDate.plusDays(1)
-                    //endDate要-1天 這樣他才能成為熬夜的壞小孩
-                    while (current.isBefore(endDate.minusDays(1))) {
-                        val startOfDay = LocalDateTime.of(current, wake)
-                        val endOfDay = LocalDateTime.of(current.plusDays(1), sleep)
-                        scheduleDates.add(startOfDay to endOfDay)
-                        current = current.plusDays(1)
-                    }
-                    //最後一天存起床到結束時間
-                    val startOfLastDay = LocalDateTime.of(endDate.minusDays(1), wake)
-                    scheduleDates.add(startOfLastDay to end)
+            // 如果睡覺時間早於起床時間(解決跨日問題)
+            if (sleep.isBefore(wake)) {
+                //如果事件的開始時間是同一天(包含過午夜十二點的)
+                if (startDate.isEqual(endDate) || (startDate.plusDays(1).isEqual(endDate) && endofTime.isBefore(endBoundary))) {
+                    scheduleDates.add(start to end)
                 }
-                // 如果最後一天沒有跨日的情況
-                else{
-                    // 中間日期為起床到睡覺
-                    var current = startDate.plusDays(1)
-                    while (current.isBefore(endDate)) {
-                        val startOfDay = LocalDateTime.of(current, wake)
-                        val endOfDay = LocalDateTime.of(current.plusDays(1), sleep)
-                        scheduleDates.add(startOfDay to endOfDay)
-                        current = current.plusDays(1)
-                    }
-                    //最後一天存起床到結束時間
-                    val startOfLastDay = LocalDateTime.of(endDate, wake)
-                    scheduleDates.add(startOfLastDay to end)
-                }
-            }
-        }
-        // 起床睡覺時間沒有跨日的情況下
-        else {
-            //如果開始與結束是同一天(包含過午夜十二點的)
-            if (startDate.isEqual(endDate) || (startDate.plusDays(1).isEqual(endDate) && endofTime.isBefore(endBoundary))) {
-                scheduleDates.add(start to end)
-            }
-            else {
-                // 第一天存開始到睡覺時間
-                val endOfFirstDay = LocalDateTime.of(startDate, sleep)
-                scheduleDates.add(start to endOfFirstDay)
+                else {
+                    // 第一天存開始到睡覺時間
+                    val endOfFirstDay = LocalDateTime.of(startDate.plusDays(1), sleep)
+                    scheduleDates.add(start to endOfFirstDay)
 
 
 
-                //如果最後一天有跨日的情況
-                if((endofTime.isAfter(startBoundary) || endofTime.equals(startBoundary)) &&
-                    (endofTime.isBefore(endBoundary))){
-                    // 中間日期為起床到睡覺
-                    var current = startDate.plusDays(1)
-                    //endDate要-1天 這樣他才能成為熬夜的壞小孩
-                    while (current.isBefore(endDate.minusDays(1))) {
-                        val startOfDay = LocalDateTime.of(current, wake)
-                        val endOfDay = LocalDateTime.of(current, sleep)
-                        scheduleDates.add(startOfDay to endOfDay)
-                        current = current.plusDays(1)
-                    }
-                    //最後一天存起床到結束時間
-                    val startOfLastDay = LocalDateTime.of(endDate.minusDays(1), wake)
-                    scheduleDates.add(startOfLastDay to end)
-                }
-                // 如果最後一天沒有跨日的情況
-                else{
-                    // 中間日期為起床到睡覺
-                    var current = startDate.plusDays(1)
-                    while (current.isBefore(endDate)) {
-                        val startOfDay = LocalDateTime.of(current, wake)
-                        val endOfDay = LocalDateTime.of(current, sleep)
-                        scheduleDates.add(startOfDay to endOfDay)
-                        current = current.plusDays(1)
-                    }
-                    //最後一天存起床到結束時間
-                    val startOfLastDay = LocalDateTime.of(endDate, wake)
-                    scheduleDates.add(startOfLastDay to end)
-                }
-            }
-        }
-
-        // 印出時間範圍的結果
-        scheduleDates.forEach { (startSlot, endSlot) ->
-            println("[$startSlot, $endSlot]")
-        }
-
-        // 儲存空檔時間範圍
-        val availableSlots = mutableListOf<Pair<LocalDateTime, LocalDateTime>>()
-
-        for ((startSlot, endSlot) in scheduleDates) {
-            // 先過濾出與當前時間段重疊的事件
-            val eventsForDate = events
-                .filter { event ->
-                    val eventStart = LocalDateTime.parse(event.startTime, dateTimeFormatter)
-                    val eventEnd = LocalDateTime.parse(event.endTime, dateTimeFormatter)
-                    eventStart.isBefore(endSlot) && eventEnd.isAfter(startSlot)
-                }
-                .flatMap { event ->
-                    val eventStart = LocalDateTime.parse(event.startTime, dateTimeFormatter)
-                    val eventEnd = LocalDateTime.parse(event.endTime, dateTimeFormatter)
-
-                    // 生成事件在當前時間段的時間範圍
-                    generateSequence(eventStart.coerceAtLeast(startSlot)) { it.plusMinutes(1) }
-                        .takeWhile { it.isBefore(eventEnd.coerceAtMost(endSlot)) }
-                        .groupBy { it.toLocalDate() }
-                        .map { (date, times) ->
-                            times.first() to times.last()
+                    //如果最後一天有跨日的情況
+                    if((endofTime.isAfter(startBoundary) || endofTime.equals(startBoundary)) &&
+                        (endofTime.isBefore(endBoundary))){
+                        // 中間日期為起床到睡覺
+                        var current = startDate.plusDays(1)
+                        //endDate要-1天 這樣他才能成為熬夜的壞小孩
+                        while (current.isBefore(endDate.minusDays(1))) {
+                            val startOfDay = LocalDateTime.of(current, wake)
+                            val endOfDay = LocalDateTime.of(current.plusDays(1), sleep)
+                            scheduleDates.add(startOfDay to endOfDay)
+                            current = current.plusDays(1)
                         }
-                }
-
-            // 合併跨日事件
-            val mergedEvents = mutableListOf<Pair<LocalDateTime, LocalDateTime>>()
-            var currentStart: LocalDateTime? = null
-            var currentEnd: LocalDateTime? = null
-
-            for ((eventStart, eventEnd) in eventsForDate) {
-                if (currentStart == null) {
-                    currentStart = eventStart
-                    currentEnd = eventEnd.plusMinutes(1)
-                } else if (eventStart.isBefore(currentEnd!!.plusMinutes(1))) {
-                    // 如果事件開始時間在當前事件結束時間之內，則擴展當前事件的結束時間
-                    currentEnd = maxOf(currentEnd!!, eventEnd.plusMinutes(1))
-                } else {
-                    // 否則，將當前事件加入到合併事件列表中，並重置
-                    mergedEvents.add(currentStart!! to currentEnd!!)
-                    currentStart = eventStart
-                    currentEnd = eventEnd.plusMinutes(1)
-                }
-            }
-            if (currentStart != null && currentEnd != null) {
-                mergedEvents.add(currentStart to currentEnd)
-            }
-
-            // 檢查每個合併的事件的 disturb 標誌
-            var currentStartSlot = startSlot
-            for ((eventStart, eventEnd) in mergedEvents) {
-                val eventDisturb = events.find { event ->
-                    val start = LocalDateTime.parse(event.startTime, dateTimeFormatter)
-                    val end = LocalDateTime.parse(event.endTime, dateTimeFormatter)
-                    eventStart == start && eventEnd == end
-                }?.disturb ?: false
-
-                if (!eventDisturb) {
-                    if (eventStart.isAfter(currentStartSlot)) {
-                        availableSlots.add(currentStartSlot to eventStart)
+                        //最後一天存起床到結束時間
+                        val startOfLastDay = LocalDateTime.of(endDate.minusDays(1), wake)
+                        scheduleDates.add(startOfLastDay to end)
                     }
-                    currentStartSlot = eventEnd
+                    // 如果最後一天沒有跨日的情況
+                    else{
+                        // 中間日期為起床到睡覺
+                        var current = startDate.plusDays(1)
+                        while (current.isBefore(endDate)) {
+                            val startOfDay = LocalDateTime.of(current, wake)
+                            val endOfDay = LocalDateTime.of(current.plusDays(1), sleep)
+                            scheduleDates.add(startOfDay to endOfDay)
+                            current = current.plusDays(1)
+                        }
+                        //最後一天存起床到結束時間
+                        val startOfLastDay = LocalDateTime.of(endDate, wake)
+                        scheduleDates.add(startOfLastDay to end)
+                    }
                 }
             }
-            if (currentStartSlot.isBefore(endSlot)) {
-                availableSlots.add(currentStartSlot to endSlot)
-            }
-        }
-        // 去除重複的時間範圍
-        val uniqueSlots = mergeIntervals(
-            availableSlots.map { it.first to it.second }
-                .distinctBy { it.first to it.second }
-                .sortedBy { it.first }
-        )
+            // 起床睡覺時間沒有跨日的情況下
+            else {
+                //如果開始與結束是同一天(包含過午夜十二點的)
+                if (startDate.isEqual(endDate) || (startDate.plusDays(1).isEqual(endDate) && endofTime.isBefore(endBoundary))) {
+                    scheduleDates.add(start to end)
+                }
+                else {
+                    // 第一天存開始到睡覺時間
+                    val endOfFirstDay = LocalDateTime.of(startDate, sleep)
+                    scheduleDates.add(start to endOfFirstDay)
 
-        // 轉換回字符串格式
-        return uniqueSlots.map { (start, end) ->
-            start.format(outputFormatter) to end.format(outputFormatter)
+
+
+                    //如果最後一天有跨日的情況
+                    if((endofTime.isAfter(startBoundary) || endofTime.equals(startBoundary)) &&
+                        (endofTime.isBefore(endBoundary))){
+                        // 中間日期為起床到睡覺
+                        var current = startDate.plusDays(1)
+                        //endDate要-1天 這樣他才能成為熬夜的壞小孩
+                        while (current.isBefore(endDate.minusDays(1))) {
+                            val startOfDay = LocalDateTime.of(current, wake)
+                            val endOfDay = LocalDateTime.of(current, sleep)
+                            scheduleDates.add(startOfDay to endOfDay)
+                            current = current.plusDays(1)
+                        }
+                        //最後一天存起床到結束時間
+                        val startOfLastDay = LocalDateTime.of(endDate.minusDays(1), wake)
+                        scheduleDates.add(startOfLastDay to end)
+                    }
+                    // 如果最後一天沒有跨日的情況
+                    else{
+                        // 中間日期為起床到睡覺
+                        var current = startDate.plusDays(1)
+                        while (current.isBefore(endDate)) {
+                            val startOfDay = LocalDateTime.of(current, wake)
+                            val endOfDay = LocalDateTime.of(current, sleep)
+                            scheduleDates.add(startOfDay to endOfDay)
+                            current = current.plusDays(1)
+                        }
+                        //最後一天存起床到結束時間
+                        val startOfLastDay = LocalDateTime.of(endDate, wake)
+                        scheduleDates.add(startOfLastDay to end)
+                    }
+                }
+            }
+
+            // 印出時間範圍的結果
+            scheduleDates.forEach { (startSlot, endSlot) ->
+                println("[$startSlot, $endSlot]")
+            }
+
+            // 獲取指定日期範圍內的事件
+            getEventsForDateRange(startDate, endDate) { events ->
+                val availableSlots = mutableListOf<Pair<LocalDateTime, LocalDateTime>>()
+
+                for ((startSlot, endSlot) in scheduleDates) {
+                    val eventsForDate = events
+                        .filter { event ->
+                            val eventStart = LocalDateTime.parse(event.startTime, dateTimeFormatter)
+                            val eventEnd = LocalDateTime.parse(event.endTime, dateTimeFormatter)
+                            eventStart.isBefore(endSlot) && eventEnd.isAfter(startSlot)
+                        }
+                        .flatMap { event ->
+                            val eventStart = LocalDateTime.parse(event.startTime, dateTimeFormatter)
+                            val eventEnd = LocalDateTime.parse(event.endTime, dateTimeFormatter)
+
+                            generateSequence(eventStart.coerceAtLeast(startSlot)) { it.plusMinutes(1) }
+                                .takeWhile { it.isBefore(eventEnd.coerceAtMost(endSlot)) }
+                                .groupBy { it.toLocalDate() }
+                                .map { (date, times) ->
+                                    times.first() to times.last()
+                                }
+                        }
+
+                    val mergedEvents = mutableListOf<Pair<LocalDateTime, LocalDateTime>>()
+                    var currentStart: LocalDateTime? = null
+                    var currentEnd: LocalDateTime? = null
+
+                    for ((eventStart, eventEnd) in eventsForDate) {
+                        if (currentStart == null) {
+                            currentStart = eventStart
+                            currentEnd = eventEnd
+                        } else if (eventStart.isBefore(currentEnd!!.plusMinutes(1))) {
+                            currentEnd = maxOf(currentEnd!!, eventEnd)
+                        } else {
+                            mergedEvents.add(currentStart!! to currentEnd!!)
+                            currentStart = eventStart
+                            currentEnd = eventEnd
+                        }
+                    }
+                    if (currentStart != null && currentEnd != null) {
+                        mergedEvents.add(currentStart to currentEnd)
+                    }
+
+                    var currentStartSlot = startSlot
+                    for ((eventStart, eventEnd) in mergedEvents) {
+                        val eventDisturb = events.find { event ->
+                            val start = LocalDateTime.parse(event.startTime, dateTimeFormatter)
+                            val end = LocalDateTime.parse(event.endTime, dateTimeFormatter)
+                            eventStart == start && eventEnd == end
+                        }?.disturb ?: false
+
+                        if (!eventDisturb) {
+                            if (eventStart.isAfter(currentStartSlot)) {
+                                availableSlots.add(currentStartSlot to eventStart)
+                            }
+                            currentStartSlot = eventEnd
+                        }
+                    }
+                    if (currentStartSlot.isBefore(endSlot)) {
+                        availableSlots.add(currentStartSlot to endSlot)
+                    }
+                }
+
+                // 去除重複的時間範圍
+                val uniqueSlots = mergeIntervals(
+                    availableSlots.map { it.first to it.second }
+                        .distinctBy { it.first to it.second }
+                        .sortedBy { it.first }
+                )
+
+                // 轉換回字符串格式
+                callback(uniqueSlots.map { (start, end) ->
+                    start.format(outputFormatter) to end.format(outputFormatter)
+                })
+            }
         }
     }
 
+
     //去除重複時間的function
-    fun mergeIntervals(intervals: List<Pair<LocalDateTime, LocalDateTime>>): List<Pair<LocalDateTime, LocalDateTime>> {
+    private fun mergeIntervals(intervals: List<Pair<LocalDateTime, LocalDateTime>>): List<Pair<LocalDateTime, LocalDateTime>> {
         if (intervals.isEmpty()) return emptyList()
 
         val mergedIntervals = mutableListOf<Pair<LocalDateTime, LocalDateTime>>()
@@ -884,11 +882,7 @@ class EventViewModel @Inject constructor(
                     dailyFreeTime[end.toLocalDate()] = dailyFreeTime.getOrDefault(end.toLocalDate(), Duration.ZERO) + duration
                 }
             }
-            else{
-
-            }
         }
-
         // 格式化結果
         return dailyFreeTime.mapValues { (date, duration) ->
             val hours = duration.toHours()
@@ -896,5 +890,77 @@ class EventViewModel @Inject constructor(
             "%d:%02d".format(hours, minutes)
         }
     }
+
+
+    private fun getEventsForDateRange(startDate: LocalDate, endDate: LocalDate, callback: (List<Event>) -> Unit) {
+        val memberId = auth.currentUser?.uid ?: return callback(emptyList())
+        Log.d("free", memberId)
+        val eventRef = database.getReference("members").child(memberId).child("events")
+        val eventsList = mutableListOf<Event>()
+
+        eventRef.get().addOnSuccessListener { snapshot ->
+            try {
+                for (data in snapshot.children) {
+                    val eventMap = data.value as? Map<*, *>
+                    if (eventMap != null) {
+                        val uid = eventMap["uid"] as? String ?: ""
+                        val name = eventMap["name"] as? String ?: ""
+                        val startTime = eventMap["startTime"] as? String ?: ""
+                        val endTime = eventMap["endTime"] as? String ?: ""
+                        val tags = eventMap["tags"] as? String ?: ""
+                        val alarmTime = eventMap["alarmTime"] as? String ?: ""
+                        val repeatEndDate = eventMap["repeatEndDate"] as? String ?: ""
+                        val repeatType = eventMap["repeatType"] as? String ?: ""
+                        val repeatGroupId = eventMap["repeatGroupId"] as? String ?: ""
+                        val duration = eventMap["duration"] as? String ?: ""
+                        val idealTime = eventMap["idealTime"] as? String ?: ""
+                        val shortestTime = eventMap["shortestTime"] as? String ?: ""
+                        val longestTime = eventMap["longestTime"] as? String ?: ""
+                        val dailyRepeat = eventMap["dailyRepeat"] as? Boolean ?: false
+                        val disturb = eventMap["disturb"] as? Boolean ?: false
+                        val description = eventMap["description"] as? String ?: ""
+
+                        // 解析事件的 startTime 和 endTime
+                        val eventStartDate = LocalDateTime.parse(startTime, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")).toLocalDate()
+                        val eventEndDate = LocalDateTime.parse(endTime, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")).toLocalDate()
+
+                        // 檢查事件是否在指定日期範圍內
+                        if ((eventStartDate.isBefore(endDate) || eventStartDate.isEqual(endDate)) &&
+                            (eventEndDate.isAfter(startDate) || eventEndDate.isEqual(startDate))) {
+                            // 創建 Event 物件
+                            val event = Event(
+                                uid = uid,
+                                name = name,
+                                startTime = startTime,
+                                endTime = endTime,
+                                tags = tags,
+                                alarmTime = alarmTime,
+                                repeatEndDate = repeatEndDate,
+                                repeatType = repeatType,
+                                repeatGroupId = repeatGroupId,
+                                duration = duration,
+                                idealTime = idealTime,
+                                shortestTime = shortestTime,
+                                longestTime = longestTime,
+                                dailyRepeat = dailyRepeat,
+                                disturb = disturb,
+                                description = description
+                            )
+                            eventsList.add(event)
+                        }
+                    }
+                }
+                callback(eventsList)
+            } catch (e: Exception) {
+                // 處理錯誤情況
+                e.printStackTrace()
+                callback(emptyList())
+            }
+        }.addOnFailureListener {
+            // 處理錯誤情況
+            callback(emptyList())
+        }
+    }
+
 
 }

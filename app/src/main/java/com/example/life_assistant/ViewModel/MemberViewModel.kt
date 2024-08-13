@@ -358,34 +358,4 @@ class MemberViewModel @Inject constructor(
         }
     }
 
-    private val _sleepTime = MutableLiveData<String>()
-    val sleepTime: LiveData<String> = _sleepTime
-
-    private val _wakeTime = MutableLiveData<String>()
-    val wakeTime: LiveData<String> = _wakeTime
-
-    fun fetchSleepAndWakeTime() {
-        val userId = auth.currentUser?.uid ?: return
-        val habitsRef = database.getReference("habits").child(userId)
-
-        habitsRef.child("sleepTime").addListenerForSingleValueEvent(object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                _sleepTime.value = snapshot.getValue(String::class.java) ?: ""
-            }
-
-            override fun onCancelled(error: DatabaseError) {
-                // 處理錯誤
-            }
-        })
-
-        habitsRef.child("wakeTime").addListenerForSingleValueEvent(object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                _wakeTime.value = snapshot.getValue(String::class.java) ?: ""
-            }
-
-            override fun onCancelled(error: DatabaseError) {
-                // 處理錯誤
-            }
-        })
-    }
 }
