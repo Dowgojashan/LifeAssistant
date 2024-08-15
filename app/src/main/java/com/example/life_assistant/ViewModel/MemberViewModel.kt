@@ -117,10 +117,16 @@ class MemberViewModel @Inject constructor(
         val habitRef = database.getReference("members").child(memberId)
         val wakeTime = String.format("%02d:%02d", wakeHour, wakeMinute)
         val sleepTime = String.format("%02d:%02d", sleepHour, sleepMinute)
-
+        //habit: String,readingTag:String,sportTag:String,workTag:String,leisureTag:String,houseworkTag:String
         val habits = mapOf(
             "wakeTime" to wakeTime,
-            "sleepTime" to sleepTime
+            "sleepTime" to sleepTime,
+//            "habit" to habit,
+//            "readingTag" to readingTag,
+//            "sportTag" to sportTag,
+//            "workTag" to workTag,
+//            "leisureTag" to leisureTag,
+//            "houseworkTag" to houseworkTag,
         )
 
         habitRef.setValue(habits).addOnSuccessListener {

@@ -1110,7 +1110,7 @@ fun UserInputDialog(
                                                 text = {
                                                     LazyColumn {
                                                         items(
-                                                            listOf("15min", "30min", "45min", "1hr", "1hr15min", "1hr30min", "1hr45min", "2hr"
+                                                            listOf( "30min",  "1hr",  "1hr30min",  "2hr"
                                                             )
                                                         )
                                                         { interval ->
@@ -1171,7 +1171,7 @@ fun UserInputDialog(
                                                 text = {
                                                     LazyColumn {
                                                         items(
-                                                            listOf("30min", "45min", "1hr", "1hr15min", "1hr30min", "1hr45min", "2hr", "2hr15min")
+                                                            listOf("30min", "1hr", "1hr30min", "2hr", "2hr30min","3hr","3hr30min","4hr")
                                                         )
                                                         { interval ->
                                                             Row(

@@ -232,7 +232,7 @@ fun LoginScreen(
 
         //尚未註冊按鈕
         Button(
-            onClick = {navController.navigate(DestinationScreen.SignUp.route) },
+            onClick = {navController.navigate(DestinationScreen.SignUpHabit.route) },
             colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
             modifier = Modifier
                 .align(Alignment.Center)

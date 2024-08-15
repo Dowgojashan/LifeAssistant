@@ -51,6 +51,12 @@ fun SignUpHabitScreen(
 ) {
     val wakeState = rememberTimePickerState(0, 0, true)
     val sleepState = rememberTimePickerState(0, 0, true)
+    val (selectedOption, setSelectedOption) = remember { mutableStateOf("") }//先甘後苦那個
+    val preferences = listOf("讀書", "運動", "工作", "娛樂","生活雜物")// 可根據需要添加更多選項
+    val (morningChecked, setMorningChecked) = remember { mutableStateOf(false) }
+    val (noonChecked, setNoonChecked) = remember { mutableStateOf(false) }
+    val (nightChecked, setNightChecked) = remember { mutableStateOf(false) }
+
 
     Box(
         modifier = modifier
@@ -131,13 +137,6 @@ fun SignUpHabitScreen(
                         .align(Alignment.CenterHorizontally)
                         .padding(vertical = 6.dp)
                 )
-
-                val (selectedOption, setSelectedOption) = remember { mutableStateOf("") }//先甘後苦那個
-                val preferences = listOf("讀書", "運動", "工作", "娛樂","生活雜物")// 可根據需要添加更多選項
-                val (morningChecked, setMorningChecked) = remember { mutableStateOf(false) }
-                val (noonChecked, setNoonChecked) = remember { mutableStateOf(false) }
-                val (nightChecked, setNightChecked) = remember { mutableStateOf(false) }
-
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
@@ -176,7 +175,7 @@ fun SignUpHabitScreen(
                 }
 
                 Text(
-                    text = "偏好選擇(可略過）",
+                    text = "偏好選擇",
                     color = Color.Black,
                     fontSize = 20.sp,
                     modifier = Modifier.padding(top = 8.dp)
