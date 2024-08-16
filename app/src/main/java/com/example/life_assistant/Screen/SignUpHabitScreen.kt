@@ -27,6 +27,7 @@ import androidx.compose.material3.TimeInput
 import androidx.compose.material3.TimePickerDefaults
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -53,9 +54,9 @@ fun SignUpHabitScreen(
     val sleepState = rememberTimePickerState(0, 0, true)
     val (selectedOption, setSelectedOption) = remember { mutableStateOf("") }//先甘後苦那個
     val preferences = listOf("讀書", "運動", "工作", "娛樂","生活雜物")// 可根據需要添加更多選項
-    val (morningChecked, setMorningChecked) = remember { mutableStateOf(false) }
-    val (noonChecked, setNoonChecked) = remember { mutableStateOf(false) }
-    val (nightChecked, setNightChecked) = remember { mutableStateOf(false) }
+    val morningCheckedStates = remember { mutableStateMapOf<String, Boolean>().apply { preferences.forEach { put(it, false) } } }
+    val noonCheckedStates = remember { mutableStateMapOf<String, Boolean>().apply { preferences.forEach { put(it, false) } } }
+    val nightCheckedStates = remember { mutableStateMapOf<String, Boolean>().apply { preferences.forEach { put(it, false) } } }
 
 
     Box(
@@ -174,48 +175,49 @@ fun SignUpHabitScreen(
                     }
                 }
 
-                Text(
-                    text = "偏好選擇",
-                    color = Color.Black,
-                    fontSize = 20.sp,
-                    modifier = Modifier.padding(top = 8.dp)
-                )
+                Column {
+                    Text(
+                        text = "偏好選擇",
+                        color = Color.Black,
+                        fontSize = 20.sp,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
 
+                    preferences.forEach { preference ->
+                        Row(
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier
+                                .padding(vertical = 6.dp)
+                                .fillMaxWidth()
+                        ) {
+                            Text(text = preference, textAlign = TextAlign.Center)
 
-                preferences.forEachIndexed { index, preference ->
-                    Row(
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        modifier = Modifier
-                            .padding(vertical = 6.dp)
-                            .fillMaxWidth()
-                    ) {
-                        Text(text = preference, textAlign = TextAlign.Center)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Checkbox(
+                                    checked = morningCheckedStates[preference] ?: false,
+                                    onCheckedChange = { checked -> morningCheckedStates[preference] = checked },
+                                    colors = CheckboxDefaults.colors(checkedColor = Color.Black)
+                                )
+                                Text(text = "上午", textAlign = TextAlign.Center)
+                            }
 
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Checkbox(
+                                    checked = noonCheckedStates[preference] ?: false,
+                                    onCheckedChange = { checked -> noonCheckedStates[preference] = checked },
+                                    colors = CheckboxDefaults.colors(checkedColor = Color.Black)
+                                )
+                                Text(text = "下午", textAlign = TextAlign.Center)
+                            }
 
-
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(
-                                checked = morningChecked,
-                                onCheckedChange = setMorningChecked,
-                                colors = CheckboxDefaults.colors(checkedColor = Color.Black)
-                            )
-                            Text(text = "上午", textAlign = TextAlign.Center)
-                        }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(
-                                checked = noonChecked,
-                                onCheckedChange = setNoonChecked,
-                                colors = CheckboxDefaults.colors(checkedColor = Color.Black)
-                            )
-                            Text(text = "下午", textAlign = TextAlign.Center)
-                        }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(
-                                checked = nightChecked,
-                                onCheckedChange = setNightChecked,
-                                colors = CheckboxDefaults.colors(checkedColor = Color.Black)
-                            )
-                            Text(text = "晚上", textAlign = TextAlign.Center)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Checkbox(
+                                    checked = nightCheckedStates[preference] ?: false,
+                                    onCheckedChange = { checked -> nightCheckedStates[preference] = checked },
+                                    colors = CheckboxDefaults.colors(checkedColor = Color.Black)
+                                )
+                                Text(text = "晚上", textAlign = TextAlign.Center)
+                            }
                         }
                     }
                 }
