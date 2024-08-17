@@ -1,5 +1,6 @@
 package com.example.life_assistant.Screen
 
+import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -27,9 +28,11 @@ import androidx.compose.material3.TimeInput
 import androidx.compose.material3.TimePickerDefaults
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -53,10 +56,18 @@ fun SignUpHabitScreen(
     val wakeState = rememberTimePickerState(0, 0, true)
     val sleepState = rememberTimePickerState(0, 0, true)
     val (selectedOption, setSelectedOption) = remember { mutableStateOf("") }//先甘後苦那個
-    val preferences = listOf("讀書", "運動", "工作", "娛樂","生活雜物")// 可根據需要添加更多選項
+    var habit by remember { mutableStateOf("")}
+    val preferences = listOf("讀書", "運動", "工作", "娛樂","生活雜務")// 可根據需要添加更多選項
     val morningCheckedStates = remember { mutableStateMapOf<String, Boolean>().apply { preferences.forEach { put(it, false) } } }
     val noonCheckedStates = remember { mutableStateMapOf<String, Boolean>().apply { preferences.forEach { put(it, false) } } }
     val nightCheckedStates = remember { mutableStateMapOf<String, Boolean>().apply { preferences.forEach { put(it, false) } } }
+    val readingTag = getPreferenceTag("讀書", morningCheckedStates, noonCheckedStates, nightCheckedStates)
+    val sportTag = getPreferenceTag("運動", morningCheckedStates, noonCheckedStates, nightCheckedStates)
+    val workTag = getPreferenceTag("工作", morningCheckedStates, noonCheckedStates, nightCheckedStates)
+    val leisureTag = getPreferenceTag("娛樂", morningCheckedStates, noonCheckedStates, nightCheckedStates)
+    val houseworkTag = getPreferenceTag("生活雜務", morningCheckedStates, noonCheckedStates, nightCheckedStates)
+
+
 
 
     Box(
@@ -156,11 +167,17 @@ fun SignUpHabitScreen(
                         horizontalArrangement = Arrangement.SpaceAround,
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        TextButton(onClick = { setSelectedOption("先完成任務後再享受放鬆時間") }) {
+                        TextButton(onClick = {
+                            setSelectedOption("先完成任務後再享受放鬆時間")
+                            habit = "先苦後甜"
+                        }) {
                             Text(text = "先苦後甜")
                         }
 
-                        TextButton(onClick = { setSelectedOption("先享受放鬆時間後再完成任務") }) {
+                        TextButton(onClick = {
+                            setSelectedOption("先享受放鬆時間後再完成任務")
+                            habit = "先甜後苦"
+                        }) {
                             Text(text = "先甜後苦")
                         }
                     }
@@ -228,7 +245,7 @@ fun SignUpHabitScreen(
         //註冊按鈕
         Button(
             onClick = {
-                mvm.saveHabitTimes(wakeState.hour, wakeState.minute, sleepState.hour, sleepState.minute)
+                mvm.saveHabitTimes(wakeState.hour, wakeState.minute, sleepState.hour, sleepState.minute,habit,readingTag,sportTag,workTag,leisureTag,houseworkTag)
                 navController.navigate(DestinationScreen.Login.route) },
             shape = RoundedCornerShape(15.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Color.Black),
@@ -255,4 +272,15 @@ fun SignUpHabitScreen(
         )
 
     }
+}
+
+// 函式來獲取每個偏好的選擇時間段
+fun getPreferenceTag(preference: String, morningCheckedStates: Map<String, Boolean>, noonCheckedStates: Map<String, Boolean>, nightCheckedStates: Map<String, Boolean>): String {
+    val tags = mutableListOf<String>()
+
+    if (morningCheckedStates[preference] == true) tags.add("上午")
+    if (noonCheckedStates[preference] == true) tags.add("下午")
+    if (nightCheckedStates[preference] == true) tags.add("晚上")
+
+    return tags.joinToString(separator = ",")
 }

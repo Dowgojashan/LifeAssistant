@@ -83,7 +83,7 @@ class MemberViewModel @Inject constructor(
                                             name = name,
                                             birthday = formattedBirthday
                                         )
-                                        insertMember(memberEntity)
+                                        //insertMember(memberEntity)
 
                                         registrationSuccess.value = true
                                         Log.d("Registration", "viewmodel_registrationSuccess: ${registrationSuccess.value}")
@@ -111,37 +111,37 @@ class MemberViewModel @Inject constructor(
     }
 
     // 儲存習慣時間
-    fun saveHabitTimes(wakeHour: Int, wakeMinute: Int, sleepHour: Int, sleepMinute: Int) {
+    fun saveHabitTimes(wakeHour: Int, wakeMinute: Int, sleepHour: Int, sleepMinute: Int,habit: String,readingTag:String,sportTag:String,workTag:String,leisureTag:String,houseworkTag:String) {
         val memberId = auth.currentUser?.uid ?: return
 
         val habitRef = database.getReference("members").child(memberId)
         val wakeTime = String.format("%02d:%02d", wakeHour, wakeMinute)
         val sleepTime = String.format("%02d:%02d", sleepHour, sleepMinute)
-        //habit: String,readingTag:String,sportTag:String,workTag:String,leisureTag:String,houseworkTag:String
+
         val habits = mapOf(
             "wakeTime" to wakeTime,
             "sleepTime" to sleepTime,
-//            "habit" to habit,
-//            "readingTag" to readingTag,
-//            "sportTag" to sportTag,
-//            "workTag" to workTag,
-//            "leisureTag" to leisureTag,
-//            "houseworkTag" to houseworkTag,
+            "habit" to habit,
+            "readingTag" to readingTag,
+            "sportTag" to sportTag,
+            "workTag" to workTag,
+            "leisureTag" to leisureTag,
+            "houseworkTag" to houseworkTag,
         )
 
-        habitRef.setValue(habits).addOnSuccessListener {
+        habitRef.updateChildren(habits).addOnSuccessListener {
             Log.d("Firebase", "Habit times saved successfully")
 
-            viewModelScope.launch(Dispatchers.IO) {
-                val existingMember = memberRepository.getMemberByUid(memberId)
-                if (existingMember != null) {
-                    val updatedMember = existingMember.copy(
-                        wake_time = wakeTime,
-                        sleep_time = sleepTime
-                    )
-                    memberRepository.update(updatedMember)
-                }
-            }
+//            viewModelScope.launch(Dispatchers.IO) {
+//                val existingMember = memberRepository.getMemberByUid(memberId)
+//                if (existingMember != null) {
+//                    val updatedMember = existingMember.copy(
+//                        wake_time = wakeTime,
+//                        sleep_time = sleepTime
+//                    )
+//                    memberRepository.update(updatedMember)
+//                }
+//            }
 
             auth.signOut()
             signedIn.value = false
@@ -158,7 +158,7 @@ class MemberViewModel @Inject constructor(
             .addOnCompleteListener {authTask ->
                 if (authTask.isSuccessful) {
                     val memberId = auth.currentUser?.uid ?: ""
-                    checkAndInsertMember(memberId)
+                    //checkAndInsertMember(memberId)
                     signedIn.value = true
                     Log.d("AlertDialog", "sign: $signedIn.value ")
                 } else {
