@@ -8,6 +8,7 @@
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
     <color name="light_blue">#B4CFE2</color>
+    <color name="dark_blue">#003060</color>
     //分類標籤顏色
     <color name="red">#FFDB697A</color>
     <color name="orange">#FFEE8575</color>

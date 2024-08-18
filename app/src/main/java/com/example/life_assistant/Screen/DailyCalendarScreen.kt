@@ -6,11 +6,15 @@ import android.app.TimePickerDialog
 import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -34,11 +38,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.navigation.NavController
 import com.example.life_assistant.DestinationScreen
@@ -1032,8 +1038,11 @@ fun UserInputDialog(
                                 Spacer(modifier = Modifier.height(8.dp))
 
 
-                                val ideal = rememberTimePickerState(timePart.first, timePart.second, true)
-                                // 理想時間顯示 仍有選填的問題
+                                val hours = (0..23).map { String.format("%02d:00", it) } + "無"
+                                val selectedHour = remember { mutableStateOf("無") }  // 預設選項為"無"
+                                var showDialogIdealTime by remember { mutableStateOf(false) }
+
+
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text(
                                         text = "理想時間",
@@ -1041,32 +1050,108 @@ fun UserInputDialog(
                                         modifier = Modifier.align(Alignment.CenterVertically)
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
-                                    TimeInput(
-                                        state = ideal,
-                                        colors = TimePickerDefaults.colors(
-                                            timeSelectorSelectedContainerColor = Color(0xffb4cfe2),
-                                            timeSelectorSelectedContentColor = Color.Black,
-                                            timeSelectorUnselectedContainerColor = Color(0xffb4cfe2),
-                                            timeSelectorUnselectedContentColor = Color.Black
+
+                                    Button(
+                                        onClick = { showDialogIdealTime = true },
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = Color.Transparent, // 背景颜色设置为透明
+                                            contentColor = Color.Black
                                         ),
-                                        modifier = Modifier
-                                            .size(120.dp, 70.dp)
-                                            .align(Alignment.CenterVertically)
-                                    )
+                                            border = BorderStroke(2.dp, colorResource(id = R.color.dark_blue)) // 设置边框
+                                        ) {
+                                            Text(text = selectedHour.value,fontSize = 20.sp)
+                                    }
+
+                                    if (showDialogIdealTime) {
+                                        Dialog(onDismissRequest = { showDialogIdealTime = false }) {
+                                            Surface(
+                                                shape = MaterialTheme.shapes.medium,
+                                                color = Color.White,
+                                                modifier = Modifier
+                                                    .padding(6.dp)
+
+                                            ) {
+                                                Column(
+                                                    modifier = Modifier
+                                                        .padding(16.dp)
+                                                        .fillMaxWidth()
+                                                ) {
+                                                    LazyVerticalGrid(
+                                                        columns = GridCells.Fixed(4),
+                                                        contentPadding = PaddingValues(10.dp),
+
+                                                        modifier = Modifier
+                                                            .height(320.dp)
+                                                            // 控制对话框高度
+                                                    ) {
+                                                        items(hours.size) { index ->  // 传入列表大小
+                                                            val hour = hours[index]   // 获取当前小时字符串
+                                                            val isSelected = hour == selectedHour.value
+                                                            val itemsInRow = 4 // 每行的项目数
+                                                            val isLastRow = index / itemsInRow == hours.size / itemsInRow
+                                                            val modifier = if (isLastRow) {
+                                                                Modifier
+                                                                    .padding(4.dp)
+                                                                    .weight(1f) // 在最后一行的项目间均匀分布空间
+                                                                    .fillMaxWidth()
+                                                            } else {
+                                                                Modifier
+                                                                    .padding(4.dp)
+                                                                    .fillMaxWidth()
+                                                            }
+                                                            Box(
+                                                                modifier = Modifier
+                                                                    .padding(4.dp)
+                                                                    .weight(1f)
+                                                                    .border(
+                                                                        BorderStroke(
+                                                                            1.dp,
+                                                                            if (isSelected) Color.Red else Color.Gray
+                                                                        )
+                                                                    )
+                                                                    .background(Color.Transparent)
+                                                                    .clickable {
+                                                                        selectedHour.value = hour
+                                                                    }
+                                                                    .padding(6.dp), // 增加内边距
+                                                                    //.fillMaxWidth()
+                                                                    //.align(Alignment.CenterHorizontally), // 水平居中对齐
+                                                                contentAlignment = Alignment.Center // 内容居中对齐
+                                                            ) {
+                                                                Text(
+                                                                    text = hour,
+                                                                    color = Color.Black,
+                                                                    fontSize = 14.sp, // 设置字体大小
+                                                                    textAlign = TextAlign.Center,
+                                                                    modifier = Modifier.fillMaxSize()
+                                                                )
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+
                                     Spacer(modifier = Modifier.width(8.dp))
-                                    Button(onClick = {
-                                        selectedOption =
-                                            if (selectedOption == "之前") "之後" else "之前"
-                                    }) {
+
+                                    Button(
+                                        onClick = {
+                                            selectedOption = if (selectedOption == "之前") "之後" 
+                                                                else "之前"
+                                        }
+                                    ) {
                                         Text(text = selectedOption)
                                     }
                                 }
 
-                                // 格式化理想時間
-                                idealTime = formatIdealTime(
-                                    idealTime = ideal,
-                                    selectedOption = selectedOption
-                                )
+                                // 将理想时间格式化为 "HH:mm|之前" 或 "HH:mm|之後"
+                                // 如果选择了“无”，返回空字符串 ""
+                                val idealTime = if (selectedHour.value == "無") {
+                                    ""
+                                } else {
+                                    "${selectedHour.value}|${selectedOption}"
+                                }
 
 
                                 Spacer(modifier = Modifier.height(8.dp))
