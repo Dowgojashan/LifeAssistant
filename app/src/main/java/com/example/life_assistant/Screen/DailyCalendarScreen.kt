@@ -1601,17 +1601,19 @@ fun UserInputDialog(
                                             it[0].toInt() * 60 + it[1].toInt()
                                         }
 
-                                        val isEnough = dailyFreeTime.values.any { freeTime ->
+                                        // 使用 `any` 來檢查是否有任何一天的空閒時間足夠
+                                        val isEnough = dailyFreeTime.values.all { freeTime ->
                                             val freeTimeInMinutes = freeTime.split(":").let {
                                                 it[0].toInt() * 60 + it[1].toInt()
                                             }
                                             freeTimeInMinutes >= requiredMinutes
                                         }
+
+                                        // 確保 `isEnough` 的計算完成後才繼續執行後面的代碼
                                         println("check:$isEnough")
 
                                         if (!isEnough) {
-                                            errorMessage.value =
-                                                "某幾天的空檔時間不夠所需時間安排"
+                                            errorMessage.value = "某幾天的空檔時間不夠所需時間安排"
                                             showDialog.value = true
                                         }
                                     }
