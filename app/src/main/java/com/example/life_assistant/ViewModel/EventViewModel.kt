@@ -24,6 +24,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
@@ -897,110 +899,4 @@ class EventViewModel @Inject constructor(
         }
     }
 
-    //獲取理想時間
-    fun filterSlotsByIdealTime(
-        availableSlots: List<Pair<LocalDateTime, LocalDateTime>>,
-        wakeTime: String,
-        sleepTime: String,
-        idealTime: String?
-    ): List<Pair<String, String>> {
-
-        // 定義輸出格式
-        val outputFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
-
-        val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
-
-        if (idealTime.isNullOrEmpty()) {
-            // 如果没有提供理想时间条件，直接返回原本的可用时间列表
-            return availableSlots.map { (start, end) ->
-                start.format(outputFormatter) to end.format(outputFormatter)
-            }
-        }
-
-        val (idealTimeStr, condition) = idealTime.split("|")
-        val idealTimeParsed = LocalTime.parse(idealTimeStr)
-        val endBoundary = LocalTime.parse("05:01",timeFormatter) //可能算是同一天的跨日時間點判斷 比如說我們就是覺得凌晨三點還是同一天
-        val startBoundary = LocalTime.parse("00:00",timeFormatter)
-
-        val filteredSlots = availableSlots.mapNotNull { (start, end) ->
-            val startDate = start.toLocalDate()
-            val endDate = end.toLocalDate()
-            val startOfTime = start.toLocalTime()
-
-            val wake = LocalTime.parse(wakeTime)
-            val sleep = LocalTime.parse(sleepTime)
-            val wakeUpTime = startDate.atTime(wake)
-            val sleepTime = if((sleep.isAfter(startBoundary) || sleep.equals(startBoundary)) && sleep.isBefore(endBoundary)){
-                if(startDate == endDate){
-                    startDate.plusDays(1).atTime(sleep)
-                }else endDate.atTime(sleep)
-            }else startDate.atTime(sleep)
-
-
-            when (condition) {
-                "之前" -> {
-                    val endOfIdealSlot =
-                        if((idealTimeParsed.isAfter(startBoundary) || idealTimeParsed.equals(startBoundary)) && idealTimeParsed.isBefore(endBoundary)){
-                            if(startDate == endDate){
-                                if((startOfTime.isAfter(startBoundary)|| startOfTime.equals(startBoundary)) && startOfTime.isBefore(endBoundary)){
-                                    startDate.atTime(idealTimeParsed)
-                                }else startDate.plusDays(1).atTime(idealTimeParsed)
-                            }else endDate.atTime(idealTimeParsed)
-                        }else if((startOfTime.isAfter(startBoundary)|| startOfTime.equals(startBoundary)) && startOfTime.isBefore(endBoundary)){
-                            startDate.minusDays(1).atTime(idealTimeParsed)
-                        }else startDate.atTime(idealTimeParsed)
-
-                    println("$endOfIdealSlot")
-                    if (start.isBefore(wakeUpTime)) {
-                        // 处理事件开始时间早于起床时间的情况
-                        if (end.isAfter(start)) {
-                            val newEnd = minOf(end, endOfIdealSlot)
-                            if (start.isBefore(newEnd)) start to newEnd else null
-                        } else null
-                    } else if (wakeUpTime.isBefore(endOfIdealSlot) && end.isAfter(wakeUpTime)) {
-                        val newStart = maxOf(start, wakeUpTime)
-                        val newEnd = if (end.isAfter(sleepTime)) end
-                        else minOf(end, endOfIdealSlot)
-                        if (newStart.isBefore(newEnd)) newStart to newEnd else null
-                    } else null
-                }
-
-                "之後" -> {
-                    val startOfIdealSlot =
-                        if((idealTimeParsed.isAfter(startBoundary) || idealTimeParsed.equals(startBoundary)) && idealTimeParsed.isBefore(endBoundary)){
-                            if(startDate == endDate){
-                                if((startOfTime.isAfter(startBoundary)|| startOfTime.equals(startBoundary)) && startOfTime.isBefore(endBoundary)){
-                                    startDate.atTime(idealTimeParsed)
-                                }else startDate.plusDays(1).atTime(idealTimeParsed)
-                            }else endDate.atTime(idealTimeParsed)
-                        }else if((startOfTime.isAfter(startBoundary)|| startOfTime.equals(startBoundary)) && startOfTime.isBefore(endBoundary)){
-                            startDate.minusDays(1).atTime(idealTimeParsed)
-                        }
-                        else startDate.atTime(idealTimeParsed)
-
-                    println("$startOfIdealSlot")
-                    if (end.isAfter(startOfIdealSlot)) {
-                        // 判断事件结束时间是否在理想时间之后
-                        val newStart = maxOf(start, startOfIdealSlot)
-
-                        // 如果事件结束时间晚于睡觉时间，则保持事件结束时间
-                        val newEnd = if (end.isAfter(sleepTime)) end
-                        else minOf(end, sleepTime)
-
-                        if (newStart.isBefore(newEnd)) newStart to newEnd else null
-                    } else null
-                }
-
-                else -> null
-            }
-        }
-
-        return if (filteredSlots.isEmpty()) availableSlots.map { (start, end) ->
-            start.format(outputFormatter) to end.format(outputFormatter)
-        } else filteredSlots.map { (start, end) ->
-            start.format(outputFormatter) to end.format(outputFormatter)
-        }
-    }
-
 }
-

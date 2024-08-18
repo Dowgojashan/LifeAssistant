@@ -83,7 +83,7 @@ class MemberViewModel @Inject constructor(
                                             name = name,
                                             birthday = formattedBirthday
                                         )
-                                        insertMember(memberEntity)
+                                        //insertMember(memberEntity)
 
                                         registrationSuccess.value = true
                                         Log.d("Registration", "viewmodel_registrationSuccess: ${registrationSuccess.value}")
@@ -111,7 +111,7 @@ class MemberViewModel @Inject constructor(
     }
 
     // 儲存習慣時間
-    fun saveHabitTimes(wakeHour: Int, wakeMinute: Int, sleepHour: Int, sleepMinute: Int) {
+    fun saveHabitTimes(wakeHour: Int, wakeMinute: Int, sleepHour: Int, sleepMinute: Int,habit: String,readingTag:String,sportTag:String,workTag:String,leisureTag:String,houseworkTag:String) {
         val memberId = auth.currentUser?.uid ?: return
 
         val habitRef = database.getReference("members").child(memberId)
@@ -120,22 +120,28 @@ class MemberViewModel @Inject constructor(
 
         val habits = mapOf(
             "wakeTime" to wakeTime,
-            "sleepTime" to sleepTime
+            "sleepTime" to sleepTime,
+            "habit" to habit,
+            "readingTag" to readingTag,
+            "sportTag" to sportTag,
+            "workTag" to workTag,
+            "leisureTag" to leisureTag,
+            "houseworkTag" to houseworkTag,
         )
 
-        habitRef.setValue(habits).addOnSuccessListener {
+        habitRef.updateChildren(habits).addOnSuccessListener {
             Log.d("Firebase", "Habit times saved successfully")
 
-            viewModelScope.launch(Dispatchers.IO) {
-                val existingMember = memberRepository.getMemberByUid(memberId)
-                if (existingMember != null) {
-                    val updatedMember = existingMember.copy(
-                        wake_time = wakeTime,
-                        sleep_time = sleepTime
-                    )
-                    memberRepository.update(updatedMember)
-                }
-            }
+//            viewModelScope.launch(Dispatchers.IO) {
+//                val existingMember = memberRepository.getMemberByUid(memberId)
+//                if (existingMember != null) {
+//                    val updatedMember = existingMember.copy(
+//                        wake_time = wakeTime,
+//                        sleep_time = sleepTime
+//                    )
+//                    memberRepository.update(updatedMember)
+//                }
+//            }
 
             auth.signOut()
             signedIn.value = false
@@ -152,7 +158,7 @@ class MemberViewModel @Inject constructor(
             .addOnCompleteListener {authTask ->
                 if (authTask.isSuccessful) {
                     val memberId = auth.currentUser?.uid ?: ""
-                    checkAndInsertMember(memberId)
+                    //checkAndInsertMember(memberId)
                     signedIn.value = true
                     Log.d("AlertDialog", "sign: $signedIn.value ")
                 } else {
@@ -358,34 +364,4 @@ class MemberViewModel @Inject constructor(
         }
     }
 
-    private val _sleepTime = MutableLiveData<String>()
-    val sleepTime: LiveData<String> = _sleepTime
-
-    private val _wakeTime = MutableLiveData<String>()
-    val wakeTime: LiveData<String> = _wakeTime
-
-    fun fetchSleepAndWakeTime() {
-        val userId = auth.currentUser?.uid ?: return
-        val habitsRef = database.getReference("habits").child(userId)
-
-        habitsRef.child("sleepTime").addListenerForSingleValueEvent(object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                _sleepTime.value = snapshot.getValue(String::class.java) ?: ""
-            }
-
-            override fun onCancelled(error: DatabaseError) {
-                // 處理錯誤
-            }
-        })
-
-        habitsRef.child("wakeTime").addListenerForSingleValueEvent(object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                _wakeTime.value = snapshot.getValue(String::class.java) ?: ""
-            }
-
-            override fun onCancelled(error: DatabaseError) {
-                // 處理錯誤
-            }
-        })
-    }
 }
