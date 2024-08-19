@@ -3,8 +3,10 @@ package com.example.life_assistant.Screen
 import android.annotation.SuppressLint
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -20,6 +22,14 @@ import androidx.navigation.NavController
 import com.example.life_assistant.DestinationScreen
 import com.example.life_assistant.R
 import com.example.life_assistant.ViewModel.MemberViewModel
+
+
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import androidx.compose.ui.input.pointer.pointerInput
 
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @Composable
@@ -116,7 +126,10 @@ fun ClassificationScreen(
 
             data class ItemState(
                 val label: String,
-                var color: Color
+                var color: Color,
+                var morningChecked: Boolean = false,
+                var noonChecked: Boolean = false,
+                var nightChecked: Boolean = false
             )
 
             val items = remember {
@@ -131,19 +144,42 @@ fun ClassificationScreen(
                 )
             }
 
-            LazyColumn {
-                items(items.size) { index ->
-                    val item = items[index]
+            // Coroutine scope for handling reorder
+            val coroutineScope = rememberCoroutineScope()
+
+            LazyColumn(
+                modifier = Modifier.fillMaxSize()
+            ) {
+                itemsIndexed(items) { index, item ->
                     var isExpanded by remember { mutableStateOf(false) }
-                    var isColorMenuExpanded by remember { mutableStateOf(false) }
+                    var isSettingsMenuExpanded by remember { mutableStateOf(false) }
 
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .wrapContentHeight()
-                            .zIndex(0f)
-                            .background(item.color, RoundedCornerShape(4.dp))
+                            .background(item.color, RoundedCornerShape(12.dp))
                             .padding(16.dp)
+                            .pointerInput(Unit) {
+                                detectDragGestures(
+                                    onDragEnd = { /* Handle the drag end if needed */ },
+                                    onDragCancel = { /* Handle the drag cancel if needed */ },
+                                    onDrag = { change, dragAmount ->
+                                        change.consume()
+                                        coroutineScope.launch {
+                                            if (dragAmount.y > 0) {
+                                                if (index < items.size - 1) {
+                                                    items.swap(index, index + 1)
+                                                }
+                                            } else if (dragAmount.y < 0) {
+                                                if (index > 0) {
+                                                    items.swap(index, index - 1)
+                                                }
+                                            }
+                                        }
+                                    }
+                                )
+                            }
                     ) {
                         Column {
                             Row(
@@ -152,7 +188,7 @@ fun ClassificationScreen(
                             ) {
                                 Text(
                                     text = item.label,
-                                    fontSize = 16.sp,
+                                    fontSize = 18.sp,
                                     modifier = Modifier.weight(0.7f)
                                 )
                                 IconButton(onClick = {
@@ -164,61 +200,111 @@ fun ClassificationScreen(
                                         modifier = Modifier.size(24.dp)
                                     )
                                 }
-                                Box {
-                                    IconButton(onClick = {
-                                        isColorMenuExpanded = true
-                                    }) {
-                                        Icon(
-                                            painter = painterResource(id = R.drawable.mdi_palette),
-                                            contentDescription = "Change Color",
-                                            modifier = Modifier.size(24.dp)
-                                        )
-                                    }
-                                    DropdownMenu(
-                                        expanded = isColorMenuExpanded,
-                                        onDismissRequest = { isColorMenuExpanded = false }
-                                    ) {
-                                        colors.forEach { color ->
-                                            DropdownMenuItem(
-                                                onClick = {
-                                                    item.color = color
-                                                    isColorMenuExpanded = false
-                                                },
-                                                text = {
-                                                    Box(
-                                                        modifier = Modifier
-                                                            .size(24.dp)
-                                                            .background(color)
-                                                    )
-                                                }
-                                            )
-                                        }
-                                    }
-                                }
                                 IconButton(onClick = {
-                                    if (index > 0) {
-                                        items.swap(index, index - 1)
-                                    }
+                                    isSettingsMenuExpanded = true
                                 }) {
                                     Icon(
-                                        painter = painterResource(id = R.drawable.change_up),
-                                        contentDescription = "Move Up",
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                }
-                                IconButton(onClick = {
-                                    if (index < items.size - 1) {
-                                        items.swap(index, index + 1)
-                                    }
-                                }) {
-                                    Icon(
-                                        painter = painterResource(id = R.drawable.change_down),
-                                        contentDescription = "Move Down",
+                                        painter = painterResource(id = R.drawable.edit),
+                                        contentDescription = "Change Settings",
                                         modifier = Modifier.size(24.dp)
                                     )
                                 }
                             }
+                            DropdownMenu(
+                                expanded = isSettingsMenuExpanded,
+                                onDismissRequest = { isSettingsMenuExpanded = false }
+                            ) {
+                                // Color selection
+                                Column(modifier = Modifier.padding(8.dp)) {
+                                    Text(
+                                        text = "選擇顏色",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        modifier = Modifier.padding(bottom = 8.dp)
+                                    )
 
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        colors.forEach { color ->
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(40.dp)
+                                                    .background(color, CircleShape)
+                                                    .clickable {
+                                                        item.color = color
+                                                        isSettingsMenuExpanded = false
+                                                    }
+                                            )
+                                        }
+                                    }
+                                }
+
+                                // Preference selection
+                                Divider(modifier = Modifier.padding(vertical = 8.dp))
+
+                                Column(modifier = Modifier.padding(8.dp)) {
+                                    Text(
+                                        text = "偏好選擇",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        modifier = Modifier.padding(bottom = 8.dp)
+                                    )
+
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        modifier = Modifier.fillMaxWidth()
+                                            .padding(bottom = 8.dp)
+                                    ) {
+                                        Text(text = "上午")
+                                        Checkbox(
+                                            checked = item.morningChecked,
+                                            onCheckedChange = { checked ->
+                                                item.morningChecked = checked
+                                            },
+                                            colors = CheckboxDefaults.colors(
+                                                checkedColor = Color.Black
+                                            )
+                                        )
+                                    }
+
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        modifier = Modifier.fillMaxWidth()
+                                            .padding(bottom = 8.dp)
+                                    ) {
+                                        Text(text = "下午")
+                                        Checkbox(
+                                            checked = item.noonChecked,
+                                            onCheckedChange = { checked ->
+                                                item.noonChecked = checked
+                                            },
+                                            colors = CheckboxDefaults.colors(
+                                                checkedColor = Color.Black
+                                            )
+                                        )
+                                    }
+
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        modifier = Modifier.fillMaxWidth()
+                                            .padding(bottom = 8.dp)
+                                    ) {
+                                        Text(text = "晚上")
+                                        Checkbox(
+                                            checked = item.nightChecked,
+                                            onCheckedChange = { checked ->
+                                                item.nightChecked = checked
+                                            },
+                                            colors = CheckboxDefaults.colors(
+                                                checkedColor = Color.Black
+                                            )
+                                        )
+                                    }
+                                }
+                            }
                             AnimatedVisibility(visible = isExpanded) {
                                 Column(modifier = Modifier.padding(start = 16.dp, top = 8.dp)) {
                                     Text(
