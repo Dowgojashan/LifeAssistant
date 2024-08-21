@@ -126,11 +126,13 @@ fun ClassificationScreen(
 
             data class ItemState(
                 val label: String,
-                var color: Color,
-                var morningChecked: Boolean = false,
-                var noonChecked: Boolean = false,
-                var nightChecked: Boolean = false
+                var color: Color
             )
+
+            var morningChecked by remember { mutableStateOf(false) }
+            var noonChecked by remember { mutableStateOf(false) }
+            var nightChecked by remember { mutableStateOf(false) }
+
 
             val items = remember {
                 mutableStateListOf(
@@ -258,9 +260,9 @@ fun ClassificationScreen(
                                     ) {
                                         Text(text = "上午")
                                         Checkbox(
-                                            checked = item.morningChecked,
+                                            checked = morningChecked,
                                             onCheckedChange = { checked ->
-                                                item.morningChecked = checked
+                                                morningChecked = checked
                                             },
                                             colors = CheckboxDefaults.colors(
                                                 checkedColor = Color.Black
@@ -276,9 +278,9 @@ fun ClassificationScreen(
                                     ) {
                                         Text(text = "下午")
                                         Checkbox(
-                                            checked = item.noonChecked,
+                                            checked = noonChecked,
                                             onCheckedChange = { checked ->
-                                                item.noonChecked = checked
+                                                noonChecked = checked
                                             },
                                             colors = CheckboxDefaults.colors(
                                                 checkedColor = Color.Black
@@ -294,9 +296,9 @@ fun ClassificationScreen(
                                     ) {
                                         Text(text = "晚上")
                                         Checkbox(
-                                            checked = item.nightChecked,
+                                            checked = nightChecked,
                                             onCheckedChange = { checked ->
-                                                item.nightChecked = checked
+                                                nightChecked = checked
                                             },
                                             colors = CheckboxDefaults.colors(
                                                 checkedColor = Color.Black
