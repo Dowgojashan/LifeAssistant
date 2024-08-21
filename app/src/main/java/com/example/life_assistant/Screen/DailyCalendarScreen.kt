@@ -1148,7 +1148,7 @@ fun UserInputDialog(
 
                                 // 将理想时间格式化为 "HH:mm|之前" 或 "HH:mm|之後"
                                 // 如果选择了“无”，返回空字符串 ""
-                                val idealTime = if (selectedHour.value == "無") {
+                                idealTime = if (selectedHour.value == "無") {
                                     ""
                                 } else {
                                     "${selectedHour.value}|${selectedOption}"
@@ -1558,7 +1558,18 @@ fun UserInputDialog(
                                             errorMessage.value = "空檔時間不夠所需時間安排"
                                             showDialog.value = true
                                         } else {
-                                            onDismiss()
+                                            //如果有填理想時間
+                                            if(idealTime.isNotBlank()){
+                                                evm.filterSlotsByIdealTime(localDateTimeSlots,idealTime){ byIdealList ->
+                                                    byIdealList.forEach{(start,end) ->
+                                                        println("Ideal Time slot:$start to $end")
+                                                    }
+                                                }
+                                            }
+                                            else{
+                                                //抓標籤
+                                                onDismiss()
+                                            }
                                         }
                                     }
                                 }
@@ -1771,7 +1782,7 @@ fun TagsDropdownMenu(
             onDismissRequest = onDismiss,
             modifier = Modifier.fillMaxWidth()
         ) {
-            val tags = listOf("運動", "讀書", "吃飯")
+            val tags = listOf("工作", "娛樂", "運動", "生活雜務", "讀書", "旅遊", "吃飯")
 
             tags.forEach { tag ->
                 DropdownMenuItem(
