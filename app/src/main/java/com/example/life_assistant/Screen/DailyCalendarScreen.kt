@@ -1020,9 +1020,15 @@ fun UserInputDialog(
                                 text = {
                                     Column {
                                         Spacer(modifier = Modifier.height(8.dp))
-                                        val (initialHour, initialMinute) = parseDurationString(duration)
+                                        val (initialHour, initialMinute) = parseDurationString(
+                                            duration
+                                        )
 
-                                        val dur = rememberTimePickerState(initialHour, initialMinute, true)
+                                        val dur = rememberTimePickerState(
+                                            initialHour,
+                                            initialMinute,
+                                            true
+                                        )
                                         // 所需時間
                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                             Text(
@@ -1034,9 +1040,13 @@ fun UserInputDialog(
                                             TimeInput(
                                                 state = dur,
                                                 colors = TimePickerDefaults.colors(
-                                                    timeSelectorSelectedContainerColor = Color(0xffb4cfe2),
+                                                    timeSelectorSelectedContainerColor = Color(
+                                                        0xffb4cfe2
+                                                    ),
                                                     timeSelectorSelectedContentColor = Color.Black,
-                                                    timeSelectorUnselectedContainerColor = Color(0xffb4cfe2),
+                                                    timeSelectorUnselectedContainerColor = Color(
+                                                        0xffb4cfe2
+                                                    ),
                                                     timeSelectorUnselectedContentColor = Color.Black
                                                 ),
                                                 modifier = Modifier
@@ -1049,8 +1059,10 @@ fun UserInputDialog(
                                         Spacer(modifier = Modifier.height(8.dp))
 
 
-                                        val hours = (0..23).map { String.format("%02d:00", it) } + "無"
-                                        val selectedHour = remember { mutableStateOf("無") }  // 預設選項為"無"
+                                        val hours =
+                                            (0..23).map { String.format("%02d:00", it) } + "無"
+                                        val selectedHour =
+                                            remember { mutableStateOf("無") }  // 預設選項為"無"
                                         var showDialogIdealTime by remember { mutableStateOf(false) }
 
 
@@ -1068,13 +1080,18 @@ fun UserInputDialog(
                                                     containerColor = Color.Transparent, // 背景颜色设置为透明
                                                     contentColor = Color.Black
                                                 ),
-                                                border = BorderStroke(2.dp, colorResource(id = R.color.dark_blue)) // 设置边框
+                                                border = BorderStroke(
+                                                    2.dp,
+                                                    colorResource(id = R.color.dark_blue)
+                                                ) // 设置边框
                                             ) {
-                                                Text(text = selectedHour.value,fontSize = 20.sp)
+                                                Text(text = selectedHour.value, fontSize = 20.sp)
                                             }
 
                                             if (showDialogIdealTime) {
-                                                Dialog(onDismissRequest = { showDialogIdealTime = false }) {
+                                                Dialog(onDismissRequest = {
+                                                    showDialogIdealTime = false
+                                                }) {
                                                     Surface(
                                                         shape = MaterialTheme.shapes.medium,
                                                         color = Color.White,
@@ -1096,10 +1113,13 @@ fun UserInputDialog(
                                                                 // 控制对话框高度
                                                             ) {
                                                                 items(hours.size) { index ->  // 传入列表大小
-                                                                    val hour = hours[index]   // 获取当前小时字符串
-                                                                    val isSelected = hour == selectedHour.value
+                                                                    val hour =
+                                                                        hours[index]   // 获取当前小时字符串
+                                                                    val isSelected =
+                                                                        hour == selectedHour.value
                                                                     val itemsInRow = 4 // 每行的项目数
-                                                                    val isLastRow = index / itemsInRow == hours.size / itemsInRow
+                                                                    val isLastRow =
+                                                                        index / itemsInRow == hours.size / itemsInRow
                                                                     val modifier = if (isLastRow) {
                                                                         Modifier
                                                                             .padding(4.dp)
@@ -1122,7 +1142,8 @@ fun UserInputDialog(
                                                                             )
                                                                             .background(Color.Transparent)
                                                                             .clickable {
-                                                                                selectedHour.value = hour
+                                                                                selectedHour.value =
+                                                                                    hour
                                                                             }
                                                                             .padding(6.dp), // 增加内边距
                                                                         //.fillMaxWidth()
@@ -1148,8 +1169,9 @@ fun UserInputDialog(
 
                                             Button(
                                                 onClick = {
-                                                    selectedOption = if (selectedOption == "之前") "之後"
-                                                    else "之前"
+                                                    selectedOption =
+                                                        if (selectedOption == "之前") "之後"
+                                                        else "之前"
                                                 }
                                             ) {
                                                 Text(text = selectedOption)
@@ -1162,7 +1184,7 @@ fun UserInputDialog(
                                         } else {
                                             "${selectedHour.value}|${selectedOption}"
                                         }
-                                }
+
 
                                         Spacer(modifier = Modifier.height(8.dp))
 
@@ -1184,27 +1206,41 @@ fun UserInputDialog(
                                             Spacer(modifier = Modifier.width(8.dp))
                                             Button(
                                                 onClick = { showSplitDialog = true },
-                                                colors = ButtonDefaults.run { buttonColors(colorResource1(id = R.color.light_blue)) }
+                                                colors = ButtonDefaults.run {
+                                                    buttonColors(
+                                                        colorResource1(id = R.color.light_blue)
+                                                    )
+                                                }
                                             ) {
                                                 if (showSplitDialog) {
                                                     AlertDialog(
-                                                        onDismissRequest = { showSplitDialog = false },
+                                                        onDismissRequest = {
+                                                            showSplitDialog = false
+                                                        },
                                                         confirmButton = {
                                                             Button(
-                                                                onClick = { showSplitDialog = false }
+                                                                onClick = {
+                                                                    showSplitDialog = false
+                                                                }
                                                             ) {
                                                                 Text("確認")
                                                             }
                                                         },
                                                         dismissButton = {
-                                                            Button(onClick = { showSplitDialog = false }) {
+                                                            Button(onClick = {
+                                                                showSplitDialog = false
+                                                            }) {
                                                                 Text("取消")
                                                             }
                                                         },
                                                         text = {
                                                             LazyColumn {
                                                                 items(
-                                                                    listOf( "30min",  "1hr",  "1hr30min",  "2hr"
+                                                                    listOf(
+                                                                        "30min",
+                                                                        "1hr",
+                                                                        "1hr30min",
+                                                                        "2hr"
                                                                     )
                                                                 )
                                                                 { interval ->
@@ -1212,8 +1248,10 @@ fun UserInputDialog(
                                                                         modifier = Modifier
                                                                             .fillMaxWidth()
                                                                             .clickable {
-                                                                                shortestTime = interval
-                                                                                showSplitDialog = false
+                                                                                shortestTime =
+                                                                                    interval
+                                                                                showSplitDialog =
+                                                                                    false
                                                                             }
                                                                             .padding(8.dp),
                                                                         verticalAlignment = Alignment.CenterVertically
@@ -1221,11 +1259,17 @@ fun UserInputDialog(
                                                                         RadioButton(
                                                                             selected = shortestTime == interval,
                                                                             onClick = {
-                                                                                shortestTime = interval
-                                                                                showSplitDialog = false
+                                                                                shortestTime =
+                                                                                    interval
+                                                                                showSplitDialog =
+                                                                                    false
                                                                             }
                                                                         )
-                                                                        Spacer(modifier = Modifier.width(8.dp))
+                                                                        Spacer(
+                                                                            modifier = Modifier.width(
+                                                                                8.dp
+                                                                            )
+                                                                        )
                                                                         Text(text = interval)
                                                                     }
                                                                 }
@@ -1245,35 +1289,56 @@ fun UserInputDialog(
                                             Spacer(modifier = Modifier.width(8.dp))
                                             Button(
                                                 onClick = { showSplitDialog1 = true },
-                                                colors = ButtonDefaults.run { buttonColors(colorResource1(id = R.color.light_blue)) }
+                                                colors = ButtonDefaults.run {
+                                                    buttonColors(
+                                                        colorResource1(id = R.color.light_blue)
+                                                    )
+                                                }
                                             ) {
                                                 if (showSplitDialog1) {
                                                     AlertDialog(
-                                                        onDismissRequest = { showSplitDialog1 = false },
+                                                        onDismissRequest = {
+                                                            showSplitDialog1 = false
+                                                        },
                                                         confirmButton = {
                                                             Button(
-                                                                onClick = { showSplitDialog1 = false }
+                                                                onClick = {
+                                                                    showSplitDialog1 = false
+                                                                }
                                                             ) {
                                                                 Text("確認")
                                                             }
                                                         },
                                                         dismissButton = {
-                                                            Button(onClick = { showSplitDialog1 = false }) {
+                                                            Button(onClick = {
+                                                                showSplitDialog1 = false
+                                                            }) {
                                                                 Text("取消")
                                                             }
                                                         },
                                                         text = {
                                                             LazyColumn {
                                                                 items(
-                                                                    listOf("30min", "1hr", "1hr30min", "2hr", "2hr30min","3hr","3hr30min","4hr")
+                                                                    listOf(
+                                                                        "30min",
+                                                                        "1hr",
+                                                                        "1hr30min",
+                                                                        "2hr",
+                                                                        "2hr30min",
+                                                                        "3hr",
+                                                                        "3hr30min",
+                                                                        "4hr"
+                                                                    )
                                                                 )
                                                                 { interval ->
                                                                     Row(
                                                                         modifier = Modifier
                                                                             .fillMaxWidth()
                                                                             .clickable {
-                                                                                longestTime = interval
-                                                                                showSplitDialog1 = false
+                                                                                longestTime =
+                                                                                    interval
+                                                                                showSplitDialog1 =
+                                                                                    false
                                                                             }
                                                                             .padding(8.dp),
                                                                         verticalAlignment = Alignment.CenterVertically
@@ -1281,11 +1346,17 @@ fun UserInputDialog(
                                                                         RadioButton(
                                                                             selected = longestTime == interval,
                                                                             onClick = {
-                                                                                longestTime = interval
-                                                                                showSplitDialog1 = false
+                                                                                longestTime =
+                                                                                    interval
+                                                                                showSplitDialog1 =
+                                                                                    false
                                                                             }
                                                                         )
-                                                                        Spacer(modifier = Modifier.width(8.dp))
+                                                                        Spacer(
+                                                                            modifier = Modifier.width(
+                                                                                8.dp
+                                                                            )
+                                                                        )
                                                                         Text(text = interval)
                                                                     }
                                                                 }
@@ -1317,7 +1388,7 @@ fun UserInputDialog(
                                                 )
                                             )
                                         }
-
+                                    }
                                 }
                             )
                         }
