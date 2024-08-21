@@ -1535,8 +1535,6 @@ fun UserInputDialog(
                         }
 
 
-
-
                         val startLocalTime = LocalDateTime.parse(
                             startTime,
                             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
@@ -1661,6 +1659,25 @@ fun UserInputDialog(
                                                     byIdealList.forEach{(start,end) ->
                                                         println("Ideal Time slot:$start to $end")
                                                     }
+
+                                                    val idealLocalDateTimeSlots = byIdealList.map { (start, end) ->
+                                                        val startLocalDateTime = LocalDateTime.parse(
+                                                            start,
+                                                            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+                                                        )
+                                                        val endLocalDateTime = LocalDateTime.parse(
+                                                            end,
+                                                            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+                                                        )
+                                                        startLocalDateTime to endLocalDateTime
+                                                    }
+                                                    //抓標籤偏好時間
+//                                                    evm.filterSlotsByTagPreferences(idealLocalDateTimeSlots){ byTagsList ->
+//                                                        byTagsList.forEach{(start,end) ->
+//                                                            println("Tags Time Slog:$start to $end")
+//                                                        }
+//
+//                                                    }
                                                 }
                                             }
                                             else{
@@ -1723,6 +1740,20 @@ fun UserInputDialog(
                                         if (!isEnough) {
                                             errorMessage.value = "某幾天的空檔時間不夠所需時間安排"
                                             showDialog.value = true
+                                        }
+                                        else{
+                                            //如果有填理想時間
+                                            if(idealTime.isNotBlank()){
+                                                evm.filterSlotsByIdealTime(localDateTimeSlots,idealTime){ byIdealList ->
+                                                    byIdealList.forEach{(start,end) ->
+                                                        println("Ideal Time slot:$start to $end")
+                                                    }
+                                                }
+                                            }
+                                            else{
+                                                //抓標籤
+                                                onDismiss()
+                                            }
                                         }
                                     }
                                 }

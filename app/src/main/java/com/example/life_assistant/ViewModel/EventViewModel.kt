@@ -930,6 +930,127 @@ class EventViewModel @Inject constructor(
         }
     }
 
+    //透過標籤編好篩選可用時間
+    fun filterSlotsByTagPreferences(
+        availableSlots: List<Pair<LocalDateTime, LocalDateTime>>,
+        preferences: List<String>,
+        callback: (List<Pair<String, String>>) -> Unit
+    ) {
+
+
+        val outputFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+        val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
+        val preferredSlots = mutableListOf<Pair<LocalDateTime, LocalDateTime>>()
+
+        // 根据标签获取所有偏好时间段
+        val timeRanges = preferences.map { pref ->
+            val (start, end) = when (pref) {
+                "上午" -> LocalTime.parse("05:00") to LocalTime.parse("12:00")
+                "下午" -> LocalTime.parse("12:00") to LocalTime.parse("18:00")
+                "晚上" -> LocalTime.parse("18:00") to LocalTime.parse("05:00")
+                else -> LocalTime.parse("00:00") to LocalTime.parse("23:59")
+            }
+            start to end
+        }
+
+        availableSlots.forEach { (start, end) ->
+            timeRanges.forEach { (prefStart, prefEnd) ->
+                val endBoundary = LocalTime.parse("05:01", timeFormatter)
+                val startBoundary = LocalTime.parse("00:00", timeFormatter)
+
+                val startTime = start.toLocalTime()
+                val endTime = end.toLocalTime()
+                val startDate = start.toLocalDate()
+                val endDate = end.toLocalDate()
+
+                val date = if ((startTime.isAfter(startBoundary) || startTime.equals(startBoundary)) && startTime.isBefore(endBoundary)) {
+                    startDate.minusDays(1)
+                } else startDate
+
+                // 获取偏好时间的起始和结束时间
+                val preferredStart = getPreferredStartTime(date, prefStart)
+                val preferredEnd = getPreferredEndTime(date, prefEnd, prefStart)
+
+                println("偏好時間 $preferredStart, $preferredEnd")
+
+                when {
+                    // 情况1: start 和 end 都在偏好时间段内
+                    start.isAfter(preferredStart) && end.isBefore(preferredEnd) -> {
+                        preferredSlots.add(start to end)
+                    }
+                    // 情况2: start 早于偏好时间段，但 end 在偏好时间段内
+                    start.isBefore(preferredStart) && end.isAfter(preferredStart) && end.isBefore(preferredEnd) -> {
+                        preferredSlots.add(preferredStart to end)
+                    }
+                    // 情况3: start 在偏好时间段内，但 end 晚于偏好时间段
+                    start.isAfter(preferredStart) && start.isBefore(preferredEnd) && end.isAfter(preferredEnd) -> {
+                        preferredSlots.add(start to preferredEnd)
+                    }
+                    // 情况4: start 和 end 都超出了偏好时间段
+                    start.isBefore(preferredStart) && end.isAfter(preferredEnd) -> {
+                        preferredSlots.add(preferredStart to preferredEnd)
+                    }
+                }
+            }
+        }
+
+        val mergeSlots = mergeSlots(preferredSlots)
+
+        val result = if (mergeSlots.isEmpty()) {
+            availableSlots.map { (start, end) ->
+                start.format(outputFormatter) to end.format(outputFormatter)
+            }
+        } else {
+            mergeSlots.map { (start, end) ->
+                start.format(outputFormatter) to end.format(outputFormatter)
+            }
+        }
+
+        // 使用 callback 返回結果
+        callback(result)
+    }
+
+
+    private fun getPreferredStartTime(date: LocalDate, prefStart: LocalTime): LocalDateTime {
+        return date.atTime(prefStart)
+    }
+
+    private fun getPreferredEndTime(date: LocalDate, prefEnd: LocalTime, prefStart: LocalTime): LocalDateTime {
+        // 处理晚上时间段跨日的情况
+        val endDate = if (prefEnd.isBefore(prefStart)) date.plusDays(1) else date
+        return endDate.atTime(prefEnd)
+    }
+
+    //合併重疊時間
+    fun mergeSlots(slots: List<Pair<LocalDateTime, LocalDateTime>>): List<Pair<LocalDateTime, LocalDateTime>> {
+        if (slots.isEmpty()) return emptyList()
+
+        // 对时间段按开始时间排序
+        val sortedSlots = slots.sortedBy { it.first }
+
+        val mergedSlots = mutableListOf<Pair<LocalDateTime, LocalDateTime>>()
+        var (currentStart, currentEnd) = sortedSlots[0]
+
+        for ((start, end) in sortedSlots.drop(1)) {
+            if (start <= currentEnd) {
+                // 如果当前时间段与合并中的时间段重叠或相邻，更新结束时间
+                if (end > currentEnd) {
+                    currentEnd = end
+                }
+            } else {
+                // 否则，将当前合并的时间段添加到列表，并开始新的合并
+                mergedSlots.add(currentStart to currentEnd)
+                currentStart = start
+                currentEnd = end
+            }
+        }
+
+        // 添加最后一个合并的时间段
+        mergedSlots.add(currentStart to currentEnd)
+
+        return mergedSlots
+    }
+
 
     //去除重複時間的function
     fun mergeIntervals(intervals: List<Pair<LocalDateTime, LocalDateTime>>): List<Pair<LocalDateTime, LocalDateTime>> {

@@ -6,6 +6,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
@@ -14,6 +15,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.life_assistant.Event
 import com.example.life_assistant.Repository.MemberRepository
 import com.example.life_assistant.Screen.convertLongToDate
+import com.example.life_assistant.data.Colors
 import com.example.life_assistant.data.Member
 import com.example.life_assistant.data.MemberEntity
 import com.google.firebase.auth.FirebaseAuth
@@ -42,6 +44,7 @@ class MemberViewModel @Inject constructor(
     val registrationSuccess = mutableStateOf(false)
     val errorMessage = mutableStateOf<String?>(null)
     val member = mutableStateOf<Member?>(null)
+    val colors = mutableStateOf<Colors?>(null)
     val email: MutableLiveData<String> = MutableLiveData()
     val dialogMessage = mutableStateOf("")
 
@@ -111,7 +114,7 @@ class MemberViewModel @Inject constructor(
     }
 
     // 儲存習慣時間
-    fun saveHabitTimes(wakeHour: Int, wakeMinute: Int, sleepHour: Int, sleepMinute: Int,habit: String,readingTag:String,sportTag:String,workTag:String,leisureTag:String,houseworkTag:String) {
+    fun saveHabitTimes(wakeHour: Int, wakeMinute: Int, sleepHour: Int, sleepMinute: Int,readingTag:String,sportTag:String,workTag:String,leisureTag:String,houseworkTag:String) {
         val memberId = auth.currentUser?.uid ?: return
 
         val habitRef = database.getReference("members").child(memberId)
@@ -121,7 +124,6 @@ class MemberViewModel @Inject constructor(
         val habits = mapOf(
             "wakeTime" to wakeTime,
             "sleepTime" to sleepTime,
-            "habit" to habit,
             "readingTag" to readingTag,
             "sportTag" to sportTag,
             "workTag" to workTag,
@@ -364,4 +366,108 @@ class MemberViewModel @Inject constructor(
         }
     }
 
+    fun updateTags(readingTag: String,sportTag: String,workTag: String,leisureTag: String,houseworkTag: String){
+        val memberId = auth.currentUser?.uid ?: return
+
+        val habitRef = database.getReference("members").child(memberId)
+
+        val habits = mapOf(
+            "readingTag" to readingTag,
+            "sportTag" to sportTag,
+            "workTag" to workTag,
+            "leisureTag" to leisureTag,
+            "houseworkTag" to houseworkTag,
+        )
+
+        habitRef.updateChildren(habits).addOnSuccessListener {
+            Log.d("Firebase", "Habit times saved successfully")
+
+//            viewModelScope.launch(Dispatchers.IO) {
+//                val existingMember = memberRepository.getMemberByUid(memberId)
+//                if (existingMember != null) {
+//                    val updatedMember = existingMember.copy(
+//                        wake_time = wakeTime,
+//                        sleep_time = sleepTime
+//                    )
+//                    memberRepository.update(updatedMember)
+//                }
+//            }
+        }.addOnFailureListener { exception ->
+            handleException(exception, "無法儲存使用習慣")
+        }
+    }
+
+    fun updateColors(readingColor: Long,sportColor: Long,workColor: Long,leisureColor: Long,houseworkColor: Long,travelColor:Long,eatingColor:Long) {
+        val memberId = auth.currentUser?.uid ?: return
+
+        val habitRef = database.getReference("members").child(memberId).child("colors")
+
+        val habits = mapOf(
+            "readingColors" to readingColor,
+            "sportColors" to sportColor,
+            "workColors" to workColor,
+            "leisureColors" to leisureColor,
+            "houseworkColors" to houseworkColor,
+            "travelColors" to travelColor,
+            "eatingColors" to eatingColor
+        )
+
+        habitRef.updateChildren(habits).addOnSuccessListener {
+            Log.d("Firebase", "Habit times saved successfully")
+
+//            viewModelScope.launch(Dispatchers.IO) {
+//                val existingMember = memberRepository.getMemberByUid(memberId)
+//                if (existingMember != null) {
+//                    val updatedMember = existingMember.copy(
+//                        wake_time = wakeTime,
+//                        sleep_time = sleepTime
+//                    )
+//                    memberRepository.update(updatedMember)A
+//                }
+//            }
+        }.addOnFailureListener { exception ->
+            handleException(exception, "無法儲存使用習慣")
+        }
+    }
+
+    fun getColors() {
+        val memberId = auth.currentUser?.uid ?: return
+        val colorRef = database.getReference("members").child(memberId).child("colors")
+
+        colorRef.get().addOnSuccessListener { snapshot ->
+            val colorData = snapshot.getValue(Colors::class.java)
+            colors.value = colorData
+        }.addOnFailureListener { exception ->
+            handleException(exception, "無法取得標籤顏色")
+        }
+    }
+
+    private val _tagPreferences = mutableStateOf<Map<String, String>>(emptyMap())
+    val tagPreferences: State<Map<String, String>> = _tagPreferences
+
+    fun getTag() {
+        val memberId = auth.currentUser?.uid ?: return
+        val tagRef = database.getReference("members").child(memberId).child("tagPreferences")
+
+        tagRef.get().addOnSuccessListener { snapshot ->
+            if (snapshot.exists()) {
+                val readingTag = snapshot.child("readingTag").getValue(String::class.java) ?: ""
+                val sportsTag = snapshot.child("sportsTag").getValue(String::class.java) ?: ""
+                val workTag = snapshot.child("workTag").getValue(String::class.java) ?: ""
+                val leisureTag = snapshot.child("leisureTag").getValue(String::class.java) ?: ""
+                val houseworkTag = snapshot.child("houseworkTag").getValue(String::class.java) ?: ""
+
+                _tagPreferences.value = mapOf(
+                    "讀書" to readingTag,
+                    "運動" to sportsTag,
+                    "工作" to workTag,
+                    "娛樂" to leisureTag,
+                    "生活雜務" to houseworkTag
+                )
+            }
+        }.addOnFailureListener { exception ->
+            // 處理例外情況
+            handleException(exception, "無法從 Firebase 抓取標籤資料")
+        }
+    }
 }

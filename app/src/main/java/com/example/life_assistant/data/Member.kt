@@ -6,7 +6,6 @@ data class Member(
     val birthday: String = "",
     val sleepTime: String = "",
     val wakeTime: String = "",
-    val habit: String = "",
     val readingTag: String = "",
     val sportTag: String = "",
     val workTag: String = "",

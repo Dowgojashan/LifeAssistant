@@ -55,8 +55,6 @@ fun SignUpHabitScreen(
 ) {
     val wakeState = rememberTimePickerState(0, 0, true)
     val sleepState = rememberTimePickerState(0, 0, true)
-    val (selectedOption, setSelectedOption) = remember { mutableStateOf("") }//先甘後苦那個
-    var habit by remember { mutableStateOf("")}
     val preferences = listOf("讀書", "運動", "工作", "娛樂","生活雜務")// 可根據需要添加更多選項
     val morningCheckedStates = remember { mutableStateMapOf<String, Boolean>().apply { preferences.forEach { put(it, false) } } }
     val noonCheckedStates = remember { mutableStateMapOf<String, Boolean>().apply { preferences.forEach { put(it, false) } } }
@@ -149,48 +147,6 @@ fun SignUpHabitScreen(
                         .align(Alignment.CenterHorizontally)
                         .padding(vertical = 6.dp)
                 )
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(8.dp)
-                ) {
-                    Text(
-                        text = "你更喜歡哪種安排行程的方式？",
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(bottom = 16.dp)
-                    )
-
-                    Row(
-                        horizontalArrangement = Arrangement.SpaceAround,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        TextButton(onClick = {
-                            setSelectedOption("先完成任務後再享受放鬆時間")
-                            habit = "先苦後甜"
-                        }) {
-                            Text(text = "先苦後甜")
-                        }
-
-                        TextButton(onClick = {
-                            setSelectedOption("先享受放鬆時間後再完成任務")
-                            habit = "先甜後苦"
-                        }) {
-                            Text(text = "先甜後苦")
-                        }
-                    }
-
-                    if (selectedOption.isNotEmpty()) {
-                        Text(
-                            text = "你選擇的是：$selectedOption",
-                            fontSize = 18.sp,
-                            color = Color.Gray,
-                            modifier = Modifier.padding(top = 16.dp)
-                        )
-                    }
-                }
 
                 Column {
                     Text(
@@ -245,7 +201,7 @@ fun SignUpHabitScreen(
         //註冊按鈕
         Button(
             onClick = {
-                mvm.saveHabitTimes(wakeState.hour, wakeState.minute, sleepState.hour, sleepState.minute,habit,readingTag,sportTag,workTag,leisureTag,houseworkTag)
+                mvm.saveHabitTimes(wakeState.hour, wakeState.minute, sleepState.hour, sleepState.minute,readingTag,sportTag,workTag,leisureTag,houseworkTag)
                 navController.navigate(DestinationScreen.Login.route) },
             shape = RoundedCornerShape(15.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Color.Black),
