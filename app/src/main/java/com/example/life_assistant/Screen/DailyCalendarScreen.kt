@@ -1324,8 +1324,7 @@ fun UserInputDialog(
                         if(autoSchedule)
                         {
                             IconButton(onClick = {
-                                // 处理编辑图标点击事件
-                                // 可以在此处打开一个新的对话框或触发编辑逻辑
+                                showAutoScheduleDialog = true
                             }) {
                                 Icon(
                                     imageVector = Icons.Default.Edit, // 使用默认的编辑图标
