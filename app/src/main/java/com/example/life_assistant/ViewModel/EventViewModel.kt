@@ -1046,6 +1046,88 @@ class EventViewModel @Inject constructor(
         }
     }
 
+    //分解最大最小時間的fun
+    private fun timeStringToMinutes(timeString: String): Int {
+        val regex = Regex("(?:(\\d+)hr)?(?:\\s*(\\d+)min)?")
+        val matchResult = regex.find(timeString) ?: return 0
+
+        val hours = matchResult.groupValues[1].toIntOrNull() ?: 0
+        val minutes = matchResult.groupValues[2].toIntOrNull() ?: 0
+
+        return hours * 60 + minutes
+    }
+
+    //分割時間
+    fun splitDuration(
+        duration: String,
+        shortestTime: String?,
+        longestTime: String?,
+        callback: (List<Int>) -> Unit
+    ) {
+        val durationMinutes = duration.split(":").let {
+            it[0].toInt() * 60 + it[1].toInt()
+        }
+
+        val shortestMinutes = shortestTime?.let { timeStringToMinutes(it) } ?: 0
+        val longestMinutes = longestTime?.let { timeStringToMinutes(it) } ?: 0
+        println("duration: $durationMinutes")
+        println("short: $shortestMinutes")
+        println("long: $longestMinutes")
+
+        val chunks = mutableListOf<Int>()
+
+        when {
+            shortestMinutes > 0 && longestMinutes == 0 -> {
+                // 根據最短時間進行切割
+                var remaining = durationMinutes
+                while (remaining >= shortestMinutes) {
+                    chunks.add(shortestMinutes)
+                    remaining -= shortestMinutes
+                }
+                if (remaining > 0) {
+                    chunks[chunks.size - 1] += remaining
+                }
+                println("Chunks based on shortest time: $chunks")
+            }
+            longestMinutes > 0 && shortestMinutes == 0 -> {
+                // 根據最長時間進行切割
+                var remaining = durationMinutes
+                while (remaining >= 30) {
+                    chunks.add(30)
+                    remaining -= 30
+                }
+                if (remaining > 0) {
+                    chunks.add(remaining)
+                }
+                println("Chunks Longest: $chunks")
+            }
+            shortestMinutes > 0 && longestMinutes > 0 -> {
+                // 根據最短和最長時間進行切割
+                var remaining = durationMinutes
+                while (remaining >= shortestMinutes) {
+                    chunks.add(shortestMinutes)
+                    remaining -= shortestMinutes
+                }
+                if (remaining > 0) {
+                    if ((remaining + shortestMinutes) > longestMinutes) {
+                        val divideRemaining = remaining / 2
+                        chunks[chunks.size - 2] += divideRemaining
+                        chunks[chunks.size - 1] += divideRemaining
+                    } else {
+                        chunks[chunks.size - 1] += remaining
+                    }
+                }
+            }
+            else -> {
+                println("No valid shortest or longest time provided.")
+            }
+        }
+        // 使用 callback 回傳結果
+        callback(chunks)
+    }
+
+
+
 
 
     private fun getPreferredStartTime(date: LocalDate, prefStart: LocalTime): LocalDateTime {

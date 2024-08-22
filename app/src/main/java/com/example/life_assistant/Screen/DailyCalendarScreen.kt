@@ -1680,6 +1680,16 @@ fun UserInputDialog(
                                                             byTagsList.forEach{(start,end) ->
                                                                 println("Tags Time Slog:$start to $end")
                                                             }
+
+                                                            //切割
+                                                            if(isSplittable){
+                                                                evm.splitDuration(duration,shortestTime,longestTime){ splitEventTime ->
+                                                                    println("分割事件時間:$splitEventTime")
+                                                                }
+                                                            }
+                                                            else{
+                                                                //排事件
+                                                            }
                                                         }
                                                     }
                                                 }
@@ -1688,6 +1698,16 @@ fun UserInputDialog(
                                                     evm.filterSlotsByTagPreferences(localDateTimeSlots,tags){ byTagsList ->
                                                         byTagsList.forEach{(start,end) ->
                                                             println("Tags Time Slog:$start to $end")
+                                                        }
+
+                                                        //切割
+                                                        if(isSplittable){
+                                                            evm.splitDuration(duration,shortestTime,longestTime){ splitEventTime ->
+                                                                println("分割事件時間:$splitEventTime")
+                                                            }
+                                                        }
+                                                        else{
+                                                            //排事件
                                                         }
                                                     }
                                                 }
@@ -1772,13 +1792,32 @@ fun UserInputDialog(
                                                             byTagsList.forEach{(start,end) ->
                                                                 println("Tags Time Slog:$start to $end")
                                                             }
+                                                            //切割
+                                                            if(isSplittable){
+                                                                evm.splitDuration(duration,shortestTime,longestTime){ splitEventTime ->
+                                                                    println("分割事件時間:$splitEventTime")
+                                                                }
+                                                            }
+                                                            else{
+                                                                //排事件
+                                                            }
                                                         }
                                                     }
                                                 }
                                                 else{
+                                                    //抓標籤偏好時間
                                                     evm.filterSlotsByTagPreferences(localDateTimeSlots,tags){ byTagsList ->
                                                         byTagsList.forEach{(start,end) ->
                                                             println("Tags Time Slog:$start to $end")
+                                                        }
+                                                        //切割
+                                                        if(isSplittable){
+                                                            evm.splitDuration(duration,shortestTime,longestTime){ splitEventTime ->
+                                                                println("分割事件時間:$splitEventTime")
+                                                            }
+                                                        }
+                                                        else{
+                                                            //排事件
                                                         }
                                                     }
                                                 }
