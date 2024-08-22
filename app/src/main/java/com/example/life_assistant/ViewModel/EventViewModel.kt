@@ -930,85 +930,122 @@ class EventViewModel @Inject constructor(
         }
     }
 
-    //透過標籤編好篩選可用時間
+    //取得使用者標籤勾選的習慣
+    private fun getTags(tag: String, callback: (String) -> Unit) {
+        val userId = auth.currentUser?.uid ?: return
+        val tagsRef = database.getReference("members").child(userId)
+
+        tagsRef.get().addOnSuccessListener { snapshot ->
+            val tagValue = when (tag) {
+                "讀書" -> snapshot.child("readingTag").getValue(String::class.java) ?: ""
+                "工作" -> snapshot.child("workTag").getValue(String::class.java) ?: ""
+                "運動" -> snapshot.child("sportTag").getValue(String::class.java) ?: ""
+                "娛樂" -> snapshot.child("leisureTag").getValue(String::class.java) ?: ""
+                "生活雜務" -> snapshot.child("houseworkTag").getValue(String::class.java) ?: ""
+                else -> ""
+            }
+            callback(tagValue)
+        }.addOnFailureListener { exception ->
+            handleException(exception, "無法從 Firebase 獲取標籤值")
+        }
+    }
+
+    // 透過標籤編好篩選可用時間
     fun filterSlotsByTagPreferences(
         availableSlots: List<Pair<LocalDateTime, LocalDateTime>>,
-        preferences: List<String>,
+        tag: String,
         callback: (List<Pair<String, String>>) -> Unit
     ) {
+        println("tag:$tag")
+        // 先從 Firebase 中取得標籤偏好
+        getTags(tag) { preferencesString ->
+            // 将偏好字符串拆分为列表
+            val preferences = preferencesString.split(",").map { it.trim() }
+            println("偏好:$preferences")
 
+            val outputFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+            val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
+            val preferredSlots = mutableListOf<Pair<LocalDateTime, LocalDateTime>>()
 
-        val outputFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
-        val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
-        val preferredSlots = mutableListOf<Pair<LocalDateTime, LocalDateTime>>()
-
-        // 根据标签获取所有偏好时间段
-        val timeRanges = preferences.map { pref ->
-            val (start, end) = when (pref) {
-                "上午" -> LocalTime.parse("05:00") to LocalTime.parse("12:00")
-                "下午" -> LocalTime.parse("12:00") to LocalTime.parse("18:00")
-                "晚上" -> LocalTime.parse("18:00") to LocalTime.parse("05:00")
-                else -> LocalTime.parse("00:00") to LocalTime.parse("23:59")
+            //如果該標籤沒有選或全選就直接回傳
+            if (preferences.isEmpty() || preferences == listOf("上午", "下午", "晚上")) {
+                callback(availableSlots.map { (start, end) ->
+                    start.format(outputFormatter) to end.format(outputFormatter)
+                })
             }
-            start to end
-        }
 
-        availableSlots.forEach { (start, end) ->
-            timeRanges.forEach { (prefStart, prefEnd) ->
-                val endBoundary = LocalTime.parse("05:01", timeFormatter)
-                val startBoundary = LocalTime.parse("00:00", timeFormatter)
+            // 根据标签获取所有偏好时间段
+            val timeRanges = preferences.map { pref ->
+                val (start, end) = when (pref) {
+                    "上午" -> LocalTime.parse("05:00") to LocalTime.parse("12:00")
+                    "下午" -> LocalTime.parse("12:00") to LocalTime.parse("18:00")
+                    "晚上" -> LocalTime.parse("18:00") to LocalTime.parse("05:00")
+                    else -> LocalTime.parse("00:00") to LocalTime.parse("23:59")
+                }
+                start to end
+            }
 
-                val startTime = start.toLocalTime()
-                val endTime = end.toLocalTime()
-                val startDate = start.toLocalDate()
-                val endDate = end.toLocalDate()
+            availableSlots.forEach { (start, end) ->
+                timeRanges.forEach { (prefStart, prefEnd) ->
+                    val endBoundary = LocalTime.parse("05:01", timeFormatter)
+                    val startBoundary = LocalTime.parse("00:00", timeFormatter)
 
-                val date = if ((startTime.isAfter(startBoundary) || startTime.equals(startBoundary)) && startTime.isBefore(endBoundary)) {
-                    startDate.minusDays(1)
-                } else startDate
+                    val startTime = start.toLocalTime()
+                    val endTime = end.toLocalTime()
+                    val startDate = start.toLocalDate()
+                    val endDate = end.toLocalDate()
 
-                // 获取偏好时间的起始和结束时间
-                val preferredStart = getPreferredStartTime(date, prefStart)
-                val preferredEnd = getPreferredEndTime(date, prefEnd, prefStart)
+                    val date = if ((startTime.isAfter(startBoundary) || startTime.equals(startBoundary)) && startTime.isBefore(endBoundary)) {
+                        startDate.minusDays(1)
+                    } else startDate
 
-                println("偏好時間 $preferredStart, $preferredEnd")
+                    // 获取偏好时间的起始和结束时间
+                    val preferredStart = getPreferredStartTime(date, prefStart)
+                    val preferredEnd = getPreferredEndTime(date, prefEnd, prefStart)
 
-                when {
-                    // 情况1: start 和 end 都在偏好时间段内
-                    start.isAfter(preferredStart) && end.isBefore(preferredEnd) -> {
-                        preferredSlots.add(start to end)
-                    }
-                    // 情况2: start 早于偏好时间段，但 end 在偏好时间段内
-                    start.isBefore(preferredStart) && end.isAfter(preferredStart) && end.isBefore(preferredEnd) -> {
-                        preferredSlots.add(preferredStart to end)
-                    }
-                    // 情况3: start 在偏好时间段内，但 end 晚于偏好时间段
-                    start.isAfter(preferredStart) && start.isBefore(preferredEnd) && end.isAfter(preferredEnd) -> {
-                        preferredSlots.add(start to preferredEnd)
-                    }
-                    // 情况4: start 和 end 都超出了偏好时间段
-                    start.isBefore(preferredStart) && end.isAfter(preferredEnd) -> {
-                        preferredSlots.add(preferredStart to preferredEnd)
+                    println("偏好時間 $preferredStart, $preferredEnd")
+
+                    when {
+                        // 情况1: start 和 end 都在偏好时间段内
+                        start.isAfter(preferredStart) && end.isBefore(preferredEnd) -> {
+                            preferredSlots.add(start to end)
+                        }
+                        // 情况2: start 早于偏好时间段，但 end 在偏好时间段内
+                        start.isBefore(preferredStart) && end.isAfter(preferredStart) && end.isBefore(preferredEnd) -> {
+                            preferredSlots.add(preferredStart to end)
+                        }
+                        // 情况3: start 在偏好时间段内，但 end 晚于偏好时间段
+                        start.isAfter(preferredStart) && start.isBefore(preferredEnd) && end.isAfter(preferredEnd) -> {
+                            preferredSlots.add(start to preferredEnd)
+                        }
+                        // 情况4: start 和 end 都超出了偏好时间段
+                        start.isBefore(preferredStart) && end.isAfter(preferredEnd) -> {
+                            preferredSlots.add(preferredStart to preferredEnd)
+                        }
                     }
                 }
             }
-        }
 
-        val mergeSlots = mergeSlots(preferredSlots)
+            //preferredSlots.forEach { println(it) }
+            //println("上為原偏好時間")
 
-        val result = if (mergeSlots.isEmpty()) {
-            availableSlots.map { (start, end) ->
-                start.format(outputFormatter) to end.format(outputFormatter)
+            val mergeSlots = mergeSlots(preferredSlots)
+
+            val result = if (mergeSlots.isEmpty()) {
+                availableSlots.map { (start, end) ->
+                    start.format(outputFormatter) to end.format(outputFormatter)
+                }
+            } else {
+                mergeSlots.map { (start, end) ->
+                    start.format(outputFormatter) to end.format(outputFormatter)
+                }
             }
-        } else {
-            mergeSlots.map { (start, end) ->
-                start.format(outputFormatter) to end.format(outputFormatter)
-            }
-        }
 
-        // 使用 callback 返回結果
-        callback(result)
+            // 使用 callback 返回結果
+            callback(result)
+        }
     }
+
 
 
     private fun getPreferredStartTime(date: LocalDate, prefStart: LocalTime): LocalDateTime {

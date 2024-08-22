@@ -1671,17 +1671,20 @@ fun UserInputDialog(
                                                         startLocalDateTime to endLocalDateTime
                                                     }
                                                     //抓標籤偏好時間
-//                                                    evm.filterSlotsByTagPreferences(idealLocalDateTimeSlots){ byTagsList ->
-//                                                        byTagsList.forEach{(start,end) ->
-//                                                            println("Tags Time Slog:$start to $end")
-//                                                        }
-//
-//                                                    }
+                                                    evm.filterSlotsByTagPreferences(idealLocalDateTimeSlots,tags){ byTagsList ->
+                                                        byTagsList.forEach{(start,end) ->
+                                                            println("Tags Time Slog:$start to $end")
+                                                        }
+                                                    }
                                                 }
                                             }
                                             else{
                                                 //抓標籤
-                                                onDismiss()
+                                                evm.filterSlotsByTagPreferences(localDateTimeSlots,tags){ byTagsList ->
+                                                    byTagsList.forEach{(start,end) ->
+                                                        println("Tags Time Slog:$start to $end")
+                                                    }
+                                                }
                                             }
                                         }
                                     }
@@ -1747,11 +1750,32 @@ fun UserInputDialog(
                                                     byIdealList.forEach{(start,end) ->
                                                         println("Ideal Time slot:$start to $end")
                                                     }
+
+                                                    val idealLocalDateTimeSlots = byIdealList.map { (start, end) ->
+                                                        val startLocalDateTime = LocalDateTime.parse(
+                                                            start,
+                                                            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+                                                        )
+                                                        val endLocalDateTime = LocalDateTime.parse(
+                                                            end,
+                                                            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+                                                        )
+                                                        startLocalDateTime to endLocalDateTime
+                                                    }
+                                                    //抓標籤偏好時間
+                                                    evm.filterSlotsByTagPreferences(idealLocalDateTimeSlots,tags){ byTagsList ->
+                                                        byTagsList.forEach{(start,end) ->
+                                                            println("Tags Time Slog:$start to $end")
+                                                        }
+                                                    }
                                                 }
                                             }
                                             else{
-                                                //抓標籤
-                                                onDismiss()
+                                                evm.filterSlotsByTagPreferences(localDateTimeSlots,tags){ byTagsList ->
+                                                    byTagsList.forEach{(start,end) ->
+                                                        println("Tags Time Slog:$start to $end")
+                                                    }
+                                                }
                                             }
                                         }
                                     }
