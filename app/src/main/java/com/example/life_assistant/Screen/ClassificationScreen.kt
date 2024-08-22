@@ -17,15 +17,11 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.zIndex
 import androidx.navigation.NavController
 import com.example.life_assistant.DestinationScreen
 import com.example.life_assistant.R
 import com.example.life_assistant.ViewModel.MemberViewModel
-
-
 import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.rememberCoroutineScope
@@ -125,17 +121,15 @@ fun ClassificationScreen(
 
             // Use remember to manage tag labels and colors
             val totalTags = remember { mutableStateListOf(
-                    "工作",
-                    "娛樂",
-                    "運動",
-                    "生活雜務",
-                    "讀書",
-                    "旅遊",
-                    "吃飯"
-                )
+                "工作",
+                "娛樂",
+                "運動",
+                "生活雜務",
+                "讀書",
+                "旅遊",
+                "吃飯"
+            )
             }
-
-
 
             var morningChecked by remember { mutableStateOf(false) }
             var noonChecked by remember { mutableStateOf(false) }
@@ -280,28 +274,6 @@ fun ClassificationScreen(
                             .wrapContentHeight()
                             .background(backgroundColor, RoundedCornerShape(12.dp))
                             .padding(16.dp)
-                            .pointerInput(Unit) {
-                                detectDragGestures(
-                                    onDragEnd = { /* Handle the drag end if needed */ },
-                                    onDragCancel = { /* Handle the drag cancel if needed */ },
-                                    onDrag = { change, dragAmount ->
-                                        change.consume()
-                                        coroutineScope.launch {
-                                            if (dragAmount.y > 0) {
-                                                if (index < totalTags.size - 1) {
-                                                    totalTags.swap(index, index + 1)
-                                                    totalColor.swap(index, index + 1)
-                                                }
-                                            } else if (dragAmount.y < 0) {
-                                                if (index > 0) {
-                                                    totalTags.swap(index, index - 1)
-                                                    totalColor.swap(index, index - 1)
-                                                }
-                                            }
-                                        }
-                                    }
-                                )
-                            }
                     ) {
                         Column {
                             Row(
@@ -456,10 +428,3 @@ fun ClassificationScreen(
 }
 
 
-
-private fun <T> MutableList<T>.swap(index1: Int, index2: Int) {
-    if (index1 == index2) return
-    val tmp = this[index1]
-    this[index1] = this[index2]
-    this[index2] = tmp
-}
