@@ -592,11 +592,24 @@ fun EventDetailDialog(event: Event, evm: EventViewModel, temp: String, onDismiss
                     }
                 }
 
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(8.dp), // 可选：设置外边距
+                    horizontalArrangement = Arrangement.SpaceBetween, // 水平空间均匀分布
+                    verticalAlignment = Alignment.CenterVertically
+                ){
+                    Text("事件名稱: ${updatedEvent.value.name}", color = Color.Black)
+                    Spacer(modifier = Modifier.width(32.dp))
+                    var isChecked by remember { mutableStateOf(false) }
+                    Text(text =  "完成")
+                    Checkbox(
+                        checked = isChecked,
+                        onCheckedChange = { isChecked = it }
+                    )
 
+                }
 
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Text("事件名稱: ${updatedEvent.value.name}", color = Color.Black)
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Text("標籤: ${updatedEvent.value.tags}", color = Color.Black)
@@ -615,11 +628,6 @@ fun EventDetailDialog(event: Event, evm: EventViewModel, temp: String, onDismiss
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End
                 ) {
-                    var isChecked by remember { mutableStateOf(false) }
-                    Checkbox(
-                        checked = isChecked, // Replace with your state variable
-                        onCheckedChange = { isChecked = it } // Update your state variable here
-                    )
                     Button(onClick = onDismiss) {
                         Text("關閉")
                     }
@@ -1806,7 +1814,6 @@ fun UserInputDialog(
                     }
                 }
             }
-            //暫時解決不了把確認放在裡面沒有bug
         }
     }
 }
