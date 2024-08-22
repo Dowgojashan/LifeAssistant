@@ -592,6 +592,8 @@ fun EventDetailDialog(event: Event, evm: EventViewModel, temp: String, onDismiss
                     }
                 }
 
+
+
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Text("事件名稱: ${updatedEvent.value.name}", color = Color.Black)
@@ -613,6 +615,11 @@ fun EventDetailDialog(event: Event, evm: EventViewModel, temp: String, onDismiss
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End
                 ) {
+                    var isChecked by remember { mutableStateOf(false) }
+                    Checkbox(
+                        checked = isChecked, // Replace with your state variable
+                        onCheckedChange = { isChecked = it } // Update your state variable here
+                    )
                     Button(onClick = onDismiss) {
                         Text("關閉")
                     }
@@ -1491,315 +1498,315 @@ fun UserInputDialog(
                 )
                 Spacer(modifier = Modifier.height(16.dp))
 
-            }
-            //暫時解決不了把確認放在裡面沒有bug
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
-            ) {
-                Button(
-                    onClick = { onDismiss() },
-                    colors = ButtonDefaults.run { buttonColors(colorResource1(id = R.color.light_blue)) }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
                 ) {
-                    Text("取消", color = Color.White)
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-                Button(
-                    onClick = {
-                        if (name.isBlank()) {
-                            errorMessage.value = "名稱不可為空"
-                            showDialog.value = true
-                            return@Button
-                        }
-                        if (tags.isBlank()) {
-                            errorMessage.value = "標籤不可為空"
-                            showDialog.value = true
-                            return@Button
-                        }
-                        if (startTime.isBlank()) {
-                            errorMessage.value = "選擇開始日期不可為空"
-                            showDialog.value = true
-                            return@Button
-                        }
-                        if (endTime.isBlank()) {
-                            errorMessage.value = "選擇結束日期不可為空"
-                            showDialog.value = true
-                            return@Button
-                        }
-
-                        if (repeatEndDate.isNotBlank() && repeatEndDate <= startTime) {
-                            errorMessage.value = "重複結束日期不可早於或等於開始日期"
-                            showDialog.value = true
-                            return@Button
-                        }
-
-
-                        val startLocalTime = LocalDateTime.parse(
-                            startTime,
-                            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
-                        )
-                        val endLocalTime = LocalDateTime.parse(
-                            endTime,
-                            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
-                        )
-
-                        if (repeatType == "每日" && repeatEndDate.isBlank()) {
-                            val repeatEndDateLocalDate = startLocalTime.plusDays(30).toLocalDate()
-                            repeatEndDate = repeatEndDateLocalDate.toString()
-                        }
-
-                        if (repeatType == "每週" && repeatEndDate.isBlank()) {
-                            val repeatEndDateLocalDate = startLocalTime.plusWeeks(4).toLocalDate()
-                            repeatEndDate = repeatEndDateLocalDate.toString()
-                        }
-
-                        if (repeatType == "每月" && repeatEndDate.isBlank()) {
-                            val repeatEndDateLocalDate = startLocalTime.plusMonths(6).toLocalDate()
-                            repeatEndDate = repeatEndDateLocalDate.toString()
-                        }
-
-                        if (repeatType == "每年" && repeatEndDate.isBlank()) {
-                            val repeatEndDateLocalDate = startLocalTime.plusYears(5).toLocalDate()
-                            repeatEndDate = repeatEndDateLocalDate.toString()
-                        }
-
-
-                        if(!autoSchedule){
-                            if (endLocalTime.isAfter(startLocalTime)) {
-                                //以下都為非自動排程的更新
-                                //在日行事曆新增事件的情況下
-                                if (event == null && currentMonth == null) {
-                                    evm.addEvent(
-                                        name, startTime, endTime, tags, alarmTime, repeatEndDate, repeatType, duration, idealTime, shortestTime, longestTime, dailyRepeat, disturb, description
-                                    )
-                                }
-                                //在月行事曆新增事件的情況下
-                                else if (event == null && currentMonth != null) {
-                                    evm.addEvent(
-                                        name, startTime, endTime, tags, alarmTime, repeatEndDate, repeatType, duration, idealTime, shortestTime, longestTime, dailyRepeat, disturb, description, currentMonth
-                                    )
-                                }
-                                //在日行事曆 只修改一個事件的情況下
-                                else if (editAll == false && event != null && currentMonth == null) {
-                                    evm.updateEvent(
-                                        event.uid, name, startTime, endTime, tags, alarmTime, repeatEndDate, repeatType, duration, idealTime, shortestTime, longestTime, dailyRepeat, disturb, description, null, false
-                                    )
-                                }
-                                //在月行事曆 只修改一個事件的情況下
-                                else if (editAll == false && event != null && currentMonth != null) {
-                                    evm.updateEvent(
-                                        event.uid, name, startTime, endTime, tags, alarmTime, repeatEndDate, repeatType, duration, idealTime, shortestTime, longestTime, dailyRepeat, disturb, description, currentMonth, false
-                                    )
-                                }
-                                //在日行事曆 修改全部同一個重複事件的情況下
-                                else if (editAll == true && event != null && currentMonth == null) {
-                                    evm.updateEvent(
-                                        event.uid, name, startTime, endTime, tags, alarmTime, repeatEndDate, repeatType, duration, idealTime, shortestTime, longestTime, dailyRepeat, disturb, description, null, true
-                                    )
-                                }
-                                //在月行事曆 修改全部同一個重複事件的情況下
-                                else if (editAll == true && event != null && currentMonth != null) {
-                                    evm.updateEvent(
-                                        event.uid, name, startTime, endTime, tags, alarmTime, repeatEndDate, repeatType, duration, idealTime, shortestTime, longestTime, dailyRepeat, disturb, description, currentMonth, true
-                                    )
-                                }
-                                onDismiss()
-                            } else {
-                                errorMessage.value = "結束時間必須晚於開始時間"
+                    Button(
+                        onClick = { onDismiss() },
+                        colors = ButtonDefaults.run { buttonColors(colorResource1(id = R.color.light_blue)) }
+                    ) {
+                        Text("取消", color = Color.White)
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(
+                        onClick = {
+                            if (name.isBlank()) {
+                                errorMessage.value = "名稱不可為空"
                                 showDialog.value = true
+                                return@Button
                             }
-                        }
-                        else {
-                            if (endLocalTime.isAfter(startLocalTime)) {
-                                //如果非每日重複
-                                if (!dailyRepeat) {
-                                    var durationInMinutes = 0
-                                    var totalFreeTimeInMinutes = 0
-                                    // 呼叫 getFreeTime 方法
-                                    evm.getFreeTime(startTime, endTime) { freeTimeList ->
-                                        val localDateTimeSlots = freeTimeList.map { (start, end) ->
-                                            val startLocalDateTime = LocalDateTime.parse(
-                                                start,
-                                                DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
-                                            )
-                                            val endLocalDateTime = LocalDateTime.parse(
-                                                end,
-                                                DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
-                                            )
-                                            startLocalDateTime to endLocalDateTime
-                                        }
+                            if (tags.isBlank()) {
+                                errorMessage.value = "標籤不可為空"
+                                showDialog.value = true
+                                return@Button
+                            }
+                            if (startTime.isBlank()) {
+                                errorMessage.value = "選擇開始日期不可為空"
+                                showDialog.value = true
+                                return@Button
+                            }
+                            if (endTime.isBlank()) {
+                                errorMessage.value = "選擇結束日期不可為空"
+                                showDialog.value = true
+                                return@Button
+                            }
 
-                                        // 印出 localDateTimeSlots 日誌
-                                        localDateTimeSlots.forEach { (start, end) ->
-                                            println("Free Time Slot: $start to $end")
-                                        }
+                            if (repeatEndDate.isNotBlank() && repeatEndDate <= startTime) {
+                                errorMessage.value = "重複結束日期不可早於或等於開始日期"
+                                showDialog.value = true
+                                return@Button
+                            }
 
-                                        // 計算總空閒時間
-                                        val totalFreeTime =
-                                            evm.calculateTotalFreeTime(localDateTimeSlots)
 
-                                        // 印出總空閒時間日誌
-                                        println("Total Free Time: $totalFreeTime")
+                            val startLocalTime = LocalDateTime.parse(
+                                startTime,
+                                DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+                            )
+                            val endLocalTime = LocalDateTime.parse(
+                                endTime,
+                                DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+                            )
 
-                                        // 比較 totalFreeTime 和 duration
-                                        durationInMinutes = duration.split(":").let {
-                                            it[0].toInt() * 60 + it[1].toInt()
-                                        }
-                                        totalFreeTimeInMinutes = totalFreeTime.split(":").let {
-                                            it[0].toInt() * 60 + it[1].toInt()
-                                        }
-                                        if (durationInMinutes > totalFreeTimeInMinutes) {
-                                            errorMessage.value = "空檔時間不夠所需時間安排"
-                                            showDialog.value = true
-                                        } else {
-                                            //如果有填理想時間
-                                            if(idealTime.isNotBlank()){
-                                                evm.filterSlotsByIdealTime(localDateTimeSlots,idealTime){ byIdealList ->
-                                                    byIdealList.forEach{(start,end) ->
-                                                        println("Ideal Time slot:$start to $end")
-                                                    }
+                            if (repeatType == "每日" && repeatEndDate.isBlank()) {
+                                val repeatEndDateLocalDate = startLocalTime.plusDays(30).toLocalDate()
+                                repeatEndDate = repeatEndDateLocalDate.toString()
+                            }
 
-                                                    val idealLocalDateTimeSlots = byIdealList.map { (start, end) ->
-                                                        val startLocalDateTime = LocalDateTime.parse(
-                                                            start,
-                                                            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
-                                                        )
-                                                        val endLocalDateTime = LocalDateTime.parse(
-                                                            end,
-                                                            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
-                                                        )
-                                                        startLocalDateTime to endLocalDateTime
-                                                    }
-                                                    //抓標籤偏好時間
-                                                    evm.filterSlotsByTagPreferences(idealLocalDateTimeSlots,tags){ byTagsList ->
-                                                        byTagsList.forEach{(start,end) ->
-                                                            println("Tags Time Slog:$start to $end")
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                            else{
-                                                //抓標籤
-                                                evm.filterSlotsByTagPreferences(localDateTimeSlots,tags){ byTagsList ->
-                                                    byTagsList.forEach{(start,end) ->
-                                                        println("Tags Time Slog:$start to $end")
-                                                    }
-                                                }
-                                            }
-                                        }
+                            if (repeatType == "每週" && repeatEndDate.isBlank()) {
+                                val repeatEndDateLocalDate = startLocalTime.plusWeeks(4).toLocalDate()
+                                repeatEndDate = repeatEndDateLocalDate.toString()
+                            }
+
+                            if (repeatType == "每月" && repeatEndDate.isBlank()) {
+                                val repeatEndDateLocalDate = startLocalTime.plusMonths(6).toLocalDate()
+                                repeatEndDate = repeatEndDateLocalDate.toString()
+                            }
+
+                            if (repeatType == "每年" && repeatEndDate.isBlank()) {
+                                val repeatEndDateLocalDate = startLocalTime.plusYears(5).toLocalDate()
+                                repeatEndDate = repeatEndDateLocalDate.toString()
+                            }
+
+
+                            if(!autoSchedule){
+                                if (endLocalTime.isAfter(startLocalTime)) {
+                                    //以下都為非自動排程的更新
+                                    //在日行事曆新增事件的情況下
+                                    if (event == null && currentMonth == null) {
+                                        evm.addEvent(
+                                            name, startTime, endTime, tags, alarmTime, repeatEndDate, repeatType, duration, idealTime, shortestTime, longestTime, dailyRepeat, disturb, description
+                                        )
                                     }
+                                    //在月行事曆新增事件的情況下
+                                    else if (event == null && currentMonth != null) {
+                                        evm.addEvent(
+                                            name, startTime, endTime, tags, alarmTime, repeatEndDate, repeatType, duration, idealTime, shortestTime, longestTime, dailyRepeat, disturb, description, currentMonth
+                                        )
+                                    }
+                                    //在日行事曆 只修改一個事件的情況下
+                                    else if (editAll == false && event != null && currentMonth == null) {
+                                        evm.updateEvent(
+                                            event.uid, name, startTime, endTime, tags, alarmTime, repeatEndDate, repeatType, duration, idealTime, shortestTime, longestTime, dailyRepeat, disturb, description, null, false
+                                        )
+                                    }
+                                    //在月行事曆 只修改一個事件的情況下
+                                    else if (editAll == false && event != null && currentMonth != null) {
+                                        evm.updateEvent(
+                                            event.uid, name, startTime, endTime, tags, alarmTime, repeatEndDate, repeatType, duration, idealTime, shortestTime, longestTime, dailyRepeat, disturb, description, currentMonth, false
+                                        )
+                                    }
+                                    //在日行事曆 修改全部同一個重複事件的情況下
+                                    else if (editAll == true && event != null && currentMonth == null) {
+                                        evm.updateEvent(
+                                            event.uid, name, startTime, endTime, tags, alarmTime, repeatEndDate, repeatType, duration, idealTime, shortestTime, longestTime, dailyRepeat, disturb, description, null, true
+                                        )
+                                    }
+                                    //在月行事曆 修改全部同一個重複事件的情況下
+                                    else if (editAll == true && event != null && currentMonth != null) {
+                                        evm.updateEvent(
+                                            event.uid, name, startTime, endTime, tags, alarmTime, repeatEndDate, repeatType, duration, idealTime, shortestTime, longestTime, dailyRepeat, disturb, description, currentMonth, true
+                                        )
+                                    }
+                                    onDismiss()
+                                } else {
+                                    errorMessage.value = "結束時間必須晚於開始時間"
+                                    showDialog.value = true
                                 }
-                                //如果為每日重複
-                                else {
-                                    evm.getFreeTime(startTime, endTime) { freeTimeList ->
-                                        val localDateTimeSlots = freeTimeList.map { (start, end) ->
-                                            val startLocalDateTime = LocalDateTime.parse(
-                                                start,
-                                                DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
-                                            )
-                                            val endLocalDateTime = LocalDateTime.parse(
-                                                end,
-                                                DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
-                                            )
-                                            startLocalDateTime to endLocalDateTime
-                                        }
-                                        println("check:$freeTimeList")
+                            }
+                            else {
+                                if (endLocalTime.isAfter(startLocalTime)) {
+                                    //如果非每日重複
+                                    if (!dailyRepeat) {
+                                        var durationInMinutes = 0
+                                        var totalFreeTimeInMinutes = 0
+                                        // 呼叫 getFreeTime 方法
+                                        evm.getFreeTime(startTime, endTime) { freeTimeList ->
+                                            val localDateTimeSlots = freeTimeList.map { (start, end) ->
+                                                val startLocalDateTime = LocalDateTime.parse(
+                                                    start,
+                                                    DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+                                                )
+                                                val endLocalDateTime = LocalDateTime.parse(
+                                                    end,
+                                                    DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+                                                )
+                                                startLocalDateTime to endLocalDateTime
+                                            }
 
-                                        val endTimeDateTime = LocalDateTime.parse(
-                                            endTime,
-                                            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
-                                        )
+                                            // 印出 localDateTimeSlots 日誌
+                                            localDateTimeSlots.forEach { (start, end) ->
+                                                println("Free Time Slot: $start to $end")
+                                            }
 
-                                        val endTimeLocal = endTimeDateTime.toLocalTime()
+                                            // 計算總空閒時間
+                                            val totalFreeTime =
+                                                evm.calculateTotalFreeTime(localDateTimeSlots)
 
-                                        // 使用 calculateDailyFreeTime 方法
-                                        val dailyFreeTime = evm.calculateDailyFreeTime(
-                                            localDateTimeSlots,
-                                            endTimeLocal
-                                        )
+                                            // 印出總空閒時間日誌
+                                            println("Total Free Time: $totalFreeTime")
 
-                                        // 印出每日空閒時間日誌
-                                        dailyFreeTime.forEach { (date, time) ->
-                                            println("Date: $date, Free Time: $time")
-                                        }
-
-                                        // 比較每日的空閒時間是否足夠
-                                        val requiredMinutes = duration.split(":").let {
-                                            it[0].toInt() * 60 + it[1].toInt()
-                                        }
-
-                                        // 使用 `any` 來檢查是否有任何一天的空閒時間足夠
-                                        val isEnough = dailyFreeTime.values.all { freeTime ->
-                                            val freeTimeInMinutes = freeTime.split(":").let {
+                                            // 比較 totalFreeTime 和 duration
+                                            durationInMinutes = duration.split(":").let {
                                                 it[0].toInt() * 60 + it[1].toInt()
                                             }
-                                            freeTimeInMinutes >= requiredMinutes
-                                        }
+                                            totalFreeTimeInMinutes = totalFreeTime.split(":").let {
+                                                it[0].toInt() * 60 + it[1].toInt()
+                                            }
+                                            if (durationInMinutes > totalFreeTimeInMinutes) {
+                                                errorMessage.value = "空檔時間不夠所需時間安排"
+                                                showDialog.value = true
+                                            } else {
+                                                //如果有填理想時間
+                                                if(idealTime.isNotBlank()){
+                                                    evm.filterSlotsByIdealTime(localDateTimeSlots,idealTime){ byIdealList ->
+                                                        byIdealList.forEach{(start,end) ->
+                                                            println("Ideal Time slot:$start to $end")
+                                                        }
 
-                                        // 確保 `isEnough` 的計算完成後才繼續執行後面的代碼
-                                        println("check:$isEnough")
-
-                                        if (!isEnough) {
-                                            errorMessage.value = "某幾天的空檔時間不夠所需時間安排"
-                                            showDialog.value = true
-                                        }
-                                        else{
-                                            //如果有填理想時間
-                                            if(idealTime.isNotBlank()){
-                                                evm.filterSlotsByIdealTime(localDateTimeSlots,idealTime){ byIdealList ->
-                                                    byIdealList.forEach{(start,end) ->
-                                                        println("Ideal Time slot:$start to $end")
+                                                        val idealLocalDateTimeSlots = byIdealList.map { (start, end) ->
+                                                            val startLocalDateTime = LocalDateTime.parse(
+                                                                start,
+                                                                DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+                                                            )
+                                                            val endLocalDateTime = LocalDateTime.parse(
+                                                                end,
+                                                                DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+                                                            )
+                                                            startLocalDateTime to endLocalDateTime
+                                                        }
+                                                        //抓標籤偏好時間
+                                                        evm.filterSlotsByTagPreferences(idealLocalDateTimeSlots,tags){ byTagsList ->
+                                                            byTagsList.forEach{(start,end) ->
+                                                                println("Tags Time Slog:$start to $end")
+                                                            }
+                                                        }
                                                     }
-
-                                                    val idealLocalDateTimeSlots = byIdealList.map { (start, end) ->
-                                                        val startLocalDateTime = LocalDateTime.parse(
-                                                            start,
-                                                            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
-                                                        )
-                                                        val endLocalDateTime = LocalDateTime.parse(
-                                                            end,
-                                                            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
-                                                        )
-                                                        startLocalDateTime to endLocalDateTime
-                                                    }
-                                                    //抓標籤偏好時間
-                                                    evm.filterSlotsByTagPreferences(idealLocalDateTimeSlots,tags){ byTagsList ->
+                                                }
+                                                else{
+                                                    //抓標籤
+                                                    evm.filterSlotsByTagPreferences(localDateTimeSlots,tags){ byTagsList ->
                                                         byTagsList.forEach{(start,end) ->
                                                             println("Tags Time Slog:$start to $end")
                                                         }
                                                     }
                                                 }
                                             }
+                                        }
+                                    }
+                                    //如果為每日重複
+                                    else {
+                                        evm.getFreeTime(startTime, endTime) { freeTimeList ->
+                                            val localDateTimeSlots = freeTimeList.map { (start, end) ->
+                                                val startLocalDateTime = LocalDateTime.parse(
+                                                    start,
+                                                    DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+                                                )
+                                                val endLocalDateTime = LocalDateTime.parse(
+                                                    end,
+                                                    DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+                                                )
+                                                startLocalDateTime to endLocalDateTime
+                                            }
+                                            println("check:$freeTimeList")
+
+                                            val endTimeDateTime = LocalDateTime.parse(
+                                                endTime,
+                                                DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+                                            )
+
+                                            val endTimeLocal = endTimeDateTime.toLocalTime()
+
+                                            // 使用 calculateDailyFreeTime 方法
+                                            val dailyFreeTime = evm.calculateDailyFreeTime(
+                                                localDateTimeSlots,
+                                                endTimeLocal
+                                            )
+
+                                            // 印出每日空閒時間日誌
+                                            dailyFreeTime.forEach { (date, time) ->
+                                                println("Date: $date, Free Time: $time")
+                                            }
+
+                                            // 比較每日的空閒時間是否足夠
+                                            val requiredMinutes = duration.split(":").let {
+                                                it[0].toInt() * 60 + it[1].toInt()
+                                            }
+
+                                            // 使用 `any` 來檢查是否有任何一天的空閒時間足夠
+                                            val isEnough = dailyFreeTime.values.all { freeTime ->
+                                                val freeTimeInMinutes = freeTime.split(":").let {
+                                                    it[0].toInt() * 60 + it[1].toInt()
+                                                }
+                                                freeTimeInMinutes >= requiredMinutes
+                                            }
+
+                                            // 確保 `isEnough` 的計算完成後才繼續執行後面的代碼
+                                            println("check:$isEnough")
+
+                                            if (!isEnough) {
+                                                errorMessage.value = "某幾天的空檔時間不夠所需時間安排"
+                                                showDialog.value = true
+                                            }
                                             else{
-                                                evm.filterSlotsByTagPreferences(localDateTimeSlots,tags){ byTagsList ->
-                                                    byTagsList.forEach{(start,end) ->
-                                                        println("Tags Time Slog:$start to $end")
+                                                //如果有填理想時間
+                                                if(idealTime.isNotBlank()){
+                                                    evm.filterSlotsByIdealTime(localDateTimeSlots,idealTime){ byIdealList ->
+                                                        byIdealList.forEach{(start,end) ->
+                                                            println("Ideal Time slot:$start to $end")
+                                                        }
+
+                                                        val idealLocalDateTimeSlots = byIdealList.map { (start, end) ->
+                                                            val startLocalDateTime = LocalDateTime.parse(
+                                                                start,
+                                                                DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+                                                            )
+                                                            val endLocalDateTime = LocalDateTime.parse(
+                                                                end,
+                                                                DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+                                                            )
+                                                            startLocalDateTime to endLocalDateTime
+                                                        }
+                                                        //抓標籤偏好時間
+                                                        evm.filterSlotsByTagPreferences(idealLocalDateTimeSlots,tags){ byTagsList ->
+                                                            byTagsList.forEach{(start,end) ->
+                                                                println("Tags Time Slog:$start to $end")
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                                else{
+                                                    evm.filterSlotsByTagPreferences(localDateTimeSlots,tags){ byTagsList ->
+                                                        byTagsList.forEach{(start,end) ->
+                                                            println("Tags Time Slog:$start to $end")
+                                                        }
                                                     }
                                                 }
                                             }
                                         }
                                     }
+                                } else {
+                                    errorMessage.value = "結束時間必須晚於開始時間"
+                                    showDialog.value = true
                                 }
-                            } else {
-                                errorMessage.value = "結束時間必須晚於開始時間"
-                                showDialog.value = true
                             }
-                        }
-                    },
-                    colors = ButtonDefaults.run { buttonColors(colorResource1(id = R.color.light_blue)) }
-                ) {
-                    Text("確認", color = Color.White)
-                }
-                // 錯誤提示對話框
-                if (showDialog.value) {
-                    Log.d("error", "$showDialog")
-                    ErrorAlertDialog(
-                        showDialog = mutableStateOf(showDialog.value),
-                        message = errorMessage.value,
-                        onDismiss = { showDialog.value = false }
-                    )
+                        },
+                        colors = ButtonDefaults.run { buttonColors(colorResource1(id = R.color.light_blue)) }
+                    ) {
+                        Text("確認", color = Color.White)
+                    }
+                    // 錯誤提示對話框
+                    if (showDialog.value) {
+                        Log.d("error", "$showDialog")
+                        ErrorAlertDialog(
+                            showDialog = mutableStateOf(showDialog.value),
+                            message = errorMessage.value,
+                            onDismiss = { showDialog.value = false }
+                        )
+                    }
                 }
             }
+            //暫時解決不了把確認放在裡面沒有bug
         }
     }
 }
