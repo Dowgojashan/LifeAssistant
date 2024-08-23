@@ -1689,18 +1689,69 @@ fun UserInputDialog(
                                                                 println("Tags Time Slog:$start to $end")
                                                             }
 
-                                                            //切割
-                                                            if(isSplittable){
-                                                                evm.splitDuration(duration,shortestTime,longestTime){ splitEventTime ->
-                                                                    println("分割事件時間:$splitEventTime")
-                                                                }
+                                                            val tagLocalDateTimeSlots = byTagsList.map { (start, end) ->
+                                                                val startLocalDateTime = LocalDateTime.parse(
+                                                                    start,
+                                                                    DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+                                                                )
+                                                                val endLocalDateTime = LocalDateTime.parse(
+                                                                    end,
+                                                                    DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+                                                                )
+                                                                startLocalDateTime to endLocalDateTime
                                                             }
-                                                            else{
-                                                                //排事件
+
+                                                            var start: String = ""
+                                                            var end: String = ""
+
+                                                            //排事件
+                                                            evm.scheduleEvents(tagLocalDateTimeSlots,duration,shortestTime,longestTime,isSplittable,tags){ scheduledEvent ->
+                                                                scheduledEvent.forEach{(eventStart, eventEnd) ->
+                                                                    start = eventStart
+                                                                    end = eventEnd
+                                                                    println("EventTime: $start to $end")
+                                                                }
+
+                                                                //如果標籤找不到換找理想時間
+                                                                if(scheduledEvent.isEmpty()){
+                                                                    evm.scheduleEvents(idealLocalDateTimeSlots,duration,shortestTime,longestTime,isSplittable,tags){ secondScheduledEvent ->
+                                                                        secondScheduledEvent.forEach{(eventStart, eventEnd) ->
+                                                                            start = eventStart
+                                                                            end = eventEnd
+                                                                            println("EventTime: $start to $end")
+                                                                        }
+
+                                                                        //如果理想時間找不到換找總空檔時間
+                                                                        if(secondScheduledEvent.isEmpty()){
+                                                                            evm.scheduleEvents(localDateTimeSlots,duration,shortestTime,longestTime,isSplittable,tags){ finalScheduledEvent ->
+                                                                                finalScheduledEvent.forEach{(eventStart, eventEnd) ->
+                                                                                    start = eventStart
+                                                                                    end = eventEnd
+                                                                                    println("EventTime:$start to $end")
+                                                                                }
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                }
+                                                                //在日行事曆新增事件的情況下
+                                                                if (event == null && currentMonth == null) {
+                                                                    evm.addEvent(
+                                                                        name, start, end, tags, alarmTime, repeatEndDate, repeatType, duration, idealTime, shortestTime, longestTime, dailyRepeat, disturb, description
+                                                                    )
+                                                                    onDismiss()
+                                                                }
+                                                                //在月行事曆新增事件的情況下
+                                                                else if (event == null && currentMonth != null) {
+                                                                    evm.addEvent(
+                                                                        name, start, end, tags, alarmTime, repeatEndDate, repeatType, duration, idealTime, shortestTime, longestTime, dailyRepeat, disturb, description, currentMonth
+                                                                    )
+                                                                    onDismiss()
+                                                                }
                                                             }
                                                         }
                                                     }
                                                 }
+                                                //如果沒填理想時間
                                                 else{
                                                     //抓標籤
                                                     evm.filterSlotsByTagPreferences(localDateTimeSlots,tags){ byTagsList ->
@@ -1708,14 +1759,51 @@ fun UserInputDialog(
                                                             println("Tags Time Slog:$start to $end")
                                                         }
 
-                                                        //切割
-                                                        if(isSplittable){
-                                                            evm.splitDuration(duration,shortestTime,longestTime){ splitEventTime ->
-                                                                println("分割事件時間:$splitEventTime")
-                                                            }
+                                                        val tagLocalDateTimeSlots = byTagsList.map { (start, end) ->
+                                                            val startLocalDateTime = LocalDateTime.parse(
+                                                                start,
+                                                                DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+                                                            )
+                                                            val endLocalDateTime = LocalDateTime.parse(
+                                                                end,
+                                                                DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+                                                            )
+                                                            startLocalDateTime to endLocalDateTime
                                                         }
-                                                        else{
-                                                            //排事件
+                                                        var start: String = ""
+                                                        var end: String = ""
+
+                                                        // 排事件
+                                                        evm.scheduleEvents(tagLocalDateTimeSlots, duration, shortestTime, longestTime, isSplittable, tags) { scheduledEvent ->
+                                                            scheduledEvent.forEach { (eventStart, eventEnd) ->
+                                                                start = eventStart
+                                                                end = eventEnd
+                                                                println("EventTime: $start to $end")
+                                                            }
+                                                            // 如果標籤找不到換找總空檔時間
+                                                            if (scheduledEvent.isEmpty()) {
+                                                                evm.scheduleEvents(localDateTimeSlots, duration, shortestTime, longestTime, isSplittable, tags) { finalScheduledEvent ->
+                                                                    finalScheduledEvent.forEach { (eventStart, eventEnd) ->
+                                                                        start = eventStart
+                                                                        end = eventEnd
+                                                                        println("EventTime: $start to $end")
+                                                                    }
+                                                                }
+                                                            }
+                                                            //在日行事曆新增事件的情況下
+                                                            if (event == null && currentMonth == null) {
+                                                                evm.addEvent(
+                                                                    name, start, end, tags, alarmTime, repeatEndDate, repeatType, duration, idealTime, shortestTime, longestTime, dailyRepeat, disturb, description
+                                                                )
+                                                                onDismiss()
+                                                            }
+                                                            //在月行事曆新增事件的情況下
+                                                            else if (event == null && currentMonth != null) {
+                                                                evm.addEvent(
+                                                                    name, start, end, tags, alarmTime, repeatEndDate, repeatType, duration, idealTime, shortestTime, longestTime, dailyRepeat, disturb, description, currentMonth
+                                                                )
+                                                                onDismiss()
+                                                            }
                                                         }
                                                     }
                                                 }
@@ -1800,14 +1888,41 @@ fun UserInputDialog(
                                                             byTagsList.forEach{(start,end) ->
                                                                 println("Tags Time Slog:$start to $end")
                                                             }
-                                                            //切割
-                                                            if(isSplittable){
-                                                                evm.splitDuration(duration,shortestTime,longestTime){ splitEventTime ->
-                                                                    println("分割事件時間:$splitEventTime")
-                                                                }
+                                                            val tagLocalDateTimeSlots = byTagsList.map { (start, end) ->
+                                                                val startLocalDateTime = LocalDateTime.parse(
+                                                                    start,
+                                                                    DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+                                                                )
+                                                                val endLocalDateTime = LocalDateTime.parse(
+                                                                    end,
+                                                                    DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+                                                                )
+                                                                startLocalDateTime to endLocalDateTime
                                                             }
-                                                            else{
-                                                                //排事件
+
+                                                            //排事件
+                                                            evm.scheduleEvents(tagLocalDateTimeSlots,duration,shortestTime,longestTime,isSplittable,tags){ scheduledEvent ->
+                                                                scheduledEvent.forEach{(start,end) ->
+                                                                    println("EventTime:$start to $end")
+                                                                }
+
+                                                                //如果標籤找不到換找理想時間
+                                                                if(scheduledEvent.isEmpty()){
+                                                                    evm.scheduleEvents(idealLocalDateTimeSlots,duration,shortestTime,longestTime,isSplittable,tags){ secondScheduledEvent ->
+                                                                        secondScheduledEvent.forEach{(start,end) ->
+                                                                            println("EventTime:$start to $end")
+                                                                        }
+
+                                                                        //如果理想時間找不到換找總空檔時間
+                                                                        if(secondScheduledEvent.isEmpty()){
+                                                                            evm.scheduleEvents(localDateTimeSlots,duration,shortestTime,longestTime,isSplittable,tags){ finalScheduledEvent ->
+                                                                                finalScheduledEvent.forEach{(start,end) ->
+                                                                                    println("EventTime:$start to $end")
+                                                                                }
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                }
                                                             }
                                                         }
                                                     }
@@ -1818,14 +1933,32 @@ fun UserInputDialog(
                                                         byTagsList.forEach{(start,end) ->
                                                             println("Tags Time Slog:$start to $end")
                                                         }
-                                                        //切割
-                                                        if(isSplittable){
-                                                            evm.splitDuration(duration,shortestTime,longestTime){ splitEventTime ->
-                                                                println("分割事件時間:$splitEventTime")
-                                                            }
+
+                                                        val tagLocalDateTimeSlots = byTagsList.map { (start, end) ->
+                                                            val startLocalDateTime = LocalDateTime.parse(
+                                                                start,
+                                                                DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+                                                            )
+                                                            val endLocalDateTime = LocalDateTime.parse(
+                                                                end,
+                                                                DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+                                                            )
+                                                            startLocalDateTime to endLocalDateTime
                                                         }
-                                                        else{
-                                                            //排事件
+
+                                                        //排事件
+                                                        evm.scheduleEvents(tagLocalDateTimeSlots,duration,shortestTime,longestTime,isSplittable,tags){ scheduledEvent ->
+                                                            scheduledEvent.forEach{(start,end) ->
+                                                                println("EventTime:$start to $end")
+                                                            }
+                                                            //如果標籤找不到換找總空檔時間
+                                                            if(scheduledEvent.isEmpty()){
+                                                                evm.scheduleEvents(localDateTimeSlots,duration,shortestTime,longestTime,isSplittable,tags){ finalScheduledEvent ->
+                                                                    finalScheduledEvent.forEach{(start,end) ->
+                                                                        println("EventTime:$start to $end")
+                                                                    }
+                                                                }
+                                                            }
                                                         }
                                                     }
                                                 }
