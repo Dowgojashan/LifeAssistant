@@ -1058,7 +1058,7 @@ class EventViewModel @Inject constructor(
     }
 
     //分割時間
-    fun splitDuration(duration: String, shortestTime: String?, longestTime: String?): List<Int> {
+    private fun splitDuration(duration: String, shortestTime: String?, longestTime: String?): List<Int> {
         val durationMinutes = duration.split(":").let {
             it[0].toInt() * 60 + it[1].toInt()
         }
@@ -1116,7 +1116,7 @@ class EventViewModel @Inject constructor(
             println("No valid shortest or longest time provided.")
         }
 
-        return chunks  // 返回 chunks 列表
+        return chunks.reversed()  // 返回 chunks 列表
     }
 
     private fun getPreferredStartTime(date: LocalDate, prefStart: LocalTime): LocalDateTime {
@@ -1203,6 +1203,25 @@ class EventViewModel @Inject constructor(
         return "%d:%02d".format(hours, minutes)
     }
 
+    //尋找最長的連續時段
+    fun findLongestSlot(slots: List<Pair<LocalDateTime, LocalDateTime>>): String {
+        var maxDuration = Duration.ZERO
+
+        // 尋找最長的時間段
+        slots.forEach { (start, end) ->
+            val duration = Duration.between(start, end)
+            if (duration > maxDuration) {
+                maxDuration = duration
+            }
+        }
+
+        // 將最大時間段轉換為小時和分鐘
+        val hours = maxDuration.toHours()
+        val minutes = maxDuration.toMinutes() % 60
+
+        return "%d:%02d".format(hours, minutes)
+    }
+
 
     // 計算每日的空閒時間
     fun calculateDailyFreeTime(availableSlots: List<Pair<LocalDateTime, LocalDateTime>>, endTimeBoundary: LocalTime): Map<LocalDate, String> {
@@ -1270,13 +1289,14 @@ class EventViewModel @Inject constructor(
         val outputFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
         val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
         val endBoundary = LocalTime.parse("05:01", timeFormatter)
+        val startBoundary = LocalTime.parse("00:00",timeFormatter)
 
         // 步骤 1: 選擇最優開始日期
         val bestStartDate = selectBestStartDate(availableSlots)
 
         if (bestStartDate == null) {
             println("無法找到合適的開始日期。")
-            callback(emptyList()) // 使用 callback 回傳空結果
+            callback(emptyList())
             return
         }
 
@@ -1286,22 +1306,52 @@ class EventViewModel @Inject constructor(
         val durationChunks = splitDuration(duration, shortestTime, longestTime)
         val shortestMinutes = shortestTime?.let { timeStringToMinutes(it) } ?: 0
         val longestMinutes = longestTime?.let { timeStringToMinutes(it) } ?: 0
+        println("分割:$durationChunks")
 
         // 步骤 3: 依次排程每个分割后的事件
         val scheduledEvents = mutableListOf<Pair<LocalDateTime, LocalDateTime>>()
         var currentBufferTime = Duration.ofHours(1)
         var intervalTime = Duration.ofHours(5)
+        var intervalTimeForOneDay = Duration.ZERO
         var fallbackIntervalTime = Duration.ofHours(3)
         var remainingDuration = durationChunks.sumOf { it } // 剩餘的待排程時長（分鐘）
         var i = 0 // 初始化索引
 
-        if (isDivisible) {
+        if(isDivisible) {
             var nextStart = LocalDateTime.MIN  // 初始值为最小的 LocalDateTime
+            val uniqueDays = mutableSetOf<LocalDate>() //算有幾天決定間隔時間
+            // 遍历所有的 availableSlots，提取开始日期和结束日期
+            availableSlots.forEach { (start, end) ->
+                uniqueDays.add(if ((start.toLocalTime().isAfter(startBoundary)||start.toLocalTime().equals(startBoundary)) && start.toLocalTime().isBefore(endBoundary)) {
+                    start.toLocalDate().minusDays(1)
+                } else {
+                    start.toLocalDate()
+                }) // 添加开始日期
+                uniqueDays.add(if ((end.toLocalTime().isAfter(startBoundary)||end.toLocalTime().equals(startBoundary)) && end.toLocalTime().isBefore(endBoundary)) {
+                    end.toLocalDate().minusDays(1)
+                } else {
+                    end.toLocalDate()
+                })   // 添加结束日期
+            }
+
+            if(uniqueDays.size==1){
+                intervalTime = Duration.ZERO //只有一天間隔時間為1小時
+            }
+
             availableSlots.forEach { (start, end) ->
                 // 針對當前或之後的時間段進行排程
                 if (start.toLocalDate().isBefore(bestStartDate)) return@forEach
+                var lastDayStart = if ((start.toLocalTime().isAfter(startBoundary)||start.toLocalTime().equals(startBoundary)) && start.toLocalTime().isBefore(endBoundary)) {
+                    start.toLocalDate().minusDays(1)
+                } else {
+                    start.toLocalDate()
+                }
+                if (uniqueDays.size > 2 && lastDayStart == uniqueDays.maxOrNull()) {
+                    println("開始時間是最後一天，跳出處理: $start")
+                    return@forEach // 终止本次循环，不再处理该时间段
+                }
 
-                val boundStart = maxOf(start, nextStart) //下次可以排行程的時間
+                val boundStart = maxOf(start, nextStart)//下次可以排行程的時間
                 // 如果 boundStart 晚于 end，直接跳出当前循环，处理下一个 start, end
                 if (boundStart.isAfter(end)) {
                     return@forEach
@@ -1327,8 +1377,7 @@ class EventViewModel @Inject constructor(
                 i = result.first
                 remainingDuration = result.second
                 nextStart = result.third
-                println("第一次$i")
-                println("$remainingDuration")
+                println("第一次$i, $remainingDuration")
             }
             if (remainingDuration > 0) {
                 // 嘗試從開始塞的那一天前面的可用時間段中尋找可用時間
@@ -1340,7 +1389,7 @@ class EventViewModel @Inject constructor(
                     previousSlots.forEach { (start, end) ->
                         // 調用 scheduleChunks 函数處理排程
 
-                        val boundStart = maxOf(start, nextStart) //下次可以排行程的時間
+                        val boundStart = maxOf(start, nextStart)//下次可以排行程的時間
                         // 如果 boundStart 晚于 end，直接跳出当前循环，处理下一个 start, end
                         if (boundStart.isAfter(end)) {
                             return@forEach
@@ -1364,20 +1413,61 @@ class EventViewModel @Inject constructor(
                         i = result2.first
                         remainingDuration = result2.second
                         nextStart = result2.third
-                        println("第二次$i")
-                        println("$remainingDuration")
+                        println("塞前面$i, $remainingDuration")
                     }
-                    if (remainingDuration > 0) {
-                        println("第二次還是不行")
+
+                    if(remainingDuration > 0 && uniqueDays.size > 2){  //試試塞最後一天
+                        nextStart = LocalDateTime.MIN
+                        availableSlots.forEach { (start, end) ->
+                            /*var lastDayStart = if ((start.toLocalTime().isAfter(startBoundary)||start.toLocalTime().equals(startBoundary)) && start.toLocalTime().isBefore(endBoundary)) {
+                                    start.toLocalDate().minusDays(1)
+                                } else {
+                                    start.toLocalDate()
+                                }*/
+                            //lastDayStart.toLocalDate() == uniqueDays.maxOrNull()
+                            if (start.toLocalDate().isBefore( uniqueDays.maxOrNull())) {
+                                return@forEach // 跳过当前时间段的排程
+                            }
+
+                            val boundStart = maxOf(start, nextStart)//下次可以排行程的時間
+                            // 如果 boundStart 晚于 end，直接跳出当前循环，处理下一个 start, end
+                            if (boundStart.isAfter(end)) {
+                                return@forEach
+                            }
+                            val result2 = scheduleChunks(
+                                availableSlots = availableSlots,
+                                start = boundStart,
+                                end = end,
+                                currentBufferTime = currentBufferTime,
+                                durationChunks = durationChunks,
+                                longestMinutes = longestMinutes,
+                                tag = tag,
+                                intervalTime = intervalTime,
+                                isDivisible = isDivisible,
+                                scheduledEvents = scheduledEvents,
+                                i = i,
+                                remainingDuration = remainingDuration
+                            )
+
+                            // 更新索引和剩余时间
+                            i = result2.first
+                            remainingDuration = result2.second
+                            nextStart = result2.third
+                            println("塞最後一天$i, $remainingDuration")
+                        }
+                    }
+
+                    if (remainingDuration > 0){
+                        println("都不行，拿調緩衝時間調整間隔時間")
                         scheduledEvents.clear()
-                        i = 0
+                        i=0
                         nextStart = LocalDateTime.MIN
                         remainingDuration = durationChunks.sumOf { it }
                         currentBufferTime = Duration.ZERO
-                        intervalTime = fallbackIntervalTime
+                        intervalTime = if(uniqueDays.size==1){ Duration.ofHours(1) } else fallbackIntervalTime
                         availableSlots.forEach { (start, end) ->
                             // 調用 scheduleChunks 函數處理排程
-                            val boundStart = maxOf(start, nextStart) //下次可以排行程的時間
+                            val boundStart = maxOf(start, nextStart)//下次可以排行程的時間
                             // 如果 boundStart 晚于 end，直接跳出当前循环，处理下一个 start, end
                             if (boundStart.isAfter(end)) {
                                 return@forEach
@@ -1401,52 +1491,93 @@ class EventViewModel @Inject constructor(
                             i = result3.first
                             remainingDuration = result3.second
                             nextStart = result3.third
-                            println("第三次$i")
-                            println("$remainingDuration")
+                            println("第三次$i, $remainingDuration")
                         }
                     }
 
                 } else {
-                    // 如果没有可用时间段，则取消缓冲时间，并缩短间隔
-                    println("没有前面的可用時間段，取消缓冲時間且間隔縮短間隔為3小時。")
-                    scheduledEvents.clear()
-                    nextStart = LocalDateTime.MIN
-                    i = 0
-                    currentBufferTime = Duration.ZERO
-                    intervalTime = fallbackIntervalTime
-                    remainingDuration = durationChunks.sumOf { it }
-                    availableSlots.forEach { (start, end) ->
-                        // 调用 scheduleChunks 函数处理排程
-                        val boundStart = maxOf(start, nextStart) //下次可以排行程的時間
-                        // 如果 boundStart 晚于 end，直接跳出当前循环，处理下一个 start, end
-                        if (boundStart.isAfter(end)) {
-                            return@forEach
-                        }
-                        val result2 = scheduleChunks(
-                            availableSlots = availableSlots,
-                            start = boundStart,
-                            end = end,
-                            currentBufferTime = currentBufferTime,
-                            durationChunks = durationChunks,
-                            longestMinutes = longestMinutes,
-                            tag = tag,
-                            intervalTime = intervalTime,
-                            isDivisible = isDivisible,
-                            scheduledEvents = scheduledEvents,
-                            i = i,
-                            remainingDuration = remainingDuration
-                        )
+                    if(remainingDuration > 0 && uniqueDays.size > 2){  //試試塞最後一天
+                        nextStart = LocalDateTime.MIN
+                        availableSlots.forEach { (start, end) ->
+                            /*var lastDayStart = if ((start.toLocalTime().isAfter(startBoundary)||start.toLocalTime().equals(startBoundary)) && start.toLocalTime().isBefore(endBoundary)) {
+                                    start.toLocalDate().minusDays(1)
+                                } else {
+                                    start.toLocalDate()
+                                }*/
+                            //lastDayStart.toLocalDate() == uniqueDays.maxOrNull()
+                            if (start.toLocalDate().isBefore( uniqueDays.maxOrNull())) {
+                                return@forEach // 跳过当前时间段的排程
+                            }
 
-                        // 更新索引和剩余时间
-                        i = result2.first
-                        remainingDuration = result2.second
-                        nextStart = result2.third
-                        println("第二次$i")
-                        println("$remainingDuration")
+                            val boundStart = maxOf(start, nextStart)//下次可以排行程的時間
+                            // 如果 boundStart 晚于 end，直接跳出当前循环，处理下一个 start, end
+                            if (boundStart.isAfter(end)) {
+                                return@forEach
+                            }
+                            val result2 = scheduleChunks(
+                                availableSlots = availableSlots,
+                                start = boundStart,
+                                end = end,
+                                currentBufferTime = currentBufferTime,
+                                durationChunks = durationChunks,
+                                longestMinutes = longestMinutes,
+                                tag = tag,
+                                intervalTime = intervalTime,
+                                isDivisible = isDivisible,
+                                scheduledEvents = scheduledEvents,
+                                i = i,
+                                remainingDuration = remainingDuration
+                            )
+
+                            // 更新索引和剩余时间
+                            i = result2.first
+                            remainingDuration = result2.second
+                            nextStart = result2.third
+                            println("前面沒有，直接塞最後一天$i, $remainingDuration")
+                        }
+                    }
+
+                    if (remainingDuration > 0){
+                        // 如果没有可用时间段，则取消缓冲时间，并缩短间隔
+                        println("没有前面的可用時間段，取消缓冲時間且間隔縮短間隔為3小時。")
+                        scheduledEvents.clear()
+                        nextStart = LocalDateTime.MIN
+                        i=0
+                        currentBufferTime = Duration.ZERO
+                        intervalTime = if(uniqueDays.size==1){ Duration.ofHours(1) } else fallbackIntervalTime
+                        remainingDuration = durationChunks.sumOf { it }
+                        availableSlots.forEach { (start, end) ->
+                            // 调用 scheduleChunks 函数处理排程
+                            val boundStart = maxOf(start, nextStart)//下次可以排行程的時間
+                            // 如果 boundStart 晚于 end，直接跳出当前循环，处理下一个 start, end
+                            if (boundStart.isAfter(end)) {
+                                return@forEach
+                            }
+                            val result2 = scheduleChunks(
+                                availableSlots = availableSlots,
+                                start = boundStart,
+                                end = end,
+                                currentBufferTime = currentBufferTime,
+                                durationChunks = durationChunks,
+                                longestMinutes = longestMinutes,
+                                tag = tag,
+                                intervalTime = intervalTime,
+                                isDivisible = isDivisible,
+                                scheduledEvents = scheduledEvents,
+                                i = i,
+                                remainingDuration = remainingDuration
+                            )
+
+                            // 更新索引和剩余时间
+                            i = result2.first
+                            remainingDuration = result2.second
+                            nextStart = result2.third
+                            println("第二次$i, $remainingDuration")
+                        }
                     }
                 }
             }
-        } else {    //不可切的事件
+        }else{    //不可切的事件
             var foundSlot = false
             var tailBufferTime = Duration.ofHours(1)
             // 將 duration 轉換為 Duration 類型
@@ -1460,29 +1591,29 @@ class EventViewModel @Inject constructor(
                 foundSlot = true
             } else {
                 println("找第二次")
-                currentBufferTime = Duration.ZERO
+                currentBufferTime=Duration.ZERO
                 val foundSlotPair2 = undivisibleFinding(bestStartDate, availableSlots, requiredDuration, currentBufferTime, tailBufferTime, outputFormatter)
                 if (foundSlotPair2 != null) {
                     scheduledEvents.add(foundSlotPair2)
                     foundSlot = true
                 } else {
                     println("找第三次")
-                    tailBufferTime = Duration.ZERO
+                    tailBufferTime=Duration.ZERO
                     val foundSlotPair3 = undivisibleFinding(bestStartDate, availableSlots, requiredDuration, currentBufferTime, tailBufferTime, outputFormatter)
                     if (foundSlotPair3 != null) {
                         scheduledEvents.add(foundSlotPair3)
                         foundSlot = true
                     } else {
-                        println("没有找到符合條件的時間段")
-                        callback(emptyList()) // 使用 callback 回傳空結果
+                        println("没有找到符合條件的时间段。")
+                        callback(emptyList())
                         return
                     }
                 }
             }
 
             if (!foundSlot) {
-                println("没有找到符合條件的時間段")
-                callback(emptyList()) // 使用 callback 回傳空結果
+                println("没有找到符合條件的时间段。")
+                callback(emptyList())
                 return
             }
         }
@@ -1495,14 +1626,14 @@ class EventViewModel @Inject constructor(
 
 
     // 将 "4:46" 转换为 Duration 对象的函数
-    private fun parseDurationToDuration(duration: String): Duration {
+    fun parseDurationToDuration(duration: String): Duration {
         val timeParts = duration.split(":")
         val hours = timeParts[0].toLong()
         val minutes = timeParts[1].toLong()
         return Duration.ofHours(hours).plusMinutes(minutes)
     }
 
-    private fun scheduleChunks(
+    fun scheduleChunks(
         availableSlots: List<Pair<LocalDateTime, LocalDateTime>>,
         start: LocalDateTime,
         end: LocalDateTime,
@@ -1517,15 +1648,17 @@ class EventViewModel @Inject constructor(
         remainingDuration: Int
     ): Triple<Int, Int, LocalDateTime> {
 
-        var currentStart = start.plus(currentBufferTime)
         var remainingDurationVar = remainingDuration
         var index = i
+        // 初始化 currentStart
+        var currentStart = start//.plus(currentBufferTime)
 
-        while (index < durationChunks.size && currentStart.isBefore(end.minus(currentBufferTime)) && remainingDurationVar > 0) {
+        while (index < durationChunks.size && currentStart.plus(currentBufferTime).isBefore(end.minus(currentBufferTime)) && remainingDurationVar > 0) {
             val chunkDurationMinutes = durationChunks[index]
             val chunkDuration = Duration.ofMinutes(chunkDurationMinutes.toLong())
 
             // 可用的剩余时间
+            currentStart = currentStart.plus(currentBufferTime)
             var boundEnd = end.minus(currentBufferTime)
             val availableDuration = Duration.between(currentStart, end.minus(currentBufferTime))
 
@@ -1582,11 +1715,10 @@ class EventViewModel @Inject constructor(
                 break // 排程完成，退出循环
             }
         }
-
         return Triple(index, remainingDurationVar, currentStart)
     }
 
-    private fun undivisibleFinding(
+    fun undivisibleFinding(
         bestStartDate: LocalDate,
         availableSlots: List<Pair<LocalDateTime, LocalDateTime>>,
         requiredDuration: Duration,
@@ -1635,7 +1767,7 @@ class EventViewModel @Inject constructor(
         return null
     }
 
-    private fun selectBestStartDate(availableSlots: List<Pair<LocalDateTime, LocalDateTime>>): LocalDate? {
+    fun selectBestStartDate(availableSlots: List<Pair<LocalDateTime, LocalDateTime>>): LocalDate? {
         val dailyFreeTime = mutableMapOf<LocalDate, Duration>()
         val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
         val endBoundary = LocalTime.parse("05:01",timeFormatter) //可能算是同一天的跨日時間點判斷 比如說我們就是覺得凌晨三點還是同一天
@@ -1664,7 +1796,8 @@ class EventViewModel @Inject constructor(
             }
             else -> {
                 // 如果有多天，排除最后一天，从剩余天数中选择空闲时间最多的那一天
-                val daysExcludingLast = sortedFreeTime.dropLast(1)
+                var daysExcludingLast = dailyFreeTime.entries.toList().dropLast(1)
+                daysExcludingLast = daysExcludingLast.sortedByDescending { it.value }
                 daysExcludingLast.maxByOrNull { it.value }?.key
             }
         }

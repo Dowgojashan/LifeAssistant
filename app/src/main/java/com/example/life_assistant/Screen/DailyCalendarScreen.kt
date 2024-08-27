@@ -1628,6 +1628,7 @@ fun UserInputDialog(
                                     if (!dailyRepeat) {
                                         var durationInMinutes = 0
                                         var totalFreeTimeInMinutes = 0
+                                        var longestFreeTimeInMinutes = 0
                                         // 呼叫 getFreeTime 方法
                                         evm.getFreeTime(startTime, endTime) { freeTimeList ->
                                             val localDateTimeSlots = freeTimeList.map { (start, end) ->
@@ -1651,8 +1652,11 @@ fun UserInputDialog(
                                             val totalFreeTime =
                                                 evm.calculateTotalFreeTime(localDateTimeSlots)
 
+                                            val longestFreeTime = evm.findLongestSlot(localDateTimeSlots)
+
                                             // 印出總空閒時間日誌
                                             println("Total Free Time: $totalFreeTime")
+                                            println("longest Free Time: $longestFreeTime")
 
                                             // 比較 totalFreeTime 和 duration
                                             durationInMinutes = duration.split(":").let {
@@ -1661,7 +1665,10 @@ fun UserInputDialog(
                                             totalFreeTimeInMinutes = totalFreeTime.split(":").let {
                                                 it[0].toInt() * 60 + it[1].toInt()
                                             }
-                                            if (durationInMinutes > totalFreeTimeInMinutes) {
+                                            longestFreeTimeInMinutes = longestFreeTime.split(":").let{
+                                                it[0].toInt() * 60 + it[1].toInt()
+                                            }
+                                            if (durationInMinutes > totalFreeTimeInMinutes || (!isSplittable && (durationInMinutes > longestFreeTimeInMinutes))) {
                                                 errorMessage.value = "空檔時間不夠所需時間安排"
                                                 showDialog.value = true
                                             } else {
@@ -1710,6 +1717,20 @@ fun UserInputDialog(
                                                                     start = eventStart
                                                                     end = eventEnd
                                                                     println("EventTime: $start to $end")
+                                                                    if(scheduledEvent.isNotEmpty()){
+                                                                        if (event == null && currentMonth == null) {
+                                                                            evm.addEvent(
+                                                                                name, start, end, tags, alarmTime, repeatEndDate, repeatType, duration, idealTime, shortestTime, longestTime, dailyRepeat, disturb, description
+                                                                            )
+                                                                        }
+
+                                                                        // 在月行事曆新增事件的情況下
+                                                                        else if (event == null && currentMonth != null) {
+                                                                            evm.addEvent(
+                                                                                name, start, end, tags, alarmTime, repeatEndDate, repeatType, duration, idealTime, shortestTime, longestTime, dailyRepeat, disturb, description, currentMonth
+                                                                            )
+                                                                        }
+                                                                    }
                                                                 }
 
                                                                 //如果標籤找不到換找理想時間
@@ -1719,6 +1740,20 @@ fun UserInputDialog(
                                                                             start = eventStart
                                                                             end = eventEnd
                                                                             println("EventTime: $start to $end")
+                                                                            if(secondScheduledEvent.isNotEmpty()){
+                                                                                if (event == null && currentMonth == null) {
+                                                                                    evm.addEvent(
+                                                                                        name, start, end, tags, alarmTime, repeatEndDate, repeatType, duration, idealTime, shortestTime, longestTime, dailyRepeat, disturb, description
+                                                                                    )
+                                                                                }
+
+                                                                                // 在月行事曆新增事件的情況下
+                                                                                else if (event == null && currentMonth != null) {
+                                                                                    evm.addEvent(
+                                                                                        name, start, end, tags, alarmTime, repeatEndDate, repeatType, duration, idealTime, shortestTime, longestTime, dailyRepeat, disturb, description, currentMonth
+                                                                                    )
+                                                                                }
+                                                                            }
                                                                         }
 
                                                                         //如果理想時間找不到換找總空檔時間
@@ -1728,23 +1763,27 @@ fun UserInputDialog(
                                                                                     start = eventStart
                                                                                     end = eventEnd
                                                                                     println("EventTime:$start to $end")
+                                                                                    if(finalScheduledEvent.isNotEmpty()){
+                                                                                        if (event == null && currentMonth == null) {
+                                                                                            evm.addEvent(
+                                                                                                name, start, end, tags, alarmTime, repeatEndDate, repeatType, duration, idealTime, shortestTime, longestTime, dailyRepeat, disturb, description
+                                                                                            )
+                                                                                        }
+
+                                                                                        // 在月行事曆新增事件的情況下
+                                                                                        else if (event == null && currentMonth != null) {
+                                                                                            evm.addEvent(
+                                                                                                name, start, end, tags, alarmTime, repeatEndDate, repeatType, duration, idealTime, shortestTime, longestTime, dailyRepeat, disturb, description, currentMonth
+                                                                                            )
+                                                                                        }
+                                                                                    }
                                                                                 }
                                                                             }
                                                                         }
                                                                     }
                                                                 }
-                                                                //在日行事曆新增事件的情況下
-                                                                if (event == null && currentMonth == null) {
-                                                                    evm.addEvent(
-                                                                        name, start, end, tags, alarmTime, repeatEndDate, repeatType, duration, idealTime, shortestTime, longestTime, dailyRepeat, disturb, description
-                                                                    )
-                                                                    onDismiss()
-                                                                }
-                                                                //在月行事曆新增事件的情況下
-                                                                else if (event == null && currentMonth != null) {
-                                                                    evm.addEvent(
-                                                                        name, start, end, tags, alarmTime, repeatEndDate, repeatType, duration, idealTime, shortestTime, longestTime, dailyRepeat, disturb, description, currentMonth
-                                                                    )
+                                                                //結束關閉視窗
+                                                                if (event == null) {
                                                                     onDismiss()
                                                                 }
                                                             }
@@ -1779,6 +1818,21 @@ fun UserInputDialog(
                                                                 start = eventStart
                                                                 end = eventEnd
                                                                 println("EventTime: $start to $end")
+                                                                if(scheduledEvent.isNotEmpty()){
+                                                                    // 在日行事曆新增事件的情況下
+                                                                    if (event == null && currentMonth == null) {
+                                                                        evm.addEvent(
+                                                                            name, start, end, tags, alarmTime, repeatEndDate, repeatType, duration, idealTime, shortestTime, longestTime, dailyRepeat, disturb, description
+                                                                        )
+                                                                    }
+
+                                                                    // 在月行事曆新增事件的情況下
+                                                                    else if (event == null && currentMonth != null) {
+                                                                        evm.addEvent(
+                                                                            name, start, end, tags, alarmTime, repeatEndDate, repeatType, duration, idealTime, shortestTime, longestTime, dailyRepeat, disturb, description, currentMonth
+                                                                        )
+                                                                    }
+                                                                }
                                                             }
                                                             // 如果標籤找不到換找總空檔時間
                                                             if (scheduledEvent.isEmpty()) {
@@ -1787,21 +1841,24 @@ fun UserInputDialog(
                                                                         start = eventStart
                                                                         end = eventEnd
                                                                         println("EventTime: $start to $end")
+                                                                        // 在日行事曆新增事件的情況下
+                                                                        if (event == null && currentMonth == null) {
+                                                                            evm.addEvent(
+                                                                                name, start, end, tags, alarmTime, repeatEndDate, repeatType, duration, idealTime, shortestTime, longestTime, dailyRepeat, disturb, description
+                                                                            )
+                                                                        }
+
+                                                                        // 在月行事曆新增事件的情況下
+                                                                        else if (event == null && currentMonth != null) {
+                                                                            evm.addEvent(
+                                                                                name, start, end, tags, alarmTime, repeatEndDate, repeatType, duration, idealTime, shortestTime, longestTime, dailyRepeat, disturb, description, currentMonth
+                                                                            )
+                                                                        }
                                                                     }
                                                                 }
                                                             }
-                                                            //在日行事曆新增事件的情況下
-                                                            if (event == null && currentMonth == null) {
-                                                                evm.addEvent(
-                                                                    name, start, end, tags, alarmTime, repeatEndDate, repeatType, duration, idealTime, shortestTime, longestTime, dailyRepeat, disturb, description
-                                                                )
-                                                                onDismiss()
-                                                            }
-                                                            //在月行事曆新增事件的情況下
-                                                            else if (event == null && currentMonth != null) {
-                                                                evm.addEvent(
-                                                                    name, start, end, tags, alarmTime, repeatEndDate, repeatType, duration, idealTime, shortestTime, longestTime, dailyRepeat, disturb, description, currentMonth
-                                                                )
+                                                            //結束關閉視窗
+                                                            if (event == null) {
                                                                 onDismiss()
                                                             }
                                                         }
