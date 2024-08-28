@@ -15,6 +15,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.life_assistant.Event
 import com.example.life_assistant.Repository.MemberRepository
 import com.example.life_assistant.Screen.convertLongToDate
+import com.example.life_assistant.Screen.isDateInMonth
 import com.example.life_assistant.data.Colors
 import com.example.life_assistant.data.Member
 import com.example.life_assistant.data.MemberEntity
@@ -30,8 +31,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.time.Duration
 import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.YearMonth
 import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeParseException
 import javax.inject.Inject
 
 @HiltViewModel
@@ -533,6 +538,82 @@ class MemberViewModel @Inject constructor(
                 (eventEnd.isAfter(rangeStart) || eventEnd.isEqual(rangeStart))
     }
 
+    data class EventSummary(
+        val tags: String,
+        val startTime: String,
+        val endTime: String
+    )
 
+    // MutableLiveData 用於保存標籤和時間的映射
+    private val _eventsByTag = MutableLiveData<Map<String, Double>>()
+    val eventsByTag: LiveData<Map<String, Double>> get() = _eventsByTag
 
+    // 用於解析日期時間字串
+    private fun parseEventDate(dateString: String): LocalDate {
+        val eventFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+        val localDateTime = LocalDateTime.parse(dateString.trim(), eventFormatter)
+        return localDateTime.toLocalDate()
+    }
+
+    private fun parseEventLocalDateTime(dateString: String): LocalDateTime {
+        val eventFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+        return LocalDateTime.parse(dateString.trim(), eventFormatter)
+    }
+
+    // 取得該使用者某個月的全部行程並計算各標籤的總時間
+    fun getTotalTimeByTagForMonth(yearMonth: String) {
+        val memberId = auth.currentUser?.uid ?: return
+        val eventRef = database.getReference("members").child(memberId).child("events")
+        println("time:$yearMonth")
+
+        try {
+            // 將 yearMonth 字串轉換為 YearMonth 物件
+            val formatter = DateTimeFormatter.ofPattern("yyyy年M月")
+            val yearMonthObj = YearMonth.parse(yearMonth, formatter)
+
+            // 計算該月的第一天和最後一天
+            val startOfMonth = yearMonthObj.atDay(1).atStartOfDay()
+            val endOfMonth = yearMonthObj.atEndOfMonth().atTime(23, 59, 59, 999999999)
+
+            eventRef.get().addOnSuccessListener { snapshot ->
+                val tagTimeMap = mutableMapOf<String, Double>()
+
+                for (data in snapshot.children) {
+                    val eventMap = data.value as? Map<*, *>
+                    if (eventMap != null) {
+                        val tags = eventMap["tags"] as? String ?: ""
+                        val startTime = eventMap["startTime"] as? String ?: ""
+                        val endTime = eventMap["endTime"] as? String ?: ""
+
+                        val start = parseEventLocalDateTime(startTime)
+                        val end = parseEventLocalDateTime(endTime)
+
+                        // 檢查事件是否在指定的月份內
+                        if (isDateInMonth(start, end, startOfMonth, endOfMonth)) {
+                            val duration = Duration.between(start, end).toMinutes().toDouble()
+                            val hours = duration / 60
+
+                            // 將持續時間累加到對應標籤中，並保留小數點後一位
+                            tagTimeMap[tags] = tagTimeMap.getOrDefault(tags, 0.0) + hours
+                        }
+                    }
+                }
+
+                // 更新 LiveData 以便更新 UI
+                _eventsByTag.value = tagTimeMap.mapValues { String.format("%.1f", it.value).toDouble() }
+                println("event in back:$_eventsByTag")
+            }.addOnFailureListener { exception ->
+                handleException(exception, "Unable to fetch events for month $yearMonth")
+            }
+        } catch (e: DateTimeParseException) {
+            // 處理日期解析錯誤
+            handleException(e, "Invalid date format: $yearMonth")
+        }
+    }
+
+    // 檢查事件是否在指定的月份內
+    private fun isDateInMonth(start: LocalDateTime, end: LocalDateTime, startOfMonth: LocalDateTime, endOfMonth: LocalDateTime): Boolean {
+        return (start.isBefore(endOfMonth) || start.isEqual(endOfMonth)) &&
+                (end.isAfter(startOfMonth) || end.isEqual(startOfMonth))
+    }
 }

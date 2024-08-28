@@ -51,7 +51,12 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.livedata.observeAsState
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -92,6 +97,7 @@ fun TimeReportScreen(
     modifier: Modifier = Modifier
 ){
     var expanded by remember { mutableStateOf(false) }
+    var selectedYearMonth by remember { mutableStateOf(getCurrentYearMonth()) }
 
     Box(
         modifier = modifier
@@ -201,18 +207,74 @@ fun TimeReportScreen(
                     y = 60.dp
                 )
         ){
-            CustomDropdownMenu()
+            CustomDropdownMenu(
+                onValueSelected = { value ->
+                    selectedYearMonth = value // 更新選中的年份和月份
+                }
+            )
         }
 
+        println("select:$selectedYearMonth")
+
+        LaunchedEffect(Unit) {
+            mvm.getColors()
+        }
+        LaunchedEffect(selectedYearMonth) {
+            mvm.getTotalTimeByTagForMonth(selectedYearMonth)
+        }
+        val eventByTag by mvm.eventsByTag.observeAsState(emptyMap())
+        println("event:$eventByTag")
+
+        val colorTag = mvm.colors.value
+        val initialReadingColors = colorTag?.readingColors ?:0xff7fabd1
+        val initialWorkColors = colorTag?.workColors ?: 0xffdb697a
+        val initialSportColors = colorTag?.sportColors ?: 0xffffe9af
+        val initialLeisureColors = colorTag?.leisureColors ?: 0xffee8575
+        val initialHouseworkColors = colorTag?.houseworkColors ?: 0xff8dccb3
+        val initialTravelColors = colorTag?.travelColors ?: 0xff867bb9
+        val initialEatingColors = colorTag?.eatingColors ?: 0xfff4d6d8
+
+        val readingColors by remember{ mutableLongStateOf(initialReadingColors) }
+        val workColors by remember{ mutableLongStateOf(initialWorkColors) }
+        val sportColors by remember{ mutableLongStateOf(initialSportColors) }
+        val leisureColors by remember{ mutableLongStateOf(initialLeisureColors) }
+        val houseworkColors by remember{ mutableLongStateOf(initialHouseworkColors) }
+        val travelColors by remember{ mutableLongStateOf(initialTravelColors) }
+        val eatingColors by remember{ mutableLongStateOf(initialEatingColors) }
+
+        var workHours by remember{mutableFloatStateOf(0f)}
+        var eatingHours by remember{mutableFloatStateOf(0f)}
+        var houseworkHours by remember{mutableFloatStateOf(0f)}
+        var leisureHours by remember{mutableFloatStateOf(0f)}
+        var sportHours by remember{mutableFloatStateOf(0f)}
+        var readingHours by remember{mutableFloatStateOf(0f)}
+        var travelHours by remember{mutableFloatStateOf(0f)}
+
         val categories = listOf(
-            Category("工作", 20f),
-            Category("飲食", 10f),
-            Category("雜事", 5f),
-            Category("娱樂", 15f),
-            Category("運動", 8f),
-            Category("讀書", 12f),
-            Category("旅遊", 7f)
+            Category("工作", workHours),
+            Category("吃飯", eatingHours),
+            Category("生活雜務", houseworkHours),
+            Category("娛樂", leisureHours),
+            Category("運動", sportHours),
+            Category("讀書", readingHours),
+            Category("旅遊", travelHours)
         )
+
+        // 將事件的標籤時間更新到對應的 Category 中
+        // 更新 Category 列表中的時間
+        val updatedCategories = categories.map { category ->
+            val timeOfCategory = eventByTag?.get(category.name) ?: 0.0
+            category.copy(hours = timeOfCategory.toFloat())
+        }
+
+        // 分別取出七個變數
+        workHours = updatedCategories.find { it.name == "工作" }?.hours ?: 0f
+        eatingHours = updatedCategories.find { it.name == "吃飯" }?.hours ?: 0f
+        houseworkHours = updatedCategories.find { it.name == "生活雜務" }?.hours ?: 0f
+        leisureHours = updatedCategories.find { it.name == "娛樂" }?.hours ?: 0f
+        sportHours = updatedCategories.find { it.name == "運動" }?.hours ?: 0f
+        readingHours = updatedCategories.find { it.name == "讀書" }?.hours ?: 0f
+        travelHours = updatedCategories.find { it.name == "旅遊" }?.hours ?: 0f
 
         // 計算總時長
         val totalHours = categories.map { it.hours }.sum()
@@ -226,13 +288,13 @@ fun TimeReportScreen(
             PieChart(
                 categories = categories,
                 colors = listOf(
-                    colorResource(id = R.color.red),
-                    colorResource(id = R.color.orange),
-                    colorResource(id = R.color.yellow),
-                    colorResource(id = R.color.green),
-                    colorResource(id = R.color.blue),
-                    colorResource(id = R.color.purple),
-                    colorResource(id = R.color.light_orange),
+                    Color(workColors), //工作標籤的顏色
+                    Color(eatingColors), //吃飯
+                    Color(houseworkColors), //生活雜務
+                    Color(leisureColors), //娛樂
+                    Color(sportColors), //運動
+                    Color(readingColors), //讀書
+                    Color(travelColors), //旅遊
                 ),
                 modifier = Modifier
             )
@@ -365,7 +427,8 @@ fun PieChart(
                     // 找到点击的区域对应的索引
                     var accumulatedAngle = 0f
                     touchedIndex = proportions.indexOfFirst { proportion ->
-                        val inRange = adjustedAngle >= accumulatedAngle && adjustedAngle < accumulatedAngle + proportion
+                        val inRange =
+                            adjustedAngle >= accumulatedAngle && adjustedAngle < accumulatedAngle + proportion
                         accumulatedAngle += proportion
                         inRange
                     }
@@ -453,7 +516,7 @@ fun angleInRange(angle: Float, sweepAngle: Float): Boolean {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CustomDropdownMenu() {
+fun CustomDropdownMenu(onValueSelected: (String) -> Unit) {
     val currentYear = LocalDate.now().year
     val currentMonth = DateTimeFormatter.ofPattern("M月").format(LocalDate.now()).toString()
 
@@ -468,7 +531,7 @@ fun CustomDropdownMenu() {
         DateTimeFormatter.ofPattern("M月").format(LocalDate.of(2024, month, 1))
     }
 
-    var selectedYear by remember { mutableStateOf(currentYear) } // Default year
+    var selectedYear by remember { mutableIntStateOf(currentYear) } // Default year
     var selectedMonth by remember { mutableStateOf(currentMonth) } // Default month
 
     // Display a dialog to select year and month
@@ -547,6 +610,7 @@ fun CustomDropdownMenu() {
             confirmButton = {
                 Button(onClick = {
                     selectedOption2 = "${selectedYear}年${selectedMonth}"
+                    onValueSelected(selectedOption2)
                     showDialog = false
                 }) {
                     Text("確定")
@@ -590,6 +654,7 @@ fun CustomDropdownMenu() {
                 TextButton(onClick = {
                     selectedOption2 = convertMillisToDateString(dateState.selectedDateMillis!!)
                     dateDialogController = false
+                    onValueSelected(selectedOption2)
                 }) {
                     Text(text = "確認")
                 }
@@ -652,6 +717,7 @@ fun CustomDropdownMenu() {
                     onClick = {
                         selectedOption1 = "日"
                         selectedOption2 = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy年M月d日"))
+                        onValueSelected(selectedOption2)
                         expandedOption1 = false
                     },
                     text = {
@@ -670,7 +736,9 @@ fun CustomDropdownMenu() {
             readOnly = true,
             label = { Text("選擇日期") },
             trailingIcon = {
-                IconButton(onClick = {  if (selectedOption1 == "日") dateDialogController = true else showDialog = true }) {
+                IconButton(onClick = {
+                    if (selectedOption1 == "日") dateDialogController = true else showDialog = true
+                }) {
                     Icon(
                         painter = painterResource(id = R.drawable.schedule),
                         contentDescription = "Select Date",
