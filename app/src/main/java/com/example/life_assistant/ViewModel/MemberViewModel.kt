@@ -30,6 +30,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 
 @HiltViewModel
@@ -447,7 +449,7 @@ class MemberViewModel @Inject constructor(
 
     fun getTag() {
         val memberId = auth.currentUser?.uid ?: return
-        val tagRef = database.getReference("members").child(memberId).child("tagPreferences")
+        val tagRef = database.getReference("members").child(memberId)
 
         tagRef.get().addOnSuccessListener { snapshot ->
             if (snapshot.exists()) {
@@ -464,10 +466,73 @@ class MemberViewModel @Inject constructor(
                     "娛樂" to leisureTag,
                     "生活雜務" to houseworkTag
                 )
+                println("back:$_tagPreferences")
             }
         }.addOnFailureListener { exception ->
             // 處理例外情況
             handleException(exception, "無法從 Firebase 抓取標籤資料")
         }
     }
+
+    data class SimpleEvent(
+        val name: String,
+        val startTime: String,
+        val endTime: String
+    )
+
+    //取得今天的前兩天跟後兩天
+    private fun getSevenDayRange(): Pair<String, String> {
+        val today = LocalDate.now()
+        val startDate = today.minusDays(2)  // 前兩天
+        val endDate = today.plusDays(4)    // 後四天
+
+        val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+        return Pair(startDate.format(formatter), endDate.format(formatter))
+    }
+
+    //從標籤取得事件
+    fun getEventByTag(tag: String, onEventsRetrieved: (List<SimpleEvent>) -> Unit) {
+        val memberId = auth.currentUser?.uid ?: return
+        val eventRef = database.getReference("members").child(memberId).child("events")
+
+        val (startDate, endDate) = getSevenDayRange()
+
+        eventRef.orderByChild("tags").equalTo(tag).addListenerForSingleValueEvent(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val events = mutableListOf<SimpleEvent>()
+                snapshot.children.forEach { dataSnapshot ->
+                    val name = dataSnapshot.child("name").getValue(String::class.java) ?: ""
+                    val startTime = dataSnapshot.child("startTime").getValue(String::class.java) ?: ""
+                    val endTime = dataSnapshot.child("endTime").getValue(String::class.java) ?: ""
+
+                    // 確保事件在範圍內
+                    if (isEventWithinRange(startTime, endTime, startDate, endDate)) {
+                        events.add(SimpleEvent(name, startTime, endTime))
+                    }
+                }
+                // 回傳取得的事件列表
+                onEventsRetrieved(events)
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                // 處理錯誤
+                Log.e("Firebase", "Failed to fetch events by tag", error.toException())
+            }
+        })
+    }
+
+    //檢查範圍
+    fun isEventWithinRange(startTime: String, endTime: String, startDate: String, endDate: String): Boolean {
+        val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+        val eventStart = LocalDate.parse(startTime.substring(0, 10), formatter)
+        val eventEnd = LocalDate.parse(endTime.substring(0, 10), formatter)
+        val rangeStart = LocalDate.parse(startDate, formatter)
+        val rangeEnd = LocalDate.parse(endDate, formatter)
+
+        return (eventStart.isBefore(rangeEnd) || eventStart.isEqual(rangeEnd)) &&
+                (eventEnd.isAfter(rangeStart) || eventEnd.isEqual(rangeStart))
+    }
+
+
+
 }

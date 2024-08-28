@@ -127,13 +127,7 @@ fun ClassificationScreen(
                 "生活雜務",
                 "讀書",
                 "旅遊",
-                "吃飯"
-            )
-            }
-
-            var morningChecked by remember { mutableStateOf(false) }
-            var noonChecked by remember { mutableStateOf(false) }
-            var nightChecked by remember { mutableStateOf(false)}
+                "吃飯") }
 
             val colorTag = mvm.colors.value
             val initialReadingColors = colorTag?.readingColors ?:0xff7fabd1
@@ -172,22 +166,14 @@ fun ClassificationScreen(
                 Color(0xfff4d6d8) //吃飯的顏色
             )
 
-            val totalColor = remember {
-                mutableStateListOf(
-                    colors[0],
-                    colors[1],
-                    colors[2],
-                    colors[3],
-                    colors[4],
-                    colors[5],
-                    colors[6]
-                )
-            }
+            val initialMorningChecked by remember {mutableStateOf(false)}
+            val initialNoonChecked by remember {mutableStateOf(false)}
+            val initialNightChecked by remember { mutableStateOf(false)}
             // 定義一個資料類來保存標籤的偏好選擇
             class TagPreferences {
-                var morningChecked by mutableStateOf(false)
-                var noonChecked by mutableStateOf(false)
-                var nightChecked by mutableStateOf(false)
+                var morningChecked by mutableStateOf(initialMorningChecked)
+                var noonChecked by mutableStateOf(initialNoonChecked)
+                var nightChecked by mutableStateOf(initialNightChecked)
             }
 
             val tagCheckedStates = remember {
@@ -207,14 +193,17 @@ fun ClassificationScreen(
                 preferences.morningChecked = "上午" in timePeriods
                 preferences.noonChecked = "下午" in timePeriods
                 preferences.nightChecked = "晚上" in timePeriods
+                println("preferences:$preferences")
             }
 
             val tagPreferences = mvm.tagPreferences.value
+            println("tag:$tagPreferences")
 
             // 更新 UI 標籤偏好
             LaunchedEffect(tagPreferences) {
                 tagPreferences.forEach { (tag, storedData) ->
                     updatePreferencesFromStoredData(tag, storedData)
+                    println("test:$tag,$storedData")
                 }
             }
 
@@ -246,10 +235,6 @@ fun ClassificationScreen(
                 )
             }
 
-
-            // Coroutine scope for handling reorder
-            val coroutineScope = rememberCoroutineScope()
-
             LazyColumn(
                 modifier = Modifier.fillMaxSize()
             ) {
@@ -267,6 +252,16 @@ fun ClassificationScreen(
                         "吃飯" -> Color(eatingColors)
                         else -> Color.Gray // 預設顏色
                     }
+
+                    var events by remember { mutableStateOf<List<MemberViewModel.SimpleEvent>>(emptyList()) }
+                    // 獲取事件列表
+                    LaunchedEffect(tag) {
+                        mvm.getEventByTag(tag) { fetchedEvents ->
+                            events = fetchedEvents
+                        }
+                    }
+                    println("tags:$tag")
+                    println("events:$events")
 
                     Box(
                         modifier = Modifier
@@ -327,7 +322,9 @@ fun ClassificationScreen(
                                                     .background(color, CircleShape)
                                                     .clickable {
                                                         // 根據標籤更新對應的顏色
-                                                        val colorLong = color.toArgb().toLong()
+                                                        val colorLong = color
+                                                            .toArgb()
+                                                            .toLong()
 
                                                         // Update state based on the tag
                                                         when (tag) {
@@ -335,12 +332,22 @@ fun ClassificationScreen(
                                                             "運動" -> sportColors = colorLong
                                                             "工作" -> workColors = colorLong
                                                             "娛樂" -> leisureColors = colorLong
-                                                            "生活雜務" -> houseworkColors = colorLong
+                                                            "生活雜務" -> houseworkColors =
+                                                                colorLong
+
                                                             "旅遊" -> travelColors = colorLong
                                                             "吃飯" -> eatingColors = colorLong
                                                         }
                                                         isSettingsMenuExpanded = false
-                                                        mvm.updateColors(readingColors,sportColors,workColors,leisureColors,houseworkColors,travelColors,eatingColors)
+                                                        mvm.updateColors(
+                                                            readingColors,
+                                                            sportColors,
+                                                            workColors,
+                                                            leisureColors,
+                                                            houseworkColors,
+                                                            travelColors,
+                                                            eatingColors
+                                                        )
                                                     }
                                             )
                                         }
@@ -411,12 +418,16 @@ fun ClassificationScreen(
                                     }
                                 }
                             }
+                            // 使用 AnimatedVisibility 顯示事件詳細信息
                             AnimatedVisibility(visible = isExpanded) {
                                 Column(modifier = Modifier.padding(start = 16.dp, top = 8.dp)) {
-                                    Text(
-                                        text = "詳細內容 $tag",
-                                        style = MaterialTheme.typography.bodyMedium
-                                    )
+                                    events.forEach { event ->
+                                        Text(
+                                            text = "${event.name} (${event.startTime} - ${event.endTime})",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            modifier = Modifier.padding(bottom = 8.dp)
+                                        )
+                                    }
                                 }
                             }
                         }

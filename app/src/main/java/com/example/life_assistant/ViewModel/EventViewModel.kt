@@ -1875,4 +1875,35 @@ class EventViewModel @Inject constructor(
         }
     }
 
+    //取得事件顏色
+    fun getColorByEvent(tag: String, callback: (Long?) -> Unit) {
+        val memberId = auth.currentUser?.uid ?: return
+        val colorRef = database.getReference("members").child(memberId).child("colors")
+
+        // 根據 tag 判斷對應的資料庫字段名稱
+        val colorKey = when (tag) {
+            "讀書" -> "readingColors"
+            "工作" -> "workColors"
+            "運動" -> "sportColors"
+            "生活雜務" -> "houseworkColors"
+            "吃飯" -> "eatingColors"
+            "旅遊" -> "travelColors"
+            "娛樂" -> "leisureColors"
+            else -> null
+        }
+
+        // 如果標籤無對應的顏色欄位，直接回傳 null
+        if (colorKey == null) {
+            callback(null)
+            return
+        }
+
+        // 從資料庫取得對應顏色
+        colorRef.child(colorKey).get().addOnSuccessListener { snapshot ->
+            val colorValue = snapshot.getValue(Long::class.java)
+            callback(colorValue)
+        }.addOnFailureListener {
+            callback(null)
+        }
+    }
 }

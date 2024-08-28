@@ -35,6 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -355,6 +356,27 @@ fun DailyRow(
         }
     }
 
+    var colorValueByTag by remember { mutableStateOf(mutableMapOf<String, Long>()) }
+    var eventTag by remember{ mutableStateOf("") }
+
+    // 取得顏色後，強制重新組成
+    LaunchedEffect(eventsForHour) {
+        eventsForHour.forEach { event ->
+            eventTag = event.tags
+
+            // 取得標籤顏色
+            evm.getColorByEvent(eventTag) { colorValue ->
+                if (colorValue != null) {
+                    // 更新 map 並觸發重組
+                    colorValueByTag = colorValueByTag.toMutableMap().apply {
+                        this[eventTag] = colorValue
+                    }
+                }
+            }
+        }
+    }
+
+
     var selectedEvent by remember { mutableStateOf<Event?>(null) }
 
     // 用於追蹤已顯示過名稱的事件
@@ -470,7 +492,7 @@ fun DailyRow(
 
                 // Retrieve horizontal offset for the event
                 val offsetPx = computeEventOffset(event, eventsForHour)
-                var uid = event.uid
+                val uid = event.uid
                 Log.d("location", "$uid,$offsetPx")
 
                 Box(
@@ -480,7 +502,7 @@ fun DailyRow(
                             y = with(LocalDensity.current) { (startFraction * 60.dp.toPx()).toDp() })
                         .width(eventWidth)
                         .fillMaxHeight(heightFraction)
-                        .background(Color.Blue)
+                        .background(Color((colorValueByTag[eventTag] ?: Color.Gray.toArgb()).toInt()))
                         .clip(RoundedCornerShape(4.dp))
                         .clickable { selectedEvent = event }
                 ) {
