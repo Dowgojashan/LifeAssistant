@@ -1,5 +1,6 @@
 package com.example.life_assistant.Screen
 
+import android.util.Log
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -220,8 +221,16 @@ fun TimeReportScreen(
             mvm.getColors()
         }
         LaunchedEffect(selectedYearMonth) {
-            mvm.getTotalTimeByTagForMonth(selectedYearMonth)
+            if (selectedYearMonth.length > 8) {
+                // yyyy年M月D日格式
+                mvm.getTotalTimeByTagForDay(selectedYearMonth)
+            } else {
+                // yyyy年M月格式
+                mvm.getTotalTimeByTagForMonth(selectedYearMonth)
+            }
+            mvm.getColors()
         }
+
         val eventByTag by mvm.eventsByTag.observeAsState(emptyMap())
         println("event:$eventByTag")
 
@@ -234,13 +243,23 @@ fun TimeReportScreen(
         val initialTravelColors = colorTag?.travelColors ?: 0xff867bb9
         val initialEatingColors = colorTag?.eatingColors ?: 0xfff4d6d8
 
-        val readingColors by remember{ mutableLongStateOf(initialReadingColors) }
-        val workColors by remember{ mutableLongStateOf(initialWorkColors) }
-        val sportColors by remember{ mutableLongStateOf(initialSportColors) }
-        val leisureColors by remember{ mutableLongStateOf(initialLeisureColors) }
-        val houseworkColors by remember{ mutableLongStateOf(initialHouseworkColors) }
-        val travelColors by remember{ mutableLongStateOf(initialTravelColors) }
-        val eatingColors by remember{ mutableLongStateOf(initialEatingColors) }
+        var readingColors by remember{ mutableLongStateOf(initialReadingColors) }
+        var workColors by remember{ mutableLongStateOf(initialWorkColors) }
+        var sportColors by remember{ mutableLongStateOf(initialSportColors) }
+        var leisureColors by remember{ mutableLongStateOf(initialLeisureColors) }
+        var houseworkColors by remember{ mutableLongStateOf(initialHouseworkColors) }
+        var travelColors by remember{ mutableLongStateOf(initialTravelColors) }
+        var eatingColors by remember{ mutableLongStateOf(initialEatingColors) }
+
+        LaunchedEffect(colorTag) {
+            readingColors = colorTag?.readingColors ?: 0xff7fabd1
+            workColors = colorTag?.workColors ?: 0xffdb697a
+            sportColors = colorTag?.sportColors ?: 0xffffe9af
+            leisureColors = colorTag?.leisureColors ?: 0xffee8575
+            houseworkColors = colorTag?.houseworkColors ?: 0xff8dccb3
+            travelColors = colorTag?.travelColors ?: 0xff867bb9
+            eatingColors = colorTag?.eatingColors ?: 0xfff4d6d8
+        }
 
         var workHours by remember{mutableFloatStateOf(0f)}
         var eatingHours by remember{mutableFloatStateOf(0f)}
@@ -263,7 +282,7 @@ fun TimeReportScreen(
         // 將事件的標籤時間更新到對應的 Category 中
         // 更新 Category 列表中的時間
         val updatedCategories = categories.map { category ->
-            val timeOfCategory = eventByTag?.get(category.name) ?: 0.0
+            val timeOfCategory = eventByTag.get(category.name) ?: 0.0
             category.copy(hours = timeOfCategory.toFloat())
         }
 
@@ -388,8 +407,28 @@ fun PieChart(
     modifier: Modifier = Modifier
 ) {
     val total = categories.map { it.hours }.sum()
-    val proportions = categories.map { it.hours / total * 360f }
+    if (total == 0f) {
+        Log.e("PieChart", "Total hours are zero, cannot calculate proportions.")
+        return
+    }
+    val proportions = categories.map { it.hours / total * 360f }.toMutableList()
+    if (proportions.any { it.isNaN() }) {
+        Log.e("PieChart", "Proportions contain NaN values, cannot proceed.")
+        return
+    }
+    val nonZeroProportions = proportions.filter { it > 0 }
+    if (nonZeroProportions.size == 1) {
+        // Set the only non-zero proportion to 360f
+        val index = proportions.indexOfFirst { it > 0 }
+        proportions.fill(0f)
+        proportions[index] = 360f
+    }
+
+    val event = categories.map{it.hours}
+    println("proportions:$proportions")
+    println("event:$event")
     var touchedIndex by remember { mutableStateOf<Int?>(null) }
+    println("total:$total")
 
     Box(modifier = modifier.aspectRatio(1f)) {
         // aspectRatio(1f) 设置 Box 的宽高比为1:1, 确保 Box 内部的 Canvas 是正方形
@@ -398,40 +437,38 @@ fun PieChart(
             .pointerInput(Unit) {
                 // pointerInput 处理手势输入
                 detectTapGestures { offset ->
-                    // detectTapGestures 检测点击手势，并返回点击的位置（offset）
-
-                    // 获取 Canvas 的宽度和高度
                     val canvasWidth = size.width
                     val canvasHeight = size.height
-                    // 计算半径，取宽度和高度中的较小值的一半
                     val radius = minOf(canvasWidth, canvasHeight) / 2
-                    // 计算中心点
                     val center = Offset((canvasWidth / 2).toFloat(), (canvasHeight / 2).toFloat())
-
-                    // 计算点击点到中心点的距离
                     val distanceToCenter = (offset - center).getDistance()
 
-                    // 如果点击在圆饼图范围外，则取消悬浮效果
                     if (distanceToCenter > radius) {
                         touchedIndex = null
                         return@detectTapGestures
                     }
 
-                    // 计算点击点相对于中心点的角度
                     val angle = (atan2(
                         (offset.y - center.y).toDouble(),
                         (offset.x - center.x).toDouble()
                     ) * (180 / Math.PI)).toFloat()
-                    // 调整角度，如果角度为负数，加360度
-                    val adjustedAngle = if (angle < 0) angle + 360f else angle
-                    // 找到点击的区域对应的索引
+                    val adjustedAngle = (angle + 360) % 360 // 將角度範圍調整為0~360度
+                    println("angle:$adjustedAngle")
+
                     var accumulatedAngle = 0f
                     touchedIndex = proportions.indexOfFirst { proportion ->
-                        val inRange =
-                            adjustedAngle >= accumulatedAngle && adjustedAngle < accumulatedAngle + proportion
+                        Log.d("PieChart", "adjustedAngle: $adjustedAngle")
+                        Log.d("PieChart", "accumulatedAngle before: $accumulatedAngle")
+                        if (accumulatedAngle.isNaN() || proportion.isNaN()) {
+                            Log.e("PieChart", "accumulatedAngle or proportion is NaN. Stopping calculation.")
+                            return@indexOfFirst false
+                        }
+                        val inRange = adjustedAngle >= accumulatedAngle && adjustedAngle < accumulatedAngle + proportion
                         accumulatedAngle += proportion
+                        Log.d("PieChart", "accumulatedAngle after: $accumulatedAngle")
                         inRange
-                    }
+                    }.takeIf { it >= 0 }
+
                 }
             }
         ) {
@@ -449,7 +486,7 @@ fun PieChart(
 
                 // 应用悬浮效果
                 val pathRadius = if (isTouched) radius * 1.1f else radius
-                val path = androidx.compose.ui.graphics.Path().apply {
+                val path = Path().apply {
                     arcTo(
                         rect = Rect(center.x - pathRadius, center.y - pathRadius, center.x + pathRadius, center.y + pathRadius),
                         startAngleDegrees = startAngle,
@@ -464,6 +501,8 @@ fun PieChart(
                     )
                     close()
                 }
+                println("startAngle:$startAngle")
+                println("sweepangle:$sweepAngle")
 
                 drawPath(
                     path = path,
@@ -476,9 +515,13 @@ fun PieChart(
 
             // 如果有被点击的区域，绘制分类名称和时数占总时数的百分比在圆饼图中心
             val displayText = touchedIndex?.let { index ->
-                val category = categories[index]
-                val percentage = (category.hours / total * 100).toInt()
-                "${category.name}\n${percentage}%"
+                if (index != -1) {
+                    val category = categories[index]
+                    val percentage = (category.hours / total * 100).toInt()
+                    "${category.name}\n${percentage}%"
+                } else {
+                    "共\n$total h"
+                }
             } ?: "共\n$total h"
 
             val paint = android.graphics.Paint().apply {
@@ -507,13 +550,6 @@ fun PieChart(
     }
 }
 
-
-// Helper function to check if the angle is within the range
-fun angleInRange(angle: Float, sweepAngle: Float): Boolean {
-    val endAngle = (sweepAngle + 360f) % 360f
-    return angle in 0f..endAngle
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CustomDropdownMenu(onValueSelected: (String) -> Unit) {
@@ -526,7 +562,7 @@ fun CustomDropdownMenu(onValueSelected: (String) -> Unit) {
     var showDialog by remember { mutableStateOf(false) }
 
     // List of years and months
-    val years = (2024..2050).map { it.toString() } // Example range of years
+    (2024..2050).map { it.toString() } // Example range of years
     val months = (1..12).map { month ->
         DateTimeFormatter.ofPattern("M月").format(LocalDate.of(2024, month, 1))
     }

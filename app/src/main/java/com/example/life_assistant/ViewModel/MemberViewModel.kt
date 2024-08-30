@@ -538,22 +538,9 @@ class MemberViewModel @Inject constructor(
                 (eventEnd.isAfter(rangeStart) || eventEnd.isEqual(rangeStart))
     }
 
-    data class EventSummary(
-        val tags: String,
-        val startTime: String,
-        val endTime: String
-    )
-
     // MutableLiveData 用於保存標籤和時間的映射
     private val _eventsByTag = MutableLiveData<Map<String, Double>>()
     val eventsByTag: LiveData<Map<String, Double>> get() = _eventsByTag
-
-    // 用於解析日期時間字串
-    private fun parseEventDate(dateString: String): LocalDate {
-        val eventFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
-        val localDateTime = LocalDateTime.parse(dateString.trim(), eventFormatter)
-        return localDateTime.toLocalDate()
-    }
 
     private fun parseEventLocalDateTime(dateString: String): LocalDateTime {
         val eventFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
@@ -616,4 +603,63 @@ class MemberViewModel @Inject constructor(
         return (start.isBefore(endOfMonth) || start.isEqual(endOfMonth)) &&
                 (end.isAfter(startOfMonth) || end.isEqual(startOfMonth))
     }
+
+    //塞出當日的事件 然後分別計算各個標籤的總時長
+    fun getTotalTimeByTagForDay(yearMonth: String) {
+        val memberId = auth.currentUser?.uid ?: return
+        val eventRef = database.getReference("members").child(memberId).child("events")
+        println("DDDtime:$yearMonth")
+
+        try {
+            // 將 yearMonthDay 字串轉換為 LocalDate 物件
+            val formatter = DateTimeFormatter.ofPattern("yyyy年M月d日")
+            val date = LocalDate.parse(yearMonth, formatter)
+
+            // 計算當日的開始時間和結束時間
+            val startOfDay = date.atStartOfDay()
+            val endOfDay = date.atTime(23, 59, 59, 999999999)
+
+            eventRef.get().addOnSuccessListener { snapshot ->
+                val tagTimeMap = mutableMapOf<String, Double>()
+
+                for (data in snapshot.children) {
+                    val eventMap = data.value as? Map<*, *>
+                    if (eventMap != null) {
+                        val tags = eventMap["tags"] as? String ?: ""
+                        val startTime = eventMap["startTime"] as? String ?: ""
+                        val endTime = eventMap["endTime"] as? String ?: ""
+
+                        val start = parseEventLocalDateTime(startTime)
+                        val end = parseEventLocalDateTime(endTime)
+
+                        // 檢查事件是否在指定的日期內
+                        if (isDateInDay(start, end, startOfDay, endOfDay)) {
+                            val duration = Duration.between(start, end).toMinutes().toDouble()
+                            val hours = duration / 60
+
+                            // 將持續時間累加到對應標籤中，並保留小數點後一位
+                            tagTimeMap[tags] = tagTimeMap.getOrDefault(tags, 0.0) + hours
+                        }
+                    }
+                }
+
+                // 更新 LiveData 以便更新 UI
+                _eventsByTag.value = tagTimeMap.mapValues { String.format("%.1f", it.value).toDouble() }
+                println("event in back:$_eventsByTag")
+            }.addOnFailureListener { exception ->
+                handleException(exception, "Unable to fetch events for day $yearMonth")
+            }
+        } catch (e: DateTimeParseException) {
+            // 處理日期解析錯誤
+            handleException(e, "Invalid date format: $yearMonth")
+        }
+    }
+
+    // 檢查事件是否在指定的日期內
+    private fun isDateInDay(start: LocalDateTime, end: LocalDateTime, startOfDay: LocalDateTime, endOfDay: LocalDateTime): Boolean {
+        return (start.isBefore(endOfDay) || start.isEqual(endOfDay)) &&
+                (end.isAfter(startOfDay) || end.isEqual(startOfDay))
+    }
+
+
 }
