@@ -26,12 +26,15 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
+import java.text.SimpleDateFormat
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.UUID
 import java.time.Duration
+import java.util.Date
+import java.util.Locale
 
 @HiltViewModel
 class EventViewModel @Inject constructor(
@@ -177,13 +180,13 @@ class EventViewModel @Inject constructor(
         }
     }
 
-    fun parseEventDateTime(dateTimeString: String): LocalDateTime {
+    private fun parseEventDateTime(dateTimeString: String): LocalDateTime {
         val cleanedString = dateTimeString.replace("T", " ")
         val eventFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
         return LocalDateTime.parse(cleanedString.trim(), eventFormatter)
     }
 
-    fun formatEventDateTime(dateTime: LocalDateTime): String {
+    private fun formatEventDateTime(dateTime: LocalDateTime): String {
         val eventFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
         return dateTime.format(eventFormatter)
     }
@@ -229,6 +232,7 @@ class EventViewModel @Inject constructor(
                     val dailyRepeat = eventMap["dailyRepeat"] as? Boolean ?: false
                     val disturb = eventMap["disturb"] as? Boolean ?: false
                     val description = eventMap["description"] as? String ?: ""
+                    val isDone = eventMap["isDone"] as? Boolean ?: false
 
                     // 創建 Event 物件
                     val event = Event(
@@ -247,7 +251,8 @@ class EventViewModel @Inject constructor(
                         longestTime = longestTime,
                         dailyRepeat = dailyRepeat,
                         disturb = disturb,
-                        description = description
+                        description = description,
+                        isDone = isDone,
                     )
 
                     // 確保事件的日期與今天的日期重疊
@@ -267,7 +272,7 @@ class EventViewModel @Inject constructor(
         }
     }
 
-    fun isDateInRange(date: LocalDate, startTime: String, endTime: String): Boolean {
+    private fun isDateInRange(date: LocalDate, startTime: String, endTime: String): Boolean {
         val eventStartDate = parseEventDate(startTime)
         val eventEndDate = parseEventDate(endTime)
 
@@ -275,13 +280,13 @@ class EventViewModel @Inject constructor(
         return !date.isBefore(eventStartDate) && !date.isAfter(eventEndDate)
     }
 
-    fun parseEventDate(dateString: String): LocalDate {
+    private fun parseEventDate(dateString: String): LocalDate {
         val eventFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
         val localDateTime = LocalDateTime.parse(dateString.trim(), eventFormatter)
         return localDateTime.toLocalDate()
     }
 
-    fun parseCurrentDay(dateString: String): LocalDate {
+    private fun parseCurrentDay(dateString: String): LocalDate {
         val currentDayFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
         return LocalDate.parse(dateString.trim(), currentDayFormatter)
     }
@@ -1626,14 +1631,14 @@ class EventViewModel @Inject constructor(
 
 
     // 将 "4:46" 转换为 Duration 对象的函数
-    fun parseDurationToDuration(duration: String): Duration {
+    private fun parseDurationToDuration(duration: String): Duration {
         val timeParts = duration.split(":")
         val hours = timeParts[0].toLong()
         val minutes = timeParts[1].toLong()
         return Duration.ofHours(hours).plusMinutes(minutes)
     }
 
-    fun scheduleChunks(
+    private fun scheduleChunks(
         availableSlots: List<Pair<LocalDateTime, LocalDateTime>>,
         start: LocalDateTime,
         end: LocalDateTime,
@@ -1718,7 +1723,7 @@ class EventViewModel @Inject constructor(
         return Triple(index, remainingDurationVar, currentStart)
     }
 
-    fun undivisibleFinding(
+    private fun undivisibleFinding(
         bestStartDate: LocalDate,
         availableSlots: List<Pair<LocalDateTime, LocalDateTime>>,
         requiredDuration: Duration,
@@ -1767,7 +1772,7 @@ class EventViewModel @Inject constructor(
         return null
     }
 
-    fun selectBestStartDate(availableSlots: List<Pair<LocalDateTime, LocalDateTime>>): LocalDate? {
+    private fun selectBestStartDate(availableSlots: List<Pair<LocalDateTime, LocalDateTime>>): LocalDate? {
         val dailyFreeTime = mutableMapOf<LocalDate, Duration>()
         val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
         val endBoundary = LocalTime.parse("05:01",timeFormatter) //可能算是同一天的跨日時間點判斷 比如說我們就是覺得凌晨三點還是同一天
@@ -1905,5 +1910,32 @@ class EventViewModel @Inject constructor(
         }.addOnFailureListener {
             callback(null)
         }
+    }
+
+    //更新完成或未完成進入資料庫
+    fun updateIsDone(check: Boolean,uid:String) {
+        val memberId = auth.currentUser?.uid ?: return
+        val eventRef = database.getReference("members").child(memberId).child("events").child(uid)
+
+        // 準備要更新的資料
+        val updates = mutableMapOf<String, Any>(
+            "isDone" to check
+        )
+
+        // 如果 isDone 為 true，則儲存 doneTime
+        if (check) {
+            val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
+            val currentDateTime = dateFormat.format(Date())
+            updates["doneTime"] = currentDateTime
+        }
+
+        // 更新資料庫中的 isDone 和可能的 doneTime
+        eventRef.updateChildren(updates)
+            .addOnSuccessListener {
+                // 更新成功的處理邏輯
+            }
+            .addOnFailureListener { error ->
+                // 處理錯誤邏輯
+            }
     }
 }

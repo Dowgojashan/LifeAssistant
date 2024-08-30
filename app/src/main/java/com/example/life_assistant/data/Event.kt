@@ -17,6 +17,8 @@ data class Event(
     val dailyRepeat: Boolean = false,
     val disturb: Boolean = false,
     val description: String = "",
+    val isDone: Boolean = false,
+    val doneTime: String = "",
 ){
     // 建構子
     constructor() : this("", "", "", "", "", "","","")

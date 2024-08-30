@@ -558,8 +558,12 @@ fun EventDetailDialog(event: Event, evm: EventViewModel, temp: String, onDismiss
     var showDeleteOptionsDialog by remember { mutableStateOf(false) }
     var editAll by remember { mutableStateOf(false) }
 
+
     // 觀察 LiveData 中的 events 變化
     val events by evm.events.observeAsState(emptyList())
+    val initialCheck = event.isDone
+    var isChecked by remember { mutableStateOf(initialCheck) }
+    println("check:$initialCheck,$isChecked")
 
     // 監控事件列表變化，當事件列表更新時，更新 updatedEvent 的值
     LaunchedEffect(events) {
@@ -623,13 +627,14 @@ fun EventDetailDialog(event: Event, evm: EventViewModel, temp: String, onDismiss
                 ){
                     Text("事件名稱: ${updatedEvent.value.name}", color = Color.Black)
                     Spacer(modifier = Modifier.width(32.dp))
-                    var isChecked by remember { mutableStateOf(false) }
                     Text(text =  "完成")
                     Checkbox(
                         checked = isChecked,
-                        onCheckedChange = { isChecked = it }
+                        onCheckedChange = {
+                            isChecked = it
+                            evm.updateIsDone(isChecked,updatedEvent.value.uid)
+                        }
                     )
-
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
