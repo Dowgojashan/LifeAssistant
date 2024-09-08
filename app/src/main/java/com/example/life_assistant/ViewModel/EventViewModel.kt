@@ -14,6 +14,7 @@ import com.google.firebase.database.FirebaseDatabase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import com.example.life_assistant.data.EventEntity
+import com.example.life_assistant.data.HabitEvent
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
@@ -27,12 +28,14 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
+import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.UUID
 import java.time.Duration
+import java.time.temporal.ChronoUnit
 import java.util.Date
 import java.util.Locale
 
@@ -1937,5 +1940,803 @@ class EventViewModel @Inject constructor(
             .addOnFailureListener { error ->
                 // 處理錯誤邏輯
             }
+    }
+
+    //資料庫模糊搜尋 檢查輸入的該筆事件是不是有足夠的資料進行安排
+    fun checkEvent(inputEvent: String, callback: (Int) -> Unit) {
+        val memberId = auth.currentUser?.uid ?: return
+        val eventRef = database.getReference("members").child(memberId).child("events")
+
+        eventRef.addListenerForSingleValueEvent(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                var similarEventCount = 0
+                for (eventSnapshot in snapshot.children) {
+                    val eventName = eventSnapshot.child("name").getValue(String::class.java) ?: ""
+                    // 使用 contains 進行模糊比對
+                    if (eventName.contains(inputEvent, ignoreCase = true)) {
+                        similarEventCount++
+                    }
+                }
+                // 回傳找到的相似事件數量
+                callback(similarEventCount)
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                // 如果搜尋過程中出現錯誤，可以回傳 0 或其他錯誤處理
+                callback(0)
+            }
+        })
+    }
+
+    //佔地為王
+    fun habitEvents(callback: (List<HabitEvent>) -> Unit) {
+        val memberId = auth.currentUser?.uid ?: return
+        val eventRef = database.getReference("members").child(memberId).child("events")
+        val habitEventRef = database.getReference("members").child(memberId).child("habitevents")
+
+        // 從 Firebase 拉取事件資料
+        eventRef.addListenerForSingleValueEvent(object : ValueEventListener {
+            override fun onDataChange(dataSnapshot: DataSnapshot) {
+                // 初始化結果列表
+                val result = mutableListOf<HabitEvent>()
+                val events = mutableListOf<Event>()
+
+                // 將資料庫中的資料轉換為事件列表
+                dataSnapshot.children.forEach { snapshot ->
+                    val event = snapshot.getValue(Event::class.java)
+                    event?.let { events.add(it) }
+                }
+
+                // 開始分類處理
+                while (events.isNotEmpty()) {
+                    // 取出第一個事件
+                    val firstEvent = events.first()
+                    val searchKeyword = firstEvent.name
+
+                    // 進行模糊搜尋
+                    val filteredEvents = events.filter { event ->
+                        event.name.contains(searchKeyword, ignoreCase = true)
+                    }
+
+                    // 分類搜尋出來的事件
+                    val categorizedEvents = mutableMapOf<String, MutableMap<String, MutableMap<String, Int>>>()
+
+                    filteredEvents.forEach { event ->
+                        val dayOfWeek = getDayOfWeek(event.startTime)
+                        val startTime = event.startTime.substring(11, 16) // 取時間部分 "HH:mm"
+                        val endTime = event.endTime.substring(11, 16)
+
+                        val dayMap = categorizedEvents.getOrPut(dayOfWeek) { mutableMapOf() }
+                        val timeMap = dayMap.getOrPut(startTime) { mutableMapOf() }
+                        timeMap[endTime] = timeMap.getOrDefault(endTime, 0) + 1
+                    }
+
+                    // 檢查 count 並存儲符合條件的事件
+                    categorizedEvents.forEach { (day, startTimes) ->
+                        startTimes.forEach { (startTime, endTimes) ->
+                            endTimes.forEach { (endTime, count) ->
+                                if (count >= 3) {
+                                    // 加入事件名稱
+                                    result.add(HabitEvent(searchKeyword, day, startTime, endTime))
+                                }
+                            }
+                        }
+                    }
+
+                    // 刪除已處理的事件
+                    events.removeAll(filteredEvents)
+                }
+
+                // 將結果寫入 Firebase
+                val habitEventsMap = result.map { habitEvent ->
+                    val key = habitEvent.name // 使用事件名稱作為 key，這裡可以根據需要更改為其他唯一標識
+                    key to habitEvent
+                }.toMap()
+
+                habitEventRef.setValue(habitEventsMap).addOnSuccessListener {
+                    Log.d("Firebase", "成功寫入 HabitEvents")
+                    // 回傳結果
+                    callback(result)
+                }.addOnFailureListener { error ->
+                    Log.e("Firebase", "寫入 HabitEvents 失敗", error)
+                    callback(emptyList()) // 若有錯誤，回傳空列表
+                }
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                // 處理錯誤
+                Log.e("Firebase", "讀取事件資料失敗", error.toException())
+                callback(emptyList()) // 若有錯誤，回傳空列表
+            }
+        })
+    }
+
+    fun getDayOfWeek(dateTime: String): String {
+        val formatter = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+        val localDateTime = java.time.LocalDateTime.parse(dateTime, formatter)
+        return when (localDateTime.dayOfWeek.value) {
+            1 -> "一"
+            2 -> "二"
+            3 -> "三"
+            4 -> "四"
+            5 -> "五"
+            6 -> "六"
+            7 -> "日"
+            else -> ""
+        }
+    }
+
+    //從firebase抓全部資料並回傳其分類結果
+    fun classifyEventsFromFirebase(inputEvent: String, callback: (Map<Pair<String, String>, Int>) -> Unit) {
+        val memberId = auth.currentUser?.uid ?: return
+        val eventRef = database.getReference("members").child(memberId).child("events")
+
+        // 從 Firebase 拉取事件資料
+        eventRef.addListenerForSingleValueEvent(object : ValueEventListener {
+            override fun onDataChange(dataSnapshot: DataSnapshot) {
+                // 初始化事件列表
+                val events = mutableListOf<Event>()
+                var tag = ""
+
+                // 將資料庫中的資料轉換為事件列表
+                dataSnapshot.children.forEach { snapshot ->
+                    val event = snapshot.getValue(Event::class.java)
+                    if (event != null) {
+                        tag = event.tags
+                    }
+                    event?.let {
+                        // 根據 inputEvent 進行模糊搜尋
+                        if (it.name.contains(inputEvent, ignoreCase = true)) {
+                            events.add(it)
+                        }
+                    }
+                }
+
+                // 使用 classifyEvents 函數進行分類處理
+                val classification = classifyEvents(events)
+                val currentDateTime: LocalDateTime = LocalDateTime.now()
+                val dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+                val mostFrequentDuration = calculateMostFrequentDuration(events)
+                println("最多次的時長: $mostFrequentDuration")
+                getHabitEvents { habitResult ->
+                    println("第一次篩選:")
+                    val firstAvailableSlots = getAvailableTimeSlots(inputEvent, classification, habitResult, currentDateTime)
+                    firstAvailableSlots.forEach {
+                        println(it)
+                    }
+                    if (firstAvailableSlots.size > 5) {
+                        println("第二次篩選:")
+
+                        // 進行第二次篩選
+                        val secondAvailableSlots = secondStageFilter(inputEvent, classification, habitResult, currentDateTime)
+                        secondAvailableSlots.forEach {
+                            println(it)
+                        }
+                        val convertedSlots: List<Pair<LocalDateTime, LocalDateTime>> = secondAvailableSlots.map { pair ->
+                            val startDateTime = LocalDateTime.parse(pair.first, dateTimeFormatter)
+                            val endDateTime = LocalDateTime.parse(pair.second, dateTimeFormatter)
+                            Pair(startDateTime, endDateTime)
+                        }
+                        val firstStartTime = convertedSlots.minByOrNull { it.first }?.first?.toLocalDate()
+                        val lastEndTime = convertedSlots.maxByOrNull { it.second }?.second?.toLocalDate()
+
+                        if (firstStartTime != null) {
+                            if (lastEndTime != null) {
+                                getEventsForDateRange(firstStartTime,lastEndTime){event ->
+                                    val check = checkFreeTime(convertedSlots,event)
+                                    println("篩選完空檔時間後")
+                                    println("$check")
+
+                                    println("安排:")
+                                    val newTimeSlots = scheduleEvent(check, mostFrequentDuration)
+                                    newTimeSlots.forEach{
+                                        println(it)
+                                    }
+                                    newTimeSlots.forEach { slot ->
+                                        val startTime = slot.first
+                                        val endTime = slot.second
+
+                                        addEvent(
+                                            name = inputEvent,
+                                            startTime = startTime,
+                                            endTime = endTime,
+                                            tags = tag,
+                                            alarmTime = "1天前",
+                                            repeatEndDate = "",
+                                            repeatType = "無",
+                                            duration = "",
+                                            idealTime = "",
+                                            shortestTime = "",
+                                            longestTime = "",
+                                            dailyRepeat = false,
+                                            disturb = false,
+                                            description = ""
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    else{
+                        val convertedSlots: List<Pair<LocalDateTime, LocalDateTime>> = firstAvailableSlots.map { pair ->
+                            val startDateTime = LocalDateTime.parse(pair.first, dateTimeFormatter)
+                            val endDateTime = LocalDateTime.parse(pair.second, dateTimeFormatter)
+                            Pair(startDateTime, endDateTime)
+                        }
+                        val firstStartTime = convertedSlots.minByOrNull { it.first }?.first?.toLocalDate()
+                        val lastEndTime = convertedSlots.maxByOrNull { it.second }?.second?.toLocalDate()
+
+                        if (firstStartTime != null) {
+                            if (lastEndTime != null) {
+                                getEventsForDateRange(firstStartTime,lastEndTime){event ->
+                                    val check =checkFreeTime(convertedSlots,event)
+                                    println("篩選完空檔時間後")
+                                    println("$check")
+
+                                    println("安排:")
+                                    val newTimeSlots = scheduleEvent(check, mostFrequentDuration)
+                                    newTimeSlots.forEach{
+                                        println(it)
+                                    }
+                                    newTimeSlots.forEach { slot ->
+                                        val startTime = slot.first.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+                                        val endTime = slot.second.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+
+                                        addEvent(
+                                            name = inputEvent,
+                                            startTime = startTime,
+                                            endTime = endTime,
+                                            tags = tag,
+                                            alarmTime = "1天前",
+                                            repeatEndDate = "",
+                                            repeatType = "無",
+                                            duration = "",
+                                            idealTime = "",
+                                            shortestTime = "",
+                                            longestTime = "",
+                                            dailyRepeat = false,
+                                            disturb = false,
+                                            description = ""
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 回傳分類結果
+                callback(classification)
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                // 處理錯誤
+                Log.e("Firebase", "讀取事件資料失敗", error.toException())
+                callback(emptyMap()) // 若有錯誤，回傳空的分類結果
+            }
+        })
+    }
+
+    // 函數來抓取 habitResult 資料
+    fun getHabitEvents(callback: (List<HabitEvent>) -> Unit) {
+        val memberId = auth.currentUser?.uid ?: return
+        val habitEventRef: DatabaseReference = database.getReference("members").child(memberId).child("habitevents")
+
+        // 創建一個線程安全的可變列表來存儲結果
+        val habitEvents = mutableListOf<HabitEvent>()
+
+        // 從 Firebase 拉取 habit events 資料
+        habitEventRef.addListenerForSingleValueEvent(object : ValueEventListener {
+            override fun onDataChange(dataSnapshot: DataSnapshot) {
+                dataSnapshot.children.forEach { snapshot ->
+                    val habitEvent = snapshot.getValue(HabitEvent::class.java)
+                    habitEvent?.let { habitEvents.add(it) }
+                }
+                // 回傳結果
+                callback(habitEvents)
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                // 處理錯誤（可以根據需要進行處理）
+                Log.e("Firebase", "讀取 habit events 資料失敗", error.toException())
+                // 回傳空結果
+                callback(emptyList())
+            }
+        })
+    }
+
+
+    fun classifyEvents(events: List<Event>): Map<Pair<String, String>, Int> {
+        val timeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+
+        println("event:$events")
+        // 定義時間段
+        fun getTimePeriod(hour: Int): String {
+            return when (hour) {
+                in 5..10 -> "早上"
+                in 11..13 -> "中午"
+                in 14..17 -> "下午"
+                in 18..21 -> "晚上"
+                else -> "半夜"
+            }
+        }
+
+        // 定義星期的中文名稱
+        fun getDayOfWeekInChinese(dayOfWeek: DayOfWeek): String {
+            return when (dayOfWeek) {
+                DayOfWeek.MONDAY -> "一"
+                DayOfWeek.TUESDAY -> "二"
+                DayOfWeek.WEDNESDAY -> "三"
+                DayOfWeek.THURSDAY -> "四"
+                DayOfWeek.FRIDAY -> "五"
+                DayOfWeek.SATURDAY -> "六"
+                DayOfWeek.SUNDAY -> "日"
+            }
+        }
+
+        // 建立分類結果並計算次數
+        val classificationCount = mutableMapOf<Pair<String, String>, Int>()
+
+        events.forEach { event ->
+            val startDateTime = LocalDateTime.parse(event.startTime, timeFormatter)
+            val endDateTime = LocalDateTime.parse(event.endTime, timeFormatter)
+
+            // 確認是否跨日
+            val isOvernight = startDateTime.toLocalDate() != endDateTime.toLocalDate()
+
+            // 計算每個時間段的持續時間
+            val periodDurations = mutableMapOf(
+                "早上" to 0L,
+                "中午" to 0L,
+                "下午" to 0L,
+                "晚上" to 0L,
+                "半夜" to 0L
+            )
+
+            fun addDuration(start: LocalDateTime, end: LocalDateTime, period: String) {
+                val duration = Duration.between(start, end).toMinutes()
+                periodDurations[period] = periodDurations.getOrDefault(period, 0L) + duration
+            }
+
+            if (isOvernight) {
+                // 處理跨日情況，計算半夜的持續時間
+                val midnightEnd = startDateTime.withHour(23).withMinute(59)
+                addDuration(startDateTime, midnightEnd, "半夜")
+
+                val nextMidnightStart = endDateTime.withHour(0).withMinute(0)
+                addDuration(nextMidnightStart, endDateTime, "半夜")
+            } else {
+                // 單一天內事件的時間計算
+                val startPeriod = getTimePeriod(startDateTime.hour)
+                val endPeriod = getTimePeriod(endDateTime.hour)
+
+                // 如果跨越多個時段，則分別計算各時段的時間
+                if (startPeriod != endPeriod) {
+                    val startPeriodEnd = startDateTime.withHour(
+                        when (startPeriod) {
+                            "早上" -> 10
+                            "中午" -> 13
+                            "下午" -> 17
+                            "晚上" -> 21
+                            else -> 4
+                        }
+                    ).withMinute(59)
+                    addDuration(startDateTime, startPeriodEnd, startPeriod)
+
+                    val endPeriodStart = startPeriodEnd.plusMinutes(1)
+                    addDuration(endPeriodStart, endDateTime, endPeriod)
+                } else {
+                    addDuration(startDateTime, endDateTime, startPeriod)
+                }
+            }
+
+            // 找出最長持續時間的時間段，若時間相等則選擇後一個時段
+            val maxPeriod = periodDurations.entries.sortedWith(compareBy({ it.value }, { it.key })).last().key
+
+            // 確認事件發生的星期和時間段
+            val dayOfWeek = getDayOfWeekInChinese(startDateTime.dayOfWeek)
+            val classification = Pair(dayOfWeek, maxPeriod)
+
+            // 記錄分類和次數
+            classificationCount[classification] = classificationCount.getOrDefault(classification, 0) + 1
+        }
+
+        return classificationCount
+    }
+
+    //篩出適合的時間段
+    fun getAvailableTimeSlots(
+        eventName: String, // 新增事件名稱參數
+        cassifyEvents: Map<Pair<String, String>, Int>,
+        fixedHabitTimes: List<HabitEvent>,
+        currentDateTime: LocalDateTime //= LocalDateTime.now()
+    ): List<Pair<String, String>> {
+        val availableTimeSlots = mutableListOf<Pair<String, String>>()
+        val sevenDays = getNextSevenDays(currentDateTime)
+
+        // 按次數排序 cassifyEvents，選擇高頻的時間段
+        val sortedTimeSlots = cassifyEvents.entries.sortedByDescending { it.value }
+
+        for (day in sevenDays) {
+            val formattedDay = day.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
+            val dayOfWeek = getDayOfWeek(formattedDay)
+
+            // 選擇這一天的習慣時間段並排除固定習慣
+            for ((dayAndPeriod, _) in sortedTimeSlots) {
+                val (weekDay, period) = dayAndPeriod
+                if (dayOfWeek == weekDay) {
+                    val (startTime, endTime) = getTimeRange(period)
+
+                    // 檢查該時間段是否與固定習慣衝突
+                    if (!isConflictWithFixedHabits(dayOfWeek, startTime, endTime, fixedHabitTimes)) {
+                        //val formattedDate = day.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+                        val date = day.toLocalDate()
+                        val (formattedStart, formattedEnd) = formatCrossDayTime(date, startTime, endTime)
+                        availableTimeSlots.add(Pair(formattedStart, formattedEnd))
+                        //availableTimeSlots.add(Pair("$formattedDate $startTime", "$formattedDate $endTime"))
+                    }
+
+                    // 檢查該時間段是否是固定習慣
+                    val isFixedHabit = isFixedHabitEvent(eventName, dayOfWeek, startTime, endTime, fixedHabitTimes)
+                    // 檢查固定習慣並添加到可用時間段
+                    if (isFixedHabit) {
+                        for (habit in fixedHabitTimes) {
+                            if (habit.name == eventName && habit.day == dayOfWeek) {
+                                val date = day.toLocalDate()
+                                val (formattedStart, formattedEnd) = formatCrossDayTime(date, habit.startTime, habit.endTime)
+                                availableTimeSlots.add(Pair(formattedStart, formattedEnd))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return availableTimeSlots
+    }
+
+    // 處理跨日的時間段
+    fun formatCrossDayTime(startDate: LocalDate, startTime: String, endTime: String): Pair<String, String> {
+        val startLocalTime = LocalTime.parse(startTime)
+        val endLocalTime = LocalTime.parse(endTime)
+
+        val endDate = if (endLocalTime.isBefore(startLocalTime)) {
+            startDate.plusDays(1)
+        } else {
+            startDate
+        }
+
+        val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+        val formattedStart = "${startDate.format(formatter)} $startTime"
+        val formattedEnd = "${endDate.format(formatter)} $endTime"
+
+        return Pair(formattedStart, formattedEnd)
+    }
+
+    // 獲取未來七天的日期
+    fun getNextSevenDays(currentDateTime: LocalDateTime): List<LocalDateTime> {
+        val startDate = if (currentDateTime.hour in 0..4) {
+            //如果當下時間是在00:00-05:00，就從當天開始，算七天
+            currentDateTime.truncatedTo(ChronoUnit.DAYS)
+        } else {
+            //否則，則從明天開始算七天
+            currentDateTime.plusDays(1).truncatedTo(ChronoUnit.DAYS)
+        }
+        return (0..6).map { startDate.plusDays(it.toLong()) }
+    }
+
+    fun isFixedHabitEvent(
+        eventName: String,
+        dayOfWeek: String,
+        startTime: String,
+        endTime: String,
+        fixedHabitTimes: List<HabitEvent>
+    ): Boolean {
+        // 遍歷固定習慣列表，檢查該事件名稱是否存在於固定習慣中
+        return fixedHabitTimes.any { habit ->
+            habit.name == eventName
+        }
+    }
+
+    // 判斷這個時間段是否與固定習慣時間衝突
+    fun isConflictWithFixedHabits(
+        dayOfWeek: String,
+        startTime: String,
+        endTime: String,
+        fixedHabitTimes: List<HabitEvent>
+    ): Boolean {
+        // 遍歷固定習慣列表，檢查是否與當前時間段衝突
+        for (habit in fixedHabitTimes) {
+            if (habit.day == dayOfWeek) {
+                // 檢查時間段是否重疊
+                println("$startTime, $endTime, $habit.startTime, ${habit.endTime}")
+                if (isTimeOverlap(startTime, endTime, habit.startTime, habit.endTime)) {
+                    return true
+                }
+            }
+        }
+        return false
+    }
+
+    fun convertTimeToExtendedFormat(time: String): Int {
+        val localTime = LocalTime.parse(time)
+        return if (localTime.isAfter(LocalTime.of(0, 0)) && localTime.isBefore(LocalTime.of(4, 0))) {
+            localTime.hour + 24 // 將上午時間轉換為24小時制以外的表示
+        } else {
+            localTime.hour
+        }
+    }
+
+    // 判斷兩個時間段是否重疊(檢查固定習慣用)
+    fun isTimeOverlap(start1: String, end1: String, start2: String, end2: String): Boolean {
+        val startTime1 = convertTimeToExtendedFormat(start1)
+        val endTime1 = convertTimeToExtendedFormat(end1)
+        val startTime2 = convertTimeToExtendedFormat(start2)
+        val endTime2 = convertTimeToExtendedFormat(end2)
+
+        return !(endTime1 <= startTime2 || startTime1 >= endTime2)
+    }
+
+    // 將時間段名稱轉為具體時間範圍
+    fun getTimeRange(period: String): Pair<String, String> {
+        return when (period) {
+            "早上" -> "05:00" to "11:00"
+            "中午" -> "11:00" to "14:00"
+            "下午" -> "14:00" to "18:00"
+            "晚上" -> "18:00" to "22:00"
+            "半夜" -> "22:00" to "05:00"
+            else -> "00:00" to "00:00"
+        }
+    }
+
+    // 第二階段篩選
+    fun secondStageFilter(
+        eventName: String,
+        cassifyEvents: Map<Pair<String, String>, Int>,
+        fixedHabitTimes: List<HabitEvent>,
+        currentDateTime: LocalDateTime
+    ): List<Pair<String, String>> {
+        val availableTimeSlots = mutableListOf<Pair<String, String>>()
+        val sevenDays = getNextSevenDays(currentDateTime)
+
+        // 1. 统计时间段出现次数
+        val periodCounts = mutableMapOf<String, Int>()
+        for ((dayAndPeriod, count) in cassifyEvents) {
+            val period = dayAndPeriod.second
+            periodCounts[period] = periodCounts.getOrDefault(period, 0) + count
+        }
+
+        // 2. 获取出现次数大于等于3的时间段
+        val validPeriods = cassifyEvents.filter { it.value >= 3 }
+
+        // 3. 获取出现次数小于3的时间段及其最多出现的时段
+        val lowFrequencyPeriods = cassifyEvents.filter { it.value < 3 }
+        val maxCount = periodCounts.values.maxOrNull() ?: 0
+        val mostCommonPeriods = periodCounts.filter { it.value == maxCount }.keys
+
+        println("$mostCommonPeriods")
+
+        // 4. 遍历七天中的每一天
+        for (day in sevenDays) {
+            val dayOfWeek = getDayOfWeek(day.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")))
+
+            // 处理出现次数大于等于3的时间段
+            for ((dayAndPeriod, _) in validPeriods) {
+                val (weekDay, period) = dayAndPeriod
+                if (dayOfWeek == weekDay) {
+                    val (startTime, endTime) = getTimeRange(period)
+
+                    if (!isConflictWithFixedHabits(dayOfWeek, startTime, endTime, fixedHabitTimes)) {
+                        val date = day.toLocalDate()
+                        val (formattedStart, formattedEnd) = formatCrossDayTime(date, startTime, endTime)
+                        availableTimeSlots.add(Pair(formattedStart, formattedEnd))
+                    }
+
+                    // 檢查該時間段是否是固定習慣
+                    val isFixedHabit = isFixedHabitEvent(eventName, dayOfWeek, startTime, endTime, fixedHabitTimes)
+                    // 檢查固定習慣並添加到可用時間段
+                    if (isFixedHabit) {
+                        for (habit in fixedHabitTimes) {
+                            if (habit.name == eventName && habit.day == dayOfWeek) {
+                                val date = day.toLocalDate()
+                                val (formattedStart, formattedEnd) = formatCrossDayTime(date, habit.startTime, habit.endTime)
+                                if (!availableTimeSlots.contains(Pair(formattedStart, formattedEnd))) {
+                                    availableTimeSlots.add(Pair(formattedStart, formattedEnd))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 处理出现次数小于3的时间段
+            if (mostCommonPeriods.isNotEmpty()) {
+                for ((dayAndPeriod, _) in lowFrequencyPeriods) {
+                    val (weekDay, period) = dayAndPeriod
+                    if (dayOfWeek == weekDay && mostCommonPeriods.contains(period)) {
+                        val (startTime, endTime) = getTimeRange(period)
+
+                        if (!isConflictWithFixedHabits(dayOfWeek, startTime, endTime, fixedHabitTimes)) {
+                            val date = day.toLocalDate()
+                            val (formattedStart, formattedEnd) = formatCrossDayTime(date, startTime, endTime)
+                            if (!availableTimeSlots.contains(Pair(formattedStart, formattedEnd))) {
+                                availableTimeSlots.add(Pair(formattedStart, formattedEnd))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return availableTimeSlots
+    }
+
+    //篩掉已經被排的時間
+    fun checkFreeTime(
+        scheduleDates: List<Pair<LocalDateTime, LocalDateTime>>,
+        events: List<Event>
+    ): List<Pair<String, String>>{
+        // 儲存空檔時間範圍
+        val availableSlots = mutableListOf<Pair<LocalDateTime, LocalDateTime>>()
+
+        // 定義時間格式
+        val dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+        // 定義輸出格式
+        val outputFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+
+        for ((startSlot, endSlot) in scheduleDates) {
+            // 先過濾出與當前時間段重疊的事件
+            val eventsForDate = events
+                .filter { event ->
+                    val eventStart = LocalDateTime.parse(event.startTime, dateTimeFormatter)
+                    val eventEnd = LocalDateTime.parse(event.endTime, dateTimeFormatter)
+
+                    eventStart.isBefore(endSlot) && eventEnd.isAfter(startSlot)
+                }
+                .flatMap { event ->
+                    val eventStart = LocalDateTime.parse(event.startTime, dateTimeFormatter)
+                    val eventEnd = LocalDateTime.parse(event.endTime, dateTimeFormatter)
+
+                    // 生成事件在其實際時間段的時間範圍
+                    generateSequence(eventStart) { it.plusMinutes(1) }
+                        .takeWhile { it.isBefore(eventEnd) }
+                        .groupBy { it.toLocalDate() }
+                        .map { (date, times) ->
+                            times.first() to times.last()
+                        }
+                }
+
+            // 合併跨日事件
+            val mergedEvents = mutableListOf<Pair<LocalDateTime, LocalDateTime>>()
+            var currentStart: LocalDateTime? = null
+            var currentEnd: LocalDateTime? = null
+
+            for ((eventStart, eventEnd) in eventsForDate) {
+
+                if (currentStart == null) {
+                    currentStart = eventStart
+                    currentEnd = eventEnd.plusMinutes(1)
+
+                } else if (eventStart.isBefore(currentEnd!!.plusMinutes(1))) {
+                    // 如果事件開始時間在當前事件結束時間之內，則擴展當前事件的結束時間
+                    currentEnd = maxOf(currentEnd!!, eventEnd.plusMinutes(1))
+                } else {
+                    // 否則，將當前事件加入到合併事件列表中，並重置
+                    mergedEvents.add(currentStart!! to currentEnd!!)
+                    currentStart = eventStart
+                    currentEnd = eventEnd.plusMinutes(1)
+                }
+            }
+            if (currentStart != null && currentEnd != null) {
+                mergedEvents.add(currentStart to currentEnd)
+            }
+
+            // 檢查每個合併的事件的 disturb 標誌
+            var currentStartSlot = startSlot
+            for ((eventStart, eventEnd) in mergedEvents) {
+                val eventDisturb = events.find { event ->
+                    val start = LocalDateTime.parse(event.startTime, dateTimeFormatter)
+                    val end = LocalDateTime.parse(event.endTime, dateTimeFormatter)
+                    eventStart == start && eventEnd == end
+                }?.disturb ?: false
+
+                println("Event Start: $eventStart, Event End: $eventEnd, Disturb: $eventDisturb")
+
+                if (!eventDisturb) {
+                    if (eventStart.isAfter(currentStartSlot)) {
+                        availableSlots.add(currentStartSlot to eventStart)
+                    }
+                    currentStartSlot = eventEnd
+                }
+            }
+            if (currentStartSlot.isBefore(endSlot)) {
+                availableSlots.add(currentStartSlot to endSlot)
+            }
+        }
+        // 去除重複的時間範圍
+        val uniqueSlots = mergeIntervals(
+            availableSlots.map { it.first to it.second }
+                .distinctBy { it.first to it.second }
+                .sortedBy { it.first }
+        )
+
+        // 轉換回字符串格式
+        return uniqueSlots.map { (start, end) ->
+            start.format(outputFormatter) to end.format(outputFormatter)
+        }
+    }
+
+    //計算通常做多久
+    fun calculateMostFrequentDuration(events: List<Event>): Long {
+        val durationCounts = mutableMapOf<Long, Int>()  // 记录时长（以分钟为单位）和出现次数
+        val timeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+
+        for (event in events) {
+            // 解析开始时间和结束时间
+            val start = LocalDateTime.parse(event.startTime, timeFormatter)
+            val end = LocalDateTime.parse(event.endTime, timeFormatter)
+
+            // 计算时长
+            val durationMinutes = if (end.isAfter(start)) {
+                Duration.between(start, end).toMinutes()  // 正常情况
+            } else {
+                // 处理跨日的时间段
+                val nextDayEnd = end.plusDays(1)
+                Duration.between(start, nextDayEnd).toMinutes()
+            }
+
+            // 统计每个时长出现的次数
+            durationCounts[durationMinutes] = durationCounts.getOrDefault(durationMinutes, 0) + 1
+        }
+        println("$durationCounts")
+        // 变量来记录当前的最大出现次数和最后一个变成最大值的时长
+        var maxCount = 0
+        var lastMostFrequentDuration: Long = 0
+
+        // 遍历每个时长及其出现次数
+        for ((duration, count) in durationCounts) {
+            if (count >= maxCount) {
+                // 如果出现次数等于或超过当前最大次数，更新记录
+                maxCount = count
+                lastMostFrequentDuration = duration
+            }
+        }
+
+        // 返回最后一个变成最大值的时长
+        return lastMostFrequentDuration
+    }
+
+
+
+    //安排
+    fun scheduleEvent(availableSlots: List<Pair<String, String>>, mostFrequentDurationMinutes: Long): List<Pair<String, String>> {
+        val scheduledTimeSlots = mutableListOf<Pair<String, String>>()
+        val timeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+
+        for (slot in availableSlots) {
+            // 解析可用时间的开始和结束时间
+            val start = LocalDateTime.parse(slot.first, timeFormatter)
+            val end = LocalDateTime.parse(slot.second, timeFormatter)
+
+            // 处理跨日情况，使用 convertTimeToExtendedFormat 来扩展时间
+            val extendedStartTime = convertTimeToExtendedFormat(start.toLocalTime().toString())
+            val extendedEndTime = convertTimeToExtendedFormat(end.toLocalTime().toString())
+
+            // 如果结束时间在凌晨前后，将其视为跨日时间段
+            val availableDurationMinutes = if (extendedEndTime > extendedStartTime) {
+                Duration.between(start, end).toMinutes()
+            } else {
+                // 如果是跨日，则需要将结束时间扩展为次日的时间
+                Duration.between(start, end.plusDays(1)).toMinutes()
+            }
+
+            // 如果可用时段足够长，安排一个时长为 mostFrequentDurationMinutes 的事件
+            if (availableDurationMinutes >= mostFrequentDurationMinutes) {
+                // 安排新的时间段
+                val scheduledEnd = start.plusMinutes(mostFrequentDurationMinutes)
+                scheduledTimeSlots.add(Pair(start.format(timeFormatter), scheduledEnd.format(timeFormatter)))
+            }
+        }
+
+        return scheduledTimeSlots
     }
 }

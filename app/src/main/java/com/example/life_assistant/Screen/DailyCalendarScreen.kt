@@ -77,12 +77,16 @@ fun DailyCalendarScreen(
     modifier: Modifier = Modifier
 ) {
     var showDialog by remember { mutableStateOf(false) }
+    var showInputDialog by remember {mutableStateOf(false)}
     var selectedDate by remember { mutableStateOf(date) }  // 設置為 LocalDate.now() 以確保能夠顯示當前日期
     var selectedHour by remember { mutableStateOf("") }
     val currentDate = remember { mutableStateOf(LocalDate.now()) }  // 這個值應該用於顯示當前月份的視圖
     var expanded by remember { mutableStateOf(false) } // 控制下拉選單的狀態
     val events by evm.events.observeAsState(emptyList())
     val eventPositions = remember { mutableMapOf<String, MutableMap<String, Float>>() }
+    var searchQuery by remember { mutableStateOf("") }
+    var alertMessage by remember { mutableStateOf("") }
+    var showErrorDialog by remember { mutableStateOf((false)) }
 
     LaunchedEffect(selectedDate, events) {
         // 確保事件和排版位置是同步的
@@ -180,7 +184,12 @@ fun DailyCalendarScreen(
                     )
                 }
 
-                IconButton(onClick = { showDialog = true }) {
+                IconButton(onClick = {
+                    showDialog = true
+                    evm.habitEvents{habit ->
+                        println("$habit")
+                    }
+                }) {
                     Icon(
                         imageVector = Icons.Filled.Add,
                         contentDescription = "Add Event",
@@ -239,7 +248,7 @@ fun DailyCalendarScreen(
                                 selectedHour = hour
                                     .toString()
                                     .padStart(2, '0')
-                                showDialog = true
+                                showInputDialog = true
                             }
                         )
                     }
@@ -260,7 +269,7 @@ fun DailyCalendarScreen(
                                         onTap = {
                                             // 點擊小時格子時，選擇該小時
                                             selectedHour = hourString
-                                            showDialog = true
+                                            showInputDialog = true
                                         }
                                     )
                                 }
@@ -272,13 +281,89 @@ fun DailyCalendarScreen(
             }
         }
     }
-
     if (showDialog) {
+        AlertDialog(
+            onDismissRequest = { showDialog = false },
+            title = {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(text = "自動排程")
+                    IconButton(onClick = {
+                        showDialog = false
+                        // Trigger the UserInputDialog here
+                        showInputDialog = true
+                    }) {
+                        Icon(
+                            imageVector = Icons.Filled.Add,
+                            contentDescription = "Add Event"
+                        )
+                    }
+                }
+            },
+            text = {
+                Column {
+                    TextField(
+                        value = searchQuery,
+                        onValueChange = { query -> searchQuery = query },
+                        label = { Text("輸入事件") }
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        evm.checkEvent(searchQuery) { count ->
+                            Log.d("EventCount", "找到 $count 筆相似事件")
+                            if(count >= 10){
+                                evm.classifyEventsFromFirebase(searchQuery) { classification ->
+                                    println("分類後:$classification")
+                                }
+                            }
+                            else{
+                                alertMessage = "所需的相似資料數量不足，請優先使用原本的自動排程"
+                                showErrorDialog = true
+                            }
+                        }
+                        showDialog = false
+                    }
+                ) {
+                    Text("確認")
+                }
+            },
+            dismissButton = {
+                Button(
+                    onClick = {
+                        showDialog = false
+                    }
+                ) {
+                    Text("取消")
+                }
+            }
+        )
+    }
+
+
+    if (showInputDialog) {
         UserInputDialog(
             selectedDate = selectedDate,  // 使用選擇的日期來顯示對話框
             evm = evm,
-            onDismiss = { showDialog = false },
+            onDismiss = { showInputDialog = false },
             selectedHour = selectedHour
+        )
+    }
+
+    if (showErrorDialog) {
+        AlertDialog(
+            onDismissRequest = { showErrorDialog = false }, // 使用者點擊外部時關閉
+            title = { Text(text = "提示") },
+            text = { Text(text = alertMessage) },
+            confirmButton = {
+                Button(onClick = { showErrorDialog = false }) {
+                    Text(text = "確定")
+                }
+            }
         )
     }
 }
