@@ -1,6 +1,8 @@
 package com.example.life_assistant.ViewModel
 
+import android.os.Build
 import android.util.Log
+import androidx.annotation.RequiresApi
 import androidx.compose.runtime.mutableStateListOf
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
@@ -52,6 +54,7 @@ class EventViewModel @Inject constructor(
 
 
     //新增事件
+    @RequiresApi(Build.VERSION_CODES.O)
     fun addEvent(
         name: String,
         startTime: String,
@@ -1840,6 +1843,8 @@ class EventViewModel @Inject constructor(
                         val dailyRepeat = eventMap["dailyRepeat"] as? Boolean ?: false
                         val disturb = eventMap["disturb"] as? Boolean ?: false
                         val description = eventMap["description"] as? String ?: ""
+                        val isDone = eventMap["isDone"] as? Boolean ?: false
+                        val doneTime = eventMap["doneTime"] as? String ?: ""
 
                         // 解析事件的 startTime 和 endTime
                         val eventStartDate = LocalDateTime.parse(startTime, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")).toLocalDate()
@@ -1865,8 +1870,10 @@ class EventViewModel @Inject constructor(
                                 longestTime = longestTime,
                                 dailyRepeat = dailyRepeat,
                                 disturb = disturb,
-                                description = description
-                            )
+                                description = description,
+                                isDone = isDone,
+                                doneTime = doneTime
+                                )
                             eventsList.add(event)
                         }
                     }
