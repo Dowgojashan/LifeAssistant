@@ -58,6 +58,10 @@ fun MonthCalendarScreen(
     var selectedHour by remember { mutableStateOf("") }
     var showEventDetailDialog by remember { mutableStateOf(false) }
     var selectedEvent by remember { mutableStateOf<Event?>(null) }
+    var showInputDialog by remember {mutableStateOf(false)}
+    var searchQuery by remember { mutableStateOf("") }
+    var alertMessage by remember { mutableStateOf("") }
+    var showErrorDialog by remember { mutableStateOf((false)) }
 
     val events by evm.events.observeAsState(emptyList())
     val eventsByDate = events.groupBy { LocalDate.parse(it.startTime, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")) }
@@ -167,12 +171,13 @@ fun MonthCalendarScreen(
                             contentDescription = "Next Month"
                         )
                     }
-                    IconButton(onClick = {
-                        selectedDate = LocalDate.now()
-                        selectedHour = LocalTime.now().hour.toString().padStart(2, '0')
+                    androidx.compose.material3.IconButton(onClick = {
                         showDialog = true
+                        evm.habitEvents { habit ->
+                            println("$habit")
+                        }
                     }) {
-                        Icon(
+                        androidx.compose.material3.Icon(
                             imageVector = Icons.Filled.Add,
                             contentDescription = "Add Event",
                             modifier = Modifier.size(32.dp)
@@ -201,12 +206,87 @@ fun MonthCalendarScreen(
     }
 
     if (showDialog) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showDialog = false },
+            title = {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    androidx.compose.material3.Text(text = "自動排程")
+                    androidx.compose.material3.IconButton(onClick = {
+                        showDialog = false
+                        // Trigger the UserInputDialog here
+                        showInputDialog = true
+                    }) {
+                        androidx.compose.material3.Icon(
+                            imageVector = Icons.Filled.Add,
+                            contentDescription = "Add Event"
+                        )
+                    }
+                }
+            },
+            text = {
+                Column {
+                    androidx.compose.material3.TextField(
+                        value = searchQuery,
+                        onValueChange = { query -> searchQuery = query },
+                        label = { androidx.compose.material3.Text("輸入事件") }
+                    )
+                }
+            },
+            confirmButton = {
+                androidx.compose.material3.Button(
+                    onClick = {
+                        evm.checkEvent(searchQuery) { count ->
+                            Log.d("EventCount", "找到 $count 筆相似事件")
+                            if (count >= 10) {
+                                evm.classifyEventsFromFirebase(searchQuery) { classification ->
+                                    println("分類後:$classification")
+                                }
+                            } else {
+                                alertMessage = "所需的相似資料數量不足，請優先使用原本的自動排程"
+                                showErrorDialog = true
+                            }
+                        }
+                        showDialog = false
+                    }
+                ) {
+                    androidx.compose.material3.Text("確認")
+                }
+            },
+            dismissButton = {
+                androidx.compose.material3.Button(
+                    onClick = {
+                        showDialog = false
+                    }
+                ) {
+                    androidx.compose.material3.Text("取消")
+                }
+            }
+        )
+    }
+
+
+    if (showInputDialog) {
         UserInputDialog(
-            selectedDate = selectedDate,
+            selectedDate = selectedDate,  // 使用選擇的日期來顯示對話框
             evm = evm,
-            onDismiss = { showDialog = false },
-            selectedHour = selectedHour,
-            currentMonth = currentMonth
+            onDismiss = { showInputDialog = false },
+            selectedHour = selectedHour
+        )
+    }
+
+    if (showErrorDialog) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showErrorDialog = false }, // 使用者點擊外部時關閉
+            title = { androidx.compose.material3.Text(text = "提示") },
+            text = { androidx.compose.material3.Text(text = alertMessage) },
+            confirmButton = {
+                androidx.compose.material3.Button(onClick = { showErrorDialog = false }) {
+                    androidx.compose.material3.Text(text = "確定")
+                }
+            }
         )
     }
 
@@ -278,7 +358,10 @@ fun MonthBody(
                     isSelected = date == selectedDate,
                     events = dayEvents,
                     onDateSelected = onDateSelected,
-                    onEventSelected = onEventSelected
+                    onEventSelected = onEventSelected,
+                    getColorByEvent = { tag, callback ->
+                        evm.getColorByEvent(tag, callback)
+                    }
                 )
             }
         }
@@ -296,7 +379,8 @@ fun DayCell(
     isSelected: Boolean,
     events: List<Event>,
     onDateSelected: (LocalDate) -> Unit,
-    onEventSelected: (Event) -> Unit
+    onEventSelected: (Event) -> Unit,
+    getColorByEvent: (String, (Long?) -> Unit) -> Unit // 新增取得顏色的函數參數
 ) {
     val isToday = day == LocalDate.now()
     val isHoliday = day.dayOfWeek == DayOfWeek.SATURDAY || day.dayOfWeek == DayOfWeek.SUNDAY
@@ -340,11 +424,18 @@ fun DayCell(
                 contentPadding = PaddingValues(bottom = 4.dp) // Add padding to the bottom of the list
             ) {
                 items(events) { event ->
+                    var eventColor by remember { mutableStateOf(Color.LightGray) } // 預設顏色
+                    getColorByEvent(event.tags) { colorValue ->
+                        colorValue?.let {
+                            eventColor = Color(it)
+                        }
+                    }
+
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 2.dp)
-                            .background(colorResource(id = R.color.light_blue), RoundedCornerShape(4.dp))
+                            .background(eventColor, RoundedCornerShape(4.dp)) // 使用取得的顏色
                             .clickable { onEventSelected(event) }
                     ) {
                         Text(
@@ -383,3 +474,4 @@ fun DayCell(
         }
     }
 }
+
