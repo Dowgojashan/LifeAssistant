@@ -480,9 +480,11 @@ class MemberViewModel @Inject constructor(
     }
 
     data class SimpleEvent(
+        val uid: String,
         val name: String,
         val startTime: String,
-        val endTime: String
+        val endTime: String,
+        val isDone: Boolean
     )
 
     //取得今天的前兩天跟後兩天
@@ -506,13 +508,15 @@ class MemberViewModel @Inject constructor(
             override fun onDataChange(snapshot: DataSnapshot) {
                 val events = mutableListOf<SimpleEvent>()
                 snapshot.children.forEach { dataSnapshot ->
+                    val uid = dataSnapshot.child("uid").getValue(String::class.java) ?: ""
                     val name = dataSnapshot.child("name").getValue(String::class.java) ?: ""
                     val startTime = dataSnapshot.child("startTime").getValue(String::class.java) ?: ""
                     val endTime = dataSnapshot.child("endTime").getValue(String::class.java) ?: ""
+                    val isDone = dataSnapshot.child("isDone").getValue(Boolean::class.java) ?: false
 
                     // 確保事件在範圍內
                     if (isEventWithinRange(startTime, endTime, startDate, endDate)) {
-                        events.add(SimpleEvent(name, startTime, endTime))
+                        events.add(SimpleEvent(uid,name, startTime, endTime,isDone))
                     }
                 }
                 // 回傳取得的事件列表

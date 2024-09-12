@@ -282,7 +282,7 @@ fun TimeReportScreen(
         // 將事件的標籤時間更新到對應的 Category 中
         // 更新 Category 列表中的時間
         val updatedCategories = categories.map { category ->
-            val timeOfCategory = eventByTag.get(category.name) ?: 0.0
+            val timeOfCategory = eventByTag[category.name] ?: 0.0
             category.copy(hours = timeOfCategory.toFloat())
         }
 
@@ -349,7 +349,7 @@ fun TimeReportScreen(
                     .offset(y = 50.dp)
             ) {
                 items(categories) { category ->
-                    val percentage = if (totalHours > 0) (category.hours / totalHours * 100).toFloat() else 0f
+                    val percentage = if (totalHours > 0) (category.hours / totalHours * 100) else 0f
                     val percentageText = String.format("%.1f%%", percentage)
 
                     Row(
@@ -378,11 +378,19 @@ fun TimeReportScreen(
                         Spacer(modifier = Modifier.width(4.dp))
 
                         Text(
-                            text = "小時",
+                            text = "時",
                             style = MaterialTheme.typography.bodyMedium,
                             fontSize = 24.sp,
                             textAlign = TextAlign.Start, // 確保 "小時" 靠左對齊
                             modifier = Modifier.wrapContentWidth()// 固定寬度，確保 "小時" 對齊
+                        )
+
+                        Text(
+                            text = percentageText,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontSize = 24.sp,
+                            textAlign = TextAlign.End, // 確保百分比靠右對齊
+                            modifier = Modifier.weight(1f)
                         )
 
                         Text(

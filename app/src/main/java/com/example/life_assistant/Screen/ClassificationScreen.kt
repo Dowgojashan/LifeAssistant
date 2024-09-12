@@ -28,12 +28,17 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.graphics.toArgb
 import kotlinx.coroutines.launch
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.style.TextDecoration
+import com.example.life_assistant.ViewModel.EventViewModel
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @Composable
 fun ClassificationScreen(
     navController: NavController,
     mvm: MemberViewModel,
+    evm: EventViewModel,
     modifier: Modifier = Modifier
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -235,6 +240,13 @@ fun ClassificationScreen(
                 )
             }
 
+            fun formatDateTime(dateTimeString: String): String {
+                val formatterInput = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+                val formatterOutput = DateTimeFormatter.ofPattern("MM/dd HH:mm")
+                val dateTime = LocalDateTime.parse(dateTimeString, formatterInput)
+                return dateTime.format(formatterOutput)
+            }
+
             LazyColumn(
                 modifier = Modifier.fillMaxSize()
             ) {
@@ -255,7 +267,7 @@ fun ClassificationScreen(
 
                     var events by remember { mutableStateOf<List<MemberViewModel.SimpleEvent>>(emptyList()) }
                     // 獲取事件列表
-                    LaunchedEffect(tag) {
+                    LaunchedEffect(tag,isExpanded) {
                         mvm.getEventByTag(tag) { fetchedEvents ->
                             events = fetchedEvents
                         }
@@ -418,15 +430,37 @@ fun ClassificationScreen(
                                     }
                                 }
                             }
-                            // 使用 AnimatedVisibility 顯示事件詳細信息
                             AnimatedVisibility(visible = isExpanded) {
                                 Column(modifier = Modifier.padding(start = 16.dp, top = 8.dp)) {
-                                    events.forEach { event ->
-                                        Text(
-                                            text = "${event.name} (${event.startTime} - ${event.endTime})",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            modifier = Modifier.padding(bottom = 8.dp)
-                                        )
+                                    // 將事件按照開始時間排序
+                                    val sortedEvents = events.sortedBy { event ->
+                                        LocalDateTime.parse(event.startTime, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
+                                    }
+
+                                    sortedEvents.forEach { event ->
+                                        val initialCheck = event.isDone
+                                        var isChecked by remember { mutableStateOf(initialCheck) }
+                                        val formattedStartTime = formatDateTime(event.startTime)
+                                        val formattedEndTime = formatDateTime(event.endTime)
+
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Checkbox(
+                                                checked = isChecked,
+                                                onCheckedChange = {
+                                                    isChecked = it
+                                                    evm.updateIsDone(isChecked, event.uid)
+                                                }
+                                            )
+                                            Text(
+                                                text = "${event.name} ($formattedStartTime - $formattedEndTime)",
+                                                style = MaterialTheme.typography.bodyMedium.copy(
+                                                    textDecoration = if (isChecked) TextDecoration.LineThrough else TextDecoration.None
+                                                ),
+                                                modifier = Modifier
+                                                    .padding(start = 8.dp, bottom = 8.dp)  // 適當的間距
+                                                    .fillMaxWidth()
+                                            )
+                                        }
                                     }
                                 }
                             }

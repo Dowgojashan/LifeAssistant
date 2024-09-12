@@ -474,43 +474,41 @@ fun DailyRow(
     fun computeEventOffset(event: Event, eventsForHour: List<Event>): Float {
         val eventKey = event.uid
 
-        // If position is already computed for any hour, return it
-        eventPositions.values.forEach { positionsForHour ->
-            positionsForHour[eventKey]?.let { return it }
+        // 確認事件是否已計算位置
+        val existingPosition = eventPositions[hour]?.get(eventKey)
+        if (existingPosition != null) {
+            return existingPosition // 如果已經有位置，直接返回
         }
 
-        // Compute new position if not found
-        val position = run {
-            var newPosition = 0f
-            var isPositionFound: Boolean
+        // 開始計算新位置
+        var newPosition = 0f
+        var isPositionFound: Boolean
 
-            do {
-                isPositionFound = true
-                for (e in eventsForHour) {
-                    if (event != e && eventPositions[hour]?.get(e.uid) == newPosition) {
-                        isPositionFound = false
-                        newPosition += (eventWidthPx + eventSpacingPx)
-                        break
-                    }
+        do {
+            isPositionFound = true
+            for (e in eventsForHour) {
+                if (event != e && eventPositions[hour]?.get(e.uid) == newPosition) {
+                    isPositionFound = false
+                    newPosition += (eventWidthPx + eventSpacingPx)
+                    break
                 }
-            } while (!isPositionFound)
+            }
+        } while (!isPositionFound)
 
-            newPosition
-        }
-
-        // Update position for all hours the event spans
+        // 一旦計算出位置，將其存儲在事件跨越的每個小時內
         val eventStartTime = parseEventDate(event.startTime)
         val eventEndTime = parseEventDate(event.endTime)
 
-        // Loop through each hour the event spans
+        // 跨日處理
+        val eventDurationDays = ChronoUnit.DAYS.between(eventStartTime.toLocalDate(), eventEndTime.toLocalDate()).toInt()
         for (h in eventStartTime.hour..eventEndTime.hour) {
             val hourKey = h.toString().padStart(2, '0')
             val positionsForHour = eventPositions.getOrPut(hourKey) { mutableMapOf() }
-            positionsForHour[eventKey] = position
+            positionsForHour[eventKey] = newPosition
         }
-
-        return position
+        return newPosition
     }
+
 
     // UI
     Row(

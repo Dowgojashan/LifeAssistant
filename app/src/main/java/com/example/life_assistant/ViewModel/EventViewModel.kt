@@ -1944,7 +1944,7 @@ class EventViewModel @Inject constructor(
             .addOnSuccessListener {
                 // 更新成功的處理邏輯
             }
-            .addOnFailureListener { error ->
+            .addOnFailureListener {
                 // 處理錯誤邏輯
             }
     }

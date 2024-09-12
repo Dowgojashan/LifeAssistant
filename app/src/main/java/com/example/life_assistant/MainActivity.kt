@@ -127,7 +127,7 @@ fun AuthenticationApp(){
             WeekCalendarScreen(navController, evm, mvm)
         }
         composable(DestinationScreen.Classification.route){
-            ClassificationScreen(navController,mvm)
+            ClassificationScreen(navController,mvm,evm)
         }
         composable(DestinationScreen.TimeReport.route){
             TimeReportScreen(navController,mvm)
