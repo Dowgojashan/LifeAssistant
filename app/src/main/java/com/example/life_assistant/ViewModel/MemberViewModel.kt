@@ -542,16 +542,19 @@ class MemberViewModel @Inject constructor(
                 (eventEnd.isAfter(rangeStart) || eventEnd.isEqual(rangeStart))
     }
 
-    // MutableLiveData 用於保存標籤和時間的映射
-    private val _eventsByTag = MutableLiveData<Map<String, Double>>()
-    val eventsByTag: LiveData<Map<String, Double>> get() = _eventsByTag
 
     private fun parseEventLocalDateTime(dateString: String): LocalDateTime {
         val eventFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
         return LocalDateTime.parse(dateString.trim(), eventFormatter)
     }
 
-    // 取得該使用者某個月的全部行程並計算各標籤的總時間
+    private val _eventsByTag = MutableLiveData<Map<String, Double>>()
+    val eventsByTag: LiveData<Map<String, Double>> get() = _eventsByTag
+
+    private val _tagCompletionRate = MutableLiveData<Map<String, Double>>()
+    val tagCompletionRate: LiveData<Map<String, Double>> get() = _tagCompletionRate
+
+    // 取得該使用者某個月的全部行程並計算各標籤的總時間與完成率
     fun getTotalTimeByTagForMonth(yearMonth: String) {
         val memberId = auth.currentUser?.uid ?: return
         val eventRef = database.getReference("members").child(memberId).child("events")
@@ -567,7 +570,8 @@ class MemberViewModel @Inject constructor(
             val endOfMonth = yearMonthObj.atEndOfMonth().atTime(23, 59, 59, 999999999)
 
             eventRef.get().addOnSuccessListener { snapshot ->
-                val tagTimeMap = mutableMapOf<String, Double>()
+                val tagStatsMap = mutableMapOf<String, Pair<Double, Int>>() // Pair(總時間, 完成數)
+                val tagCountMap = mutableMapOf<String, Int>() // 標籤的總事件數
 
                 for (data in snapshot.children) {
                     val eventMap = data.value as? Map<*, *>
@@ -575,6 +579,7 @@ class MemberViewModel @Inject constructor(
                         val tags = eventMap["tags"] as? String ?: ""
                         val startTime = eventMap["startTime"] as? String ?: ""
                         val endTime = eventMap["endTime"] as? String ?: ""
+                        val isDone = eventMap["isDone"] as? Boolean ?: false
 
                         val start = parseEventLocalDateTime(startTime)
                         val end = parseEventLocalDateTime(endTime)
@@ -584,15 +589,34 @@ class MemberViewModel @Inject constructor(
                             val duration = Duration.between(start, end).toMinutes().toDouble()
                             val hours = duration / 60
 
-                            // 將持續時間累加到對應標籤中，並保留小數點後一位
-                            tagTimeMap[tags] = tagTimeMap.getOrDefault(tags, 0.0) + hours
+                            // 更新標籤的總時間和完成數
+                            val (totalTime, doneCount) = tagStatsMap.getOrDefault(tags, 0.0 to 0)
+                            val newDoneCount = if (isDone) doneCount + 1 else doneCount
+                            tagStatsMap[tags] = totalTime + hours to newDoneCount
+
+                            // 更新標籤的總事件數
+                            tagCountMap[tags] = tagCountMap.getOrDefault(tags, 0) + 1
                         }
                     }
                 }
 
-                // 更新 LiveData 以便更新 UI
-                _eventsByTag.value = tagTimeMap.mapValues { String.format("%.1f", it.value).toDouble() }
-                println("event in back:$_eventsByTag")
+                // 計算總時間
+                val totalTimeMap = tagStatsMap.mapValues { entry ->
+                    String.format("%.1f", entry.value.first).toDouble()
+                }
+                _eventsByTag.value = totalTimeMap
+
+                // 計算完成率
+                val completionRateMap = tagStatsMap.mapValues { entry ->
+                    val (totalTime, doneCount) = entry.value
+                    val totalCount = tagCountMap[entry.key] ?: 0
+                    val completionRate = if (totalCount > 0) (doneCount.toDouble() / totalCount) * 100 else 0.0
+                    String.format("%.1f", completionRate).toDouble()
+                }
+                _tagCompletionRate.value = completionRateMap
+
+                println("Total time: $_eventsByTag")
+                println("Completion rates: $_tagCompletionRate")
             }.addOnFailureListener { exception ->
                 handleException(exception, "Unable to fetch events for month $yearMonth")
             }
@@ -602,22 +626,25 @@ class MemberViewModel @Inject constructor(
         }
     }
 
+
+
+
     // 檢查事件是否在指定的月份內
     private fun isDateInMonth(start: LocalDateTime, end: LocalDateTime, startOfMonth: LocalDateTime, endOfMonth: LocalDateTime): Boolean {
         return (start.isBefore(endOfMonth) || start.isEqual(endOfMonth)) &&
                 (end.isAfter(startOfMonth) || end.isEqual(startOfMonth))
     }
 
-    //塞出當日的事件 然後分別計算各個標籤的總時長
-    fun getTotalTimeByTagForDay(yearMonth: String) {
+    // 塞出當日的事件 然後分別計算各個標籤的總時長和完成率
+    fun getTotalTimeByTagForDay(yearMonthDay: String) {
         val memberId = auth.currentUser?.uid ?: return
         val eventRef = database.getReference("members").child(memberId).child("events")
-        println("DDDtime:$yearMonth")
+        println("DDDtime:$yearMonthDay")
 
         try {
             // 將 yearMonthDay 字串轉換為 LocalDate 物件
             val formatter = DateTimeFormatter.ofPattern("yyyy年M月d日")
-            val date = LocalDate.parse(yearMonth, formatter)
+            val date = LocalDate.parse(yearMonthDay, formatter)
 
             // 計算當日的開始時間和結束時間
             val startOfDay = date.atStartOfDay()
@@ -625,6 +652,7 @@ class MemberViewModel @Inject constructor(
 
             eventRef.get().addOnSuccessListener { snapshot ->
                 val tagTimeMap = mutableMapOf<String, Double>()
+                val tagCompletionMap = mutableMapOf<String, Pair<Int, Int>>() // Pair(完成數, 總事件數)
 
                 for (data in snapshot.children) {
                     val eventMap = data.value as? Map<*, *>
@@ -632,6 +660,7 @@ class MemberViewModel @Inject constructor(
                         val tags = eventMap["tags"] as? String ?: ""
                         val startTime = eventMap["startTime"] as? String ?: ""
                         val endTime = eventMap["endTime"] as? String ?: ""
+                        val isDone = eventMap["isDone"] as? Boolean ?: false
 
                         val start = parseEventLocalDateTime(startTime)
                         val end = parseEventLocalDateTime(endTime)
@@ -643,21 +672,40 @@ class MemberViewModel @Inject constructor(
 
                             // 將持續時間累加到對應標籤中，並保留小數點後一位
                             tagTimeMap[tags] = tagTimeMap.getOrDefault(tags, 0.0) + hours
+
+                            // 更新標籤的完成數和總事件數
+                            val (doneCount, totalCount) = tagCompletionMap.getOrDefault(tags, 0 to 0)
+                            val newDoneCount = if (isDone) doneCount + 1 else doneCount
+                            tagCompletionMap[tags] = newDoneCount to (totalCount + 1)
                         }
                     }
                 }
 
-                // 更新 LiveData 以便更新 UI
-                _eventsByTag.value = tagTimeMap.mapValues { String.format("%.1f", it.value).toDouble() }
-                println("event in back:$_eventsByTag")
+                // 計算總時間
+                val totalTimeMap = tagTimeMap.mapValues { entry ->
+                    String.format("%.1f", entry.value).toDouble()
+                }
+                _eventsByTag.value = totalTimeMap
+
+                // 計算完成率
+                val completionRateMap = tagCompletionMap.mapValues { entry ->
+                    val (doneCount, totalCount) = entry.value
+                    if (totalCount > 0) (doneCount.toDouble() / totalCount) * 100 else 0.0
+                }.mapValues { String.format("%.1f", it.value).toDouble() }
+                _tagCompletionRate.value = completionRateMap
+
+                println("Total time: $_eventsByTag")
+                println("Completion rates: $_tagCompletionRate")
             }.addOnFailureListener { exception ->
-                handleException(exception, "Unable to fetch events for day $yearMonth")
+                handleException(exception, "Unable to fetch events for day $yearMonthDay")
             }
         } catch (e: DateTimeParseException) {
             // 處理日期解析錯誤
-            handleException(e, "Invalid date format: $yearMonth")
+            handleException(e, "Invalid date format: $yearMonthDay")
         }
     }
+
+
 
     // 檢查事件是否在指定的日期內
     private fun isDateInDay(start: LocalDateTime, end: LocalDateTime, startOfDay: LocalDateTime, endOfDay: LocalDateTime): Boolean {

@@ -232,7 +232,8 @@ fun TimeReportScreen(
         }
 
         val eventByTag by mvm.eventsByTag.observeAsState(emptyMap())
-        println("event:$eventByTag")
+        val eventDoneByTag by mvm.tagCompletionRate.observeAsState(emptyMap())
+        println("event:$eventByTag,$eventDoneByTag")
 
         val colorTag = mvm.colors.value
         val initialReadingColors = colorTag?.readingColors ?:0xff7fabd1
@@ -284,6 +285,10 @@ fun TimeReportScreen(
         val updatedCategories = categories.map { category ->
             val timeOfCategory = eventByTag[category.name] ?: 0.0
             category.copy(hours = timeOfCategory.toFloat())
+        }
+
+        val completionRates = categories.associate { category ->
+            category.name to (eventDoneByTag[category.name] ?: 0.0)
         }
 
         // 分別取出七個變數
@@ -352,6 +357,9 @@ fun TimeReportScreen(
                     val percentage = if (totalHours > 0) (category.hours / totalHours * 100) else 0f
                     val percentageText = String.format("%.1f%%", percentage)
 
+                    val completionRate = completionRates[category.name] ?: 0.0
+                    val completionRateText = String.format("%.1f%%", completionRate)
+
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -394,7 +402,7 @@ fun TimeReportScreen(
                         )
 
                         Text(
-                            text = percentageText,
+                            text = completionRateText,
                             style = MaterialTheme.typography.bodyMedium,
                             fontSize = 24.sp,
                             textAlign = TextAlign.End, // 確保百分比靠右對齊
