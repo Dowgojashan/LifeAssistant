@@ -115,4 +115,11 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.2")
     implementation("androidx.compose.runtime:runtime-rxjava3:1.6.8")
     implementation("com.android.tools:desugar_jdk_libs:2.0.4")
+
+    //模型相關
+    implementation ("org.tensorflow:tensorflow-lite:2.10.0")
+    implementation ("org.tensorflow:tensorflow-lite-select-tf-ops:2.10.0")  // Optional, if you need select TensorFlow ops
+    implementation ("org.tensorflow:tensorflow-lite-support:0.4.2")  // Optional, for additional support libraries
+    implementation ("org.tensorflow:tensorflow-lite-metadata:0.2.0")
+}
 }
