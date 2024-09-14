@@ -346,12 +346,56 @@ fun TimeReportScreen(
                     )
             )
 
+            // Header Row for the LazyColumn
+            Row(
+                modifier = Modifier
+                    .requiredWidth(300.dp)
+                    .padding(vertical = 1.dp)
+                    .align(Alignment.TopCenter)
+                    .offset(y = 50.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "項目",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontSize = 24.sp,
+                    modifier = Modifier.weight(1f)
+                )
+
+                Text(
+                    text = "耗時",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontSize = 24.sp,
+                    textAlign = TextAlign.End,
+                    modifier = Modifier.weight(1f)
+                )
+
+                Spacer(modifier = Modifier.width(4.dp))
+
+                Text(
+                    text = "占比",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontSize = 24.sp,
+                    textAlign = TextAlign.End,
+                    modifier = Modifier.weight(1f)
+                )
+
+                Text(
+                    text = "完成率",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontSize = 24.sp,
+                    textAlign = TextAlign.End,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
             // 定義 LazyColumn 顯示各種類別及其所花費的時間和百分比
             LazyColumn(
                 modifier = Modifier
                     .requiredWidth(300.dp)
                     .align(Alignment.TopCenter)
-                    .offset(y = 50.dp)
+                    .offset(y = 90.dp)
             ) {
                 items(categories) { category ->
                     val percentage = if (totalHours > 0) (category.hours / totalHours * 100) else 0f
