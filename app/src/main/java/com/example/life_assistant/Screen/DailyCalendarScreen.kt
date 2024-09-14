@@ -1500,19 +1500,6 @@ fun UserInputDialog(
                                             }
                                         }
                                         Spacer(modifier = Modifier.height(8.dp))
-                                        //是否要每天重複排
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Text("是否要每天重複:", color = Color.Black)
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Checkbox(
-                                                checked = dailyRepeat,
-                                                onCheckedChange = { dailyRepeat = it },
-                                                colors = CheckboxDefaults.colors(
-                                                    checkedColor = colorResource1(id = R.color.light_blue),
-                                                    uncheckedColor = Color.Gray
-                                                )
-                                            )
-                                        }
                                     }
                                 }
                             )
