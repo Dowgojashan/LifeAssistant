@@ -123,4 +123,3 @@ dependencies {
     implementation ("org.tensorflow:tensorflow-lite-support:0.4.2")  // Optional, for additional support libraries
     implementation ("org.tensorflow:tensorflow-lite-metadata:0.2.0")
 }
-}

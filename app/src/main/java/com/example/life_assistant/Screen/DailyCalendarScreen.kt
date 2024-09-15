@@ -3,6 +3,7 @@ package com.example.life_assistant.Screen
 import android.annotation.SuppressLint
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
+import android.content.Context
 import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
@@ -50,9 +51,16 @@ import androidx.compose.ui.window.Dialog
 import androidx.navigation.NavController
 import com.example.life_assistant.DestinationScreen
 import com.example.life_assistant.R
+import com.example.life_assistant.TFLiteModel
 import com.example.life_assistant.ViewModel.EventViewModel
 import com.example.life_assistant.ViewModel.MemberViewModel
 import com.example.life_assistant.data.Event
+import com.example.life_assistant.predefinedSchedules
+import com.example.life_assistant.tokenize
+import java.io.BufferedReader
+import java.io.InputStreamReader
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import java.util.*
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -64,6 +72,8 @@ import java.time.format.DateTimeParseException
 import java.time.format.TextStyle
 import java.time.temporal.ChronoUnit
 import androidx.compose.ui.res.colorResource as colorResource1
+
+
 
 
 @RequiresApi(Build.VERSION_CODES.O)
@@ -981,6 +991,11 @@ fun UserInputDialog(
     val (timePart, optionPart) = parseIdealTimeString(idealTime)
     var selectedOption by remember { mutableStateOf(optionPart) }
 
+    val context = LocalContext.current
+    val vocab = loadVocab(context, "vocab.txt")
+    val tfliteModel = TFLiteModel(context, "model.tflite")
+    val tagList = listOf("工作", "娛樂", "運動", "生活雜務", "讀書", "旅遊", "吃飯")
+
 
     Log.d("date", "$selectedDay")
 
@@ -1012,7 +1027,34 @@ fun UserInputDialog(
                 // 設定事件名稱
                 OutlinedTextField(
                     value = name,
-                    onValueChange = { name = it },
+                    onValueChange = { newName ->
+                        name = newName
+
+                        // 當使用者輸入完事件名稱時，觸發標籤推論
+                        val normalizedInput = newName.trim().replace("\\s+".toRegex(), " ")
+                        val predefinedClassification = predefinedSchedules[normalizedInput]
+
+                        if (predefinedClassification != null) {
+                            // 如果匹配到預設行程，直接更新標籤
+                            tags = predefinedClassification
+                        } else {
+                            // 如果沒有匹配到預設行程，使用模型推論
+                            val input = tokenize(newName, vocab)
+                            val inputBuffer = ByteBuffer.allocateDirect(768 * 4).order(ByteOrder.nativeOrder())
+                            inputBuffer.asFloatBuffer().put(input)
+
+                            try {
+                                val output = tfliteModel.runInference(inputBuffer)
+                                val predictedTag = output[0].indices.maxByOrNull { output[0][it] }?.let { index ->
+                                    tagList[index] // 假設有一個標籤列表 tagList
+                                }
+                                // 更新選擇的標籤
+                                tags = predictedTag ?: "未知標籤"
+                            } catch (e: Exception) {
+                                Log.e("TagSelection", "模型推論失敗", e)
+                            }
+                        }
+                    },
                     label = { Text("事件名稱", color = Color.Black) },
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -2734,4 +2776,18 @@ fun parseIdealTimeString(idealTimeString: String): Pair<Pair<Int, Int>, String> 
     } catch (e: Exception) {
         Pair(Pair(0, 0), "之前") // 如果解析失敗，預設為 0 小時 0 分鐘 和 "之前"
     }
+}
+
+fun loadVocab(context: Context, assetFileName: String): Map<String, Int> {
+    val vocab = mutableMapOf<String, Int>()
+    context.assets.open(assetFileName).use { inputStream ->
+        BufferedReader(InputStreamReader(inputStream)).use { reader ->
+            var line: String?
+            var index = 0
+            while (reader.readLine().also { line = it } != null) {
+                vocab[line!!] = index++
+            }
+        }
+    }
+    return vocab
 }
