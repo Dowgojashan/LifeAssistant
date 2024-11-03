@@ -8,13 +8,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.life_assistant.Event
 import com.example.life_assistant.Repository.MemberRepository
-import com.example.life_assistant.Screen.convertLongToDate
+import com.example.life_assistant.Screen.convertLongToDateForBack
 import com.example.life_assistant.Screen.isDateInMonth
 import com.example.life_assistant.data.Colors
 import com.example.life_assistant.data.Member
@@ -70,7 +71,15 @@ class MemberViewModel @Inject constructor(
     fun onSignup(name: String, email: String, pass: String, birthday: Long) {
         inProgress.value = true
 
-        val formattedBirthday = convertLongToDate(birthday)
+        val workColor = 0xffdb697a
+        val leisureColor = 0xffee8575
+        val sportColor = 0xffffe9af
+        val houseworkColor = 0xff8dccb3
+        val readingColor = 0xff7fabd1
+        val travelColor = 0xff867bb9
+        val eatingColor = 0xfff4d6d8
+
+        val formattedBirthday = convertLongToDateForBack(birthday)
 
         auth.createUserWithEmailAndPassword(email, pass)
             .addOnCompleteListener { authTask ->
@@ -92,6 +101,15 @@ class MemberViewModel @Inject constructor(
                                             uid = userId,
                                             name = name,
                                             birthday = formattedBirthday
+                                        )
+                                        updateColors(
+                                            readingColor = readingColor,
+                                            sportColor = sportColor,
+                                            workColor = workColor,
+                                            leisureColor = leisureColor,
+                                            houseworkColor = houseworkColor,
+                                            travelColor = travelColor,
+                                            eatingColor = eatingColor
                                         )
                                         //insertMember(memberEntity)
 

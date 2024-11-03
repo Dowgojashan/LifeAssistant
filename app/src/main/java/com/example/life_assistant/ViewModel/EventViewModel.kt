@@ -2074,7 +2074,7 @@ class EventViewModel @Inject constructor(
     }
 
     //從firebase抓全部資料並回傳其分類結果
-    fun classifyEventsFromFirebase(inputEvent: String, callback: (Map<Pair<String, String>, Int>) -> Unit) {
+    fun classifyEventsFromFirebase(inputEvent: String,currentMonth: LocalDate? = null, callback: (Map<Pair<String, String>, Int>) -> Unit) {
         val memberId = auth.currentUser?.uid ?: return
         val eventRef = database.getReference("members").child(memberId).child("events")
 
@@ -2143,22 +2143,43 @@ class EventViewModel @Inject constructor(
                                         val startTime = slot.first
                                         val endTime = slot.second
 
-                                        addEvent(
-                                            name = inputEvent,
-                                            startTime = startTime,
-                                            endTime = endTime,
-                                            tags = tag,
-                                            alarmTime = "1天前",
-                                            repeatEndDate = "",
-                                            repeatType = "無",
-                                            duration = "",
-                                            idealTime = "",
-                                            shortestTime = "",
-                                            longestTime = "",
-                                            dailyRepeat = false,
-                                            disturb = false,
-                                            description = ""
-                                        )
+                                        if(currentMonth == null){
+                                            addEvent(
+                                                name = inputEvent,
+                                                startTime = startTime,
+                                                endTime = endTime,
+                                                tags = tag,
+                                                alarmTime = "1天前",
+                                                repeatEndDate = "",
+                                                repeatType = "無",
+                                                duration = "",
+                                                idealTime = "",
+                                                shortestTime = "",
+                                                longestTime = "",
+                                                dailyRepeat = false,
+                                                disturb = false,
+                                                description = "",
+                                            )
+                                        }
+                                        else{
+                                            addEvent(
+                                                name = inputEvent,
+                                                startTime = startTime,
+                                                endTime = endTime,
+                                                tags = tag,
+                                                alarmTime = "1天前",
+                                                repeatEndDate = "",
+                                                repeatType = "無",
+                                                duration = "",
+                                                idealTime = "",
+                                                shortestTime = "",
+                                                longestTime = "",
+                                                dailyRepeat = false,
+                                                disturb = false,
+                                                description = "",
+                                                currentMonth = currentMonth,
+                                            )
+                                        }
                                     }
                                 }
                             }

@@ -241,7 +241,7 @@ fun MonthCalendarScreen(
                         evm.checkEvent(searchQuery) { count ->
                             Log.d("EventCount", "找到 $count 筆相似事件")
                             if (count >= 10) {
-                                evm.classifyEventsFromFirebase(searchQuery) { classification ->
+                                evm.classifyEventsFromFirebase(searchQuery,currentMonth) { classification ->
                                     println("分類後:$classification")
                                 }
                             } else {
@@ -273,7 +273,8 @@ fun MonthCalendarScreen(
             selectedDate = selectedDate,  // 使用選擇的日期來顯示對話框
             evm = evm,
             onDismiss = { showInputDialog = false },
-            selectedHour = selectedHour
+            selectedHour = selectedHour,
+            currentMonth = currentMonth,
         )
     }
 

@@ -502,6 +502,17 @@ fun convertLongToDate(time: Long): String {
     return "${year}年\n${month}月${day}日"
 }
 
+fun convertLongToDateForBack(time: Long): String {
+    val calendar = Calendar.getInstance()
+    calendar.timeInMillis = time
+
+    val year = calendar.get(Calendar.YEAR)
+    val month = calendar.get(Calendar.MONTH) + 1
+    val day = calendar.get(Calendar.DAY_OF_MONTH)
+
+    return "${year}年${month}月${day}日"
+}
+
 
 //@Preview(widthDp = 360, heightDp = 800)
 //@Composable

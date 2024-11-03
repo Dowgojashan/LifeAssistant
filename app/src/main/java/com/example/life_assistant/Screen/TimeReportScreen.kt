@@ -374,15 +374,7 @@ fun TimeReportScreen(
                 Spacer(modifier = Modifier.width(4.dp))
 
                 Text(
-                    text = "占比",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontSize = 24.sp,
-                    textAlign = TextAlign.End,
-                    modifier = Modifier.weight(1f)
-                )
-
-                Text(
-                    text = "完成率",
+                    text = "佔比",
                     style = MaterialTheme.typography.bodyMedium,
                     fontSize = 24.sp,
                     textAlign = TextAlign.End,
@@ -439,14 +431,6 @@ fun TimeReportScreen(
 
                         Text(
                             text = percentageText,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontSize = 24.sp,
-                            textAlign = TextAlign.End, // 確保百分比靠右對齊
-                            modifier = Modifier.weight(1f)
-                        )
-
-                        Text(
-                            text = completionRateText,
                             style = MaterialTheme.typography.bodyMedium,
                             fontSize = 24.sp,
                             textAlign = TextAlign.End, // 確保百分比靠右對齊

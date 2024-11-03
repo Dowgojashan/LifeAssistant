@@ -263,7 +263,7 @@ fun MainScreen(
                         title = { Text(text = "修改暱稱") },
                         text = {
                             TextField(
-                                value = member?.name ?: "",
+                                value = name,
                                 onValueChange = { name = it },
                                 placeholder = { Text(text = "輸入新暱稱") }
                             )

@@ -83,6 +83,7 @@ val predefinedSchedules = mapOf(
     "寫申論題" to "讀書",
     "讀論文" to "讀書",
     "寫作業" to "讀書",
+    "讀MIS" to "讀書",
     "去逛街" to "旅遊",
     "去西門町" to "旅遊",
     "去台北車站" to "旅遊",
