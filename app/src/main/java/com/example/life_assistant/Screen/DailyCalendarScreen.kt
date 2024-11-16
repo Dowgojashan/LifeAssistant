@@ -97,6 +97,9 @@ fun DailyCalendarScreen(
     var searchQuery by remember { mutableStateOf("") }
     var alertMessage by remember { mutableStateOf("") }
     var showErrorDialog by remember { mutableStateOf((false)) }
+    var showChat by remember {mutableStateOf(false)}
+    val chatHistory by remember { mutableStateOf(false) }
+
 
     LaunchedEffect(selectedDate, events) {
         // 確保事件和排版位置是同步的
@@ -190,6 +193,14 @@ fun DailyCalendarScreen(
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                         contentDescription = "Next Week",
+                        modifier = Modifier.size(32.dp)
+                    )
+                }
+
+                IconButton(onClick = {showChat = true }) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.tabler_message),
+                        contentDescription = "Open Chat",
                         modifier = Modifier.size(32.dp)
                     )
                 }
@@ -375,6 +386,26 @@ fun DailyCalendarScreen(
                 }
             }
         )
+    }
+
+    if (showChat) {
+        Dialog(onDismissRequest = { showChat = false }) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                shape = MaterialTheme.shapes.medium,
+                color = Color.White
+            ) {
+                ChatUI(
+                    chatHistory = chatHistory,
+                    onMessageSend = { message ->
+
+                    },
+                    onClose = { showChat = false } // 點擊關閉聊天室
+                )
+            }
+        }
     }
 }
 
@@ -595,7 +626,11 @@ fun DailyRow(
                             y = with(LocalDensity.current) { (startFraction * 60.dp.toPx()).toDp() })
                         .width(eventWidth)
                         .fillMaxHeight(heightFraction)
-                        .background(Color((colorValueByTag[eventTag] ?: Color.Gray.toArgb()).toInt()))
+                        .background(
+                            Color(
+                                (colorValueByTag[eventTag] ?: Color.Gray.toArgb()).toInt()
+                            )
+                        )
                         .clip(RoundedCornerShape(4.dp))
                         .clickable { selectedEvent = event }
                 ) {
@@ -2790,4 +2825,89 @@ fun loadVocab(context: Context, assetFileName: String): Map<String, Int> {
         }
     }
     return vocab
+}
+
+@Composable
+fun ChatUI(
+    chatHistory: Boolean,
+    onMessageSend: (String) -> Unit,
+    onClose: () -> Unit
+) {
+    var inputMessage by remember { mutableStateOf("") }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp)
+            .background(Color.White)
+    ) {
+        // 標題和關閉按鈕
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("智能助理")
+            IconButton(onClick = onClose) {
+                Icon(
+                    painter = painterResource(id = R.drawable.tabler_message),
+                    contentDescription = "Close",
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // 聊天記錄
+        LazyColumn(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth(),
+            reverseLayout = true // 新訊息出現在底部
+        ) {
+
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // 輸入框和發送按鈕
+        ChatInputBox(
+            inputMessage = inputMessage,
+            onMessageChange = { inputMessage = it },
+            onMessageSend = {
+                if (inputMessage.isNotBlank()) {
+                    onMessageSend(inputMessage)
+                    inputMessage = ""
+                }
+            }
+        )
+    }
+}
+
+
+@Composable
+fun ChatInputBox(
+    inputMessage: String,
+    onMessageChange: (String) -> Unit,
+    onMessageSend: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        OutlinedTextField(
+            value = inputMessage,
+            onValueChange = onMessageChange,
+            modifier = Modifier.weight(1f),
+            placeholder = { Text("輸入待辦事項...") }
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Button(
+            onClick = onMessageSend,
+            enabled = inputMessage.isNotBlank() // 禁止空訊息
+        ) {
+            Text("發送")
+        }
+    }
 }
