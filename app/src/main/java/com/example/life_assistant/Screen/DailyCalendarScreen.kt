@@ -48,10 +48,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.life_assistant.DestinationScreen
 import com.example.life_assistant.R
 import com.example.life_assistant.TFLiteModel
+import com.example.life_assistant.ViewModel.ChatViewModel
 import com.example.life_assistant.ViewModel.EventViewModel
 import com.example.life_assistant.ViewModel.MemberViewModel
 import com.example.life_assistant.data.Event
@@ -302,6 +304,7 @@ fun DailyCalendarScreen(
             }
         }
     }
+    val DeepNavy = Color(0xFF001F54)
     if (showDialog) {
         AlertDialog(
             onDismissRequest = { showDialog = false },
@@ -310,7 +313,19 @@ fun DailyCalendarScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text(text = "自動排程")
+                    Text(
+                        text = "自動排程",
+                        color = DeepNavy,
+                        style = MaterialTheme.typography.bodyLarge // 根據需求可調整字體大小
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp)) // 添加間距
+
+                    // 其餘說明文字，字體縮小
+                    Text(
+                        text = "此功能使用歷史數據，幫助您快速生成時間表，只需輸入事件名稱即可。\n若歷史數據不足，可以去使用需手動設置一些條件的自動排程",
+                        style = MaterialTheme.typography.bodySmall // 使用小字體樣式
+                    )
                     IconButton(onClick = {
                         showDialog = false
                         // Trigger the UserInputDialog here
@@ -398,7 +413,6 @@ fun DailyCalendarScreen(
                 color = Color.White
             ) {
                 ChatUI(
-                    chatHistory = chatHistory,
                     onMessageSend = { message ->
 
                     },
@@ -2829,11 +2843,12 @@ fun loadVocab(context: Context, assetFileName: String): Map<String, Int> {
 
 @Composable
 fun ChatUI(
-    chatHistory: Boolean,
+    cvm: ChatViewModel = viewModel(),
     onMessageSend: (String) -> Unit,
     onClose: () -> Unit
 ) {
     var inputMessage by remember { mutableStateOf("") }
+    val chatMessages by cvm.chatMessages.collectAsState()
 
     Column(
         modifier = Modifier
@@ -2864,50 +2879,43 @@ fun ChatUI(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth(),
-            reverseLayout = true // 新訊息出現在底部
+            reverseLayout = false // 新訊息出現在底部
         ) {
-
+            items(chatMessages) { message ->
+                Text(
+                    text = "${message.role}: ${message.content}",
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.padding(vertical = 4.dp)
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(8.dp))
 
         // 輸入框和發送按鈕
-        ChatInputBox(
-            inputMessage = inputMessage,
-            onMessageChange = { inputMessage = it },
-            onMessageSend = {
-                if (inputMessage.isNotBlank()) {
-                    onMessageSend(inputMessage)
-                    inputMessage = ""
-                }
-            }
-        )
-    }
-}
-
-
-@Composable
-fun ChatInputBox(
-    inputMessage: String,
-    onMessageChange: (String) -> Unit,
-    onMessageSend: () -> Unit
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        OutlinedTextField(
-            value = inputMessage,
-            onValueChange = onMessageChange,
-            modifier = Modifier.weight(1f),
-            placeholder = { Text("輸入待辦事項...") }
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        Button(
-            onClick = onMessageSend,
-            enabled = inputMessage.isNotBlank() // 禁止空訊息
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("發送")
+            OutlinedTextField(
+                value = inputMessage,
+                onValueChange = { inputMessage = it },
+                modifier = Modifier.weight(1f),
+                placeholder = { Text("輸入訊息...") }
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Button(
+                onClick = {
+                    if (inputMessage.isNotBlank()) {
+                        cvm.sendMessage(inputMessage)
+                        Log.d("ChatScreen", "onclick")
+                        inputMessage = ""  // 清空輸入框
+                    }
+                },
+                enabled = inputMessage.isNotBlank() // 禁止空訊息
+            ) {
+                Text("發送")
+            }
         }
     }
 }
