@@ -221,6 +221,7 @@ fun TimeReportScreen(
             mvm.getColors()
         }
         LaunchedEffect(selectedYearMonth) {
+            print("check")
             if (selectedYearMonth.length > 8) {
                 // yyyy年M月D日格式
                 mvm.getTotalTimeByTagForDay(selectedYearMonth)

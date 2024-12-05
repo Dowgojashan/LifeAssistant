@@ -135,7 +135,7 @@ fun AuthenticationApp(){
             TimeReportScreen(navController,mvm)
         }
         composable(DestinationScreen.FinishReport.route){
-            FinishReportScreen(navController, mvm)
+            FinishReportScreen(navController, mvm, evm)
         }
     }
 }

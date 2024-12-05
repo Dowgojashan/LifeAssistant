@@ -32,12 +32,15 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.text.SimpleDateFormat
 import java.time.Duration
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
+import java.util.Date
+import java.util.Locale
 import javax.inject.Inject
 
 @HiltViewModel
@@ -731,5 +734,106 @@ class MemberViewModel @Inject constructor(
                 (end.isAfter(startOfDay) || end.isEqual(startOfDay))
     }
 
+    private val _eventsDoneByTag = MutableLiveData<Map<String, Double>>()
+    val eventsDoneByTag: LiveData<Map<String, Double>> get() = _eventsDoneByTag
+
+    private val _eventsDoneonTimeByTag = MutableLiveData<Map<String, Double>>()
+    val eventsDoneonTimeByTag: LiveData<Map<String, Double>> get() = _eventsDoneonTimeByTag
+
+    fun getDoneByTagWithOnTimeRate(yearMonth: String) {
+        val memberId = auth.currentUser?.uid ?: return
+        val eventRef = database.getReference("members").child(memberId).child("events")
+
+        try {
+            // 將 yearMonth 字串轉換為 YearMonth 物件
+            val formatter = DateTimeFormatter.ofPattern("yyyy年MM月")
+            val yearMonthObj = YearMonth.parse(yearMonth, formatter)
+
+            // 計算該月的第一天和最後一天
+            val startOfMonth = yearMonthObj.atDay(1).atStartOfDay()
+            val endOfMonth = yearMonthObj.atEndOfMonth().atTime(23, 59, 59, 999999999)
+
+            eventRef.addListenerForSingleValueEvent(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    val tagStats = mutableMapOf<String, Pair<Int, Int>>() // 總完成數量和準時完成數量
+                    val completionRates = mutableMapOf<String, Double>() // 完成率
+                    val onTimeRates = mutableMapOf<String, Double>() // 準時完成率
+
+                    for (eventSnapshot in snapshot.children) {
+                        val startStr = eventSnapshot.child("startTime").value as? String ?: ""
+                        val endStr = eventSnapshot.child("endTime").value as? String ?: ""
+                        val isDone = eventSnapshot.child("isDone").value as? Boolean ?: false
+                        val tag = eventSnapshot.child("tags").value as? String ?: ""
+                        val doneTimeStr = eventSnapshot.child("doneTime").value as? String ?: ""
+
+                        val start = parseEventLocalDateTime(startStr)
+                        val end = parseEventLocalDateTime(endStr)
+
+                        if (start != null && end != null && isDateInMonth(start, end, startOfMonth, endOfMonth)) {
+                            if (isDone) {
+                                // 累積每個標籤的完成和準時完成事件數
+                                val (doneTotal, onTimeTotal) = tagStats[tag] ?: Pair(0, 0)
+
+                                val doneTime = parseEventLocalDateTime(doneTimeStr)
+                                // 準時完成的判斷
+                                val isOnTime = doneTime != null && !doneTime.isAfter(end) // 檢查是否在end當天前或等於end當天
+
+                                tagStats[tag] = Pair(doneTotal + 1, onTimeTotal + if (isOnTime) 1 else 0)
+                            }
+                        }
+                    }
+
+                    // 計算完成率與準時完成率
+                    for ((tag, stats) in tagStats) {
+                        val (doneTotal, onTimeTotal) = stats
+                        val totalEventsForTag = snapshot.children.count {
+                            (it.child("tags").value as? String) == tag
+                        }
+
+                        val completionRate = if (totalEventsForTag > 0) {
+                            (doneTotal.toDouble() / totalEventsForTag * 100).let {
+                                String.format("%.2f", it).toDouble()
+                            }
+                        } else 0.0
+
+                        val onTimeRate = if (doneTotal > 0) {
+                            (onTimeTotal.toDouble() / doneTotal * 100).let {
+                                String.format("%.2f", it).toDouble()
+                            }
+                        } else 0.0
+
+
+                        completionRates[tag] = completionRate
+                        onTimeRates[tag] = onTimeRate
+                    }
+
+                    // 顯示計算結果
+                    println("Completion rates: $completionRates")
+                    println("On-time rates: $onTimeRates")
+
+                    // 更新 LiveData
+                    _eventsDoneByTag.postValue(completionRates)
+                    _eventsDoneonTimeByTag.postValue(onTimeRates)
+                    println("back: $_eventsDoneByTag,$_eventsDoneonTimeByTag")
+                }
+
+                override fun onCancelled(error: DatabaseError) {
+                    println("Failed to fetch data: ${error.message}")
+                }
+            })
+        } catch (e: DateTimeParseException) {
+            handleException(e, "Invalid date format: $yearMonth")
+        }
+    }
+
+    // 輔助函式，用於解析日期時間字串
+    private fun parseDateTime(dateTimeStr: String): Date? {
+        return try {
+            val format = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
+            format.parse(dateTimeStr)
+        } catch (e: Exception) {
+            null
+        }
+    }
 
 }

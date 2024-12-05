@@ -51,6 +51,7 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.life_assistant.DestinationScreen
 import com.example.life_assistant.R
+import com.example.life_assistant.ViewModel.EventViewModel
 import com.example.life_assistant.ViewModel.MemberViewModel
 import kotlin.time.Duration.Companion.hours
 
@@ -58,6 +59,7 @@ import kotlin.time.Duration.Companion.hours
 fun FinishReportScreen(
     navController: NavController,
     mvm: MemberViewModel,
+    evm: EventViewModel,
     modifier: Modifier = Modifier
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -170,7 +172,7 @@ fun FinishReportScreen(
                 .offset(
                     y = 60.dp
                 )
-        ) {
+        ){
             CustomDropdownMenu(
                 onValueSelected = { value ->
                     selectedYearMonth = value // 更新選中的年份和月份
@@ -184,19 +186,20 @@ fun FinishReportScreen(
             mvm.getColors()
         }
         LaunchedEffect(selectedYearMonth) {
+            print("check")
             if (selectedYearMonth.length > 8) {
                 // yyyy年M月D日格式
-                mvm.getTotalTimeByTagForDay(selectedYearMonth)
+                mvm.getDoneByTagWithOnTimeRate(selectedYearMonth)
             } else {
                 // yyyy年M月格式
-                mvm.getTotalTimeByTagForMonth(selectedYearMonth)
+                mvm.getDoneByTagWithOnTimeRate(selectedYearMonth)
             }
             mvm.getColors()
         }
 
-        val eventByTag by mvm.eventsByTag.observeAsState(emptyMap())
-        val eventDoneByTag by mvm.tagCompletionRate.observeAsState(emptyMap())
-        println("event:$eventByTag,$eventDoneByTag")
+        val eventsDoneByTag by mvm.eventsDoneByTag.observeAsState(emptyMap())
+        val eventsDoneonTimeByTag by mvm.eventsDoneonTimeByTag.observeAsState(emptyMap())
+        println("event:$eventsDoneByTag,$eventsDoneonTimeByTag")
 
         val colorTag = mvm.colors.value
         val initialReadingColors = colorTag?.readingColors ?:0xff7fabd1
@@ -226,38 +229,65 @@ fun FinishReportScreen(
         }
 
         val colors = listOf(
-            Color(0xFFDB697A), // 工作
-            Color(0xFFEE8575), // 吃飯
-            Color(0xFFFFE9AF), // 生活雜務
-            Color(0xFF8DCCB3), // 娛樂
-            Color(0xFF7FABD1), // 運動
-            Color(0xFF867BB9), // 讀書
-            Color(0xFFF4D6D8)  // 旅遊
+            Color(workColors), // 工作
+            Color(eatingColors), // 吃飯
+            Color(houseworkColors), // 生活雜務
+            Color(leisureColors), // 娛樂
+            Color(sportColors), // 運動
+            Color(readingColors), // 讀書
+            Color(travelColors)  // 旅遊
         )
 
         val categories = listOf(
-            CompletionData("工作", 85f, 45f),
-            CompletionData("吃飯", 100f, 41f),
-            CompletionData("生活雜務", 64f, 60f),
-            CompletionData("娛樂", 37f, 35f),
-            CompletionData("運動", 72f, 26f),
-            CompletionData("讀書", 42f, 20f),
-            CompletionData("旅遊", 100f, 100f)
+            CompletionData("工作", 0f, 0f),
+            CompletionData("吃飯", 0f, 0f),
+            CompletionData("生活雜務", 0f, 0f),
+            CompletionData("娛樂", 0f, 0f),
+            CompletionData("運動", 0f, 0f),
+            CompletionData("讀書", 0f, 0f),
+            CompletionData("旅遊", 0f, 0f)
         )
+
+
+        // 將完成率和準時完成率數據更新到對應的 Category 中
+        val updatedCategories = categories.map { category ->
+            val doneRate = eventsDoneByTag[category.name] ?: 0.0
+            val onTimeRate = eventsDoneonTimeByTag[category.name] ?: 0.0
+            category.copy(completionRate = doneRate.toFloat(), onTimeRate = onTimeRate.toFloat())
+        }
+
+        // 分別取出七個變數 (完成率和準時完成率)
+                val workCompletionRate = updatedCategories.find { it.name == "工作" }?.completionRate ?: 0f
+                val eatingCompletionRate = updatedCategories.find { it.name == "吃飯" }?.completionRate ?: 0f
+                val houseworkCompletionRate = updatedCategories.find { it.name == "生活雜務" }?.completionRate ?: 0f
+                val leisureCompletionRate = updatedCategories.find { it.name == "娛樂" }?.completionRate ?: 0f
+                val sportCompletionRate = updatedCategories.find { it.name == "運動" }?.completionRate ?: 0f
+                val readingCompletionRate = updatedCategories.find { it.name == "讀書" }?.completionRate ?: 0f
+                val travelCompletionRate = updatedCategories.find { it.name == "旅遊" }?.completionRate ?: 0f
+
+                val workOnTimeRate = updatedCategories.find { it.name == "工作" }?.onTimeRate ?: 0f
+                val eatingOnTimeRate = updatedCategories.find { it.name == "吃飯" }?.onTimeRate ?: 0f
+                val houseworkOnTimeRate = updatedCategories.find { it.name == "生活雜務" }?.onTimeRate ?: 0f
+                val leisureOnTimeRate = updatedCategories.find { it.name == "娛樂" }?.onTimeRate ?: 0f
+                val sportOnTimeRate = updatedCategories.find { it.name == "運動" }?.onTimeRate ?: 0f
+                val readingOnTimeRate = updatedCategories.find { it.name == "讀書" }?.onTimeRate ?: 0f
+                val travelOnTimeRate = updatedCategories.find { it.name == "旅遊" }?.onTimeRate ?: 0f
+
 
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .offset(x=10.dp, y = 170.dp)
+                .offset(x = 10.dp, y = 170.dp)
         ) {
             // 長條圖區域
             CompletionBarChart(
-                categories = categories.map { it.label }, // 提取分类名称
-                completionRates = categories.associate { it.label to it.completedPercentage }, // 生成完成率的映射
-                punctualityRates = categories.associate { it.label to it.onTimePercentage }, // 生成準時完成率的映射
+                categories = updatedCategories.map { it.name }, // 提取分类名称
+                completionRates = updatedCategories.associate { it.name to it.completionRate }, // 生成完成率的映射
+                punctualityRates = updatedCategories.associate { it.name to it.onTimeRate }, // 生成準時完成率的映射
                 barColors = colors // 使用定义的颜色
             )
         }
+
 
         // 完成率資訊表
         Box(
@@ -324,7 +354,7 @@ fun FinishReportScreen(
                     .align(Alignment.TopCenter)
                     .offset(y = 90.dp)
             ) {
-                itemsIndexed(categories) { _, category ->
+                itemsIndexed(updatedCategories) { _, category ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -333,7 +363,7 @@ fun FinishReportScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = category.label,
+                            text = category.name,
                             style = MaterialTheme.typography.bodyMedium,
                             fontSize = 24.sp,
                             textAlign = TextAlign.Start,
@@ -341,14 +371,14 @@ fun FinishReportScreen(
                         )
 
                         Text(
-                            text="${category.completedPercentage}%",
+                            text="${category.completionRate}%",
                             style = MaterialTheme.typography.bodyMedium,
                             fontSize = 24.sp,
                             textAlign = TextAlign.End,
                             modifier = Modifier.weight(1f)
                         )
                         Text(
-                            text="${category.onTimePercentage}%",
+                            text="${category.onTimeRate}%",
                             style = MaterialTheme.typography.bodyMedium,
                             fontSize = 24.sp,
                             textAlign = TextAlign.End,
@@ -363,10 +393,12 @@ fun FinishReportScreen(
 }
 
 
+
+
 data class CompletionData(
-    val label: String,
-    val completedPercentage: Float,
-    val onTimePercentage: Float
+    val name: String,
+    val completionRate: Float,
+    val onTimeRate: Float
 )
 
 @Composable
