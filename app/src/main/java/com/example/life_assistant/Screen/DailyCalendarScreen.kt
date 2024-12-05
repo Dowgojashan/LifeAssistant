@@ -403,6 +403,8 @@ fun DailyCalendarScreen(
         )
     }
 
+    var taskInfoList by remember { mutableStateOf<List<ChatViewModel.TaskInfo>>(emptyList()) }
+
     if (showChat) {
         Dialog(onDismissRequest = { showChat = false }) {
             Surface(
@@ -414,9 +416,22 @@ fun DailyCalendarScreen(
             ) {
                 ChatUI(
                     onMessageSend = { message ->
-
+                        // Handle sending message (e.g., update state or call view model)
                     },
-                    onClose = { showChat = false } // 點擊關閉聊天室
+                    onClose = { showChat = false }, // 點擊關閉聊天室
+                    onTaskInfoReceived = { receivedTaskInfo ->
+                        taskInfoList = receivedTaskInfo
+                        // Log the received task info to check the values
+                        Log.d("DailyCalendarScreen", "Received task info: $taskInfoList")
+                        if (taskInfoList.isNotEmpty()) {
+                            taskInfoList.forEach { task ->
+                                Log.d("DailyCalendarScreen", "Task Name: ${task.name}, Duration: ${task.duration}, End Time: ${task.endTime}")
+                                autoSchduled(task.name,task.endTime,task.duration,evm)
+                            }
+                        } else {
+                            Log.d("DailyCalendarScreen", "No task info received.")
+                        }
+                    }
                 )
             }
         }
@@ -1044,7 +1059,6 @@ fun UserInputDialog(
     val vocab = loadVocab(context, "vocab.txt")
     val tfliteModel = TFLiteModel(context, "model.tflite")
     val tagList = listOf("工作", "娛樂", "運動", "生活雜務", "讀書", "旅遊", "吃飯")
-
 
     Log.d("date", "$selectedDay")
 
@@ -2845,10 +2859,30 @@ fun loadVocab(context: Context, assetFileName: String): Map<String, Int> {
 fun ChatUI(
     cvm: ChatViewModel = viewModel(),
     onMessageSend: (String) -> Unit,
-    onClose: () -> Unit
+    onClose: () -> Unit,
+    onTaskInfoReceived:  @Composable (List<ChatViewModel.TaskInfo>) -> Unit // 新增回調參數
 ) {
     var inputMessage by remember { mutableStateOf("") }
     val chatMessages by cvm.chatMessages.collectAsState()
+    val taskInfoList by cvm.taskInfoList.collectAsState() // 觀察行程資訊
+
+    val triggerOnTaskInfoReceived = remember { mutableStateOf(false) }
+
+    var previousTaskInfoList by remember { mutableStateOf<List<ChatViewModel.TaskInfo>?>(null) }
+
+    // 當 taskInfoList 更新且有變化時，觸發狀態變更
+    LaunchedEffect(taskInfoList) {
+        if (taskInfoList != previousTaskInfoList) {
+            previousTaskInfoList = taskInfoList
+            triggerOnTaskInfoReceived.value = true
+        }
+    }
+
+    if (triggerOnTaskInfoReceived.value) {
+        onTaskInfoReceived(taskInfoList)
+        triggerOnTaskInfoReceived.value = false
+    }
+
 
     Column(
         modifier = Modifier
@@ -2879,7 +2913,7 @@ fun ChatUI(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth(),
-            reverseLayout = false // 新訊息出現在底部
+            reverseLayout = false
         ) {
             items(chatMessages) { message ->
                 Text(
@@ -2908,14 +2942,188 @@ fun ChatUI(
                 onClick = {
                     if (inputMessage.isNotBlank()) {
                         cvm.sendMessage(inputMessage)
-                        Log.d("ChatScreen", "onclick")
                         inputMessage = ""  // 清空輸入框
                     }
                 },
-                enabled = inputMessage.isNotBlank() // 禁止空訊息
+                enabled = inputMessage.isNotBlank()
             ) {
                 Text("發送")
             }
         }
+    }
+}
+
+@Composable
+fun autoSchduled(name:String, endTimeFromUser:String, durationFromUser:String, evm: EventViewModel){
+    Log.d("auto",name + endTimeFromUser + durationFromUser)
+
+    val currentYear = LocalDate.now().year
+
+    // 加上固定時間 23:00 到 endTime
+    val endTime = "$currentYear-$endTimeFromUser 23:00"
+
+    // 生成 startTime，抓取目前的日期時間
+    val now = LocalDateTime.now()
+    val startTime = now.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:00"))
+
+    // 將 duration 格式化為 HH:mm
+    val duration = if (durationFromUser.contains("小時")) {
+        val hours = durationFromUser.replace("小時", "").padStart(2, '0')
+        "$hours:00"
+    } else {
+        durationFromUser // 保留原本格式，如果不是 "小時" 格式則不處理
+    }
+
+    // Log 輸出檢查
+    Log.d("autoScheduled", "任務名稱: $name")
+    Log.d("autoScheduled", "開始時間: $startTime")
+    Log.d("autoScheduled", "結束時間: $endTime")
+    Log.d("autoScheduled", "時長: $duration")
+
+    val startLocalTime = LocalDateTime.parse(
+        startTime,
+        DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+    )
+    val endLocalTime = LocalDateTime.parse(
+        endTime,
+        DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+    )
+
+    val context = LocalContext.current
+    val vocab = loadVocab(context, "vocab.txt")
+    val tfliteModel = TFLiteModel(context, "model.tflite")
+    val tagList = listOf("工作", "娛樂", "運動", "生活雜務", "讀書", "旅遊", "吃飯")
+
+    var tags by remember { mutableStateOf("") }
+
+    // 當使用者輸入完事件名稱時，觸發標籤推論
+    val predefinedClassification = predefinedSchedules[name]
+
+    if (predefinedClassification != null) {
+        // 如果匹配到預設行程，直接更新標籤
+        tags = predefinedClassification
+    } else {
+        // 如果沒有匹配到預設行程，使用模型推論
+        val input = tokenize(name, vocab)
+        val inputBuffer = ByteBuffer.allocateDirect(768 * 4).order(ByteOrder.nativeOrder())
+        inputBuffer.asFloatBuffer().put(input)
+
+        try {
+            val output = tfliteModel.runInference(inputBuffer)
+            val predictedTag = output[0].indices.maxByOrNull { output[0][it] }?.let { index ->
+                tagList[index] // 假設有一個標籤列表 tagList
+            }
+            // 更新選擇的標籤
+            tags = predictedTag ?: "未知標籤"
+        } catch (e: Exception) {
+            Log.e("TagSelection", "模型推論失敗", e)
+        }
+    }
+
+    if (endLocalTime.isAfter(startLocalTime)) {
+
+            var durationInMinutes = 0
+            var totalFreeTimeInMinutes = 0
+            var longestFreeTimeInMinutes = 0
+            // 呼叫 getFreeTime 方法
+            evm.getFreeTime(startTime, endTime) { freeTimeList ->
+                val localDateTimeSlots = freeTimeList.map { (start, end) ->
+                    val startLocalDateTime = LocalDateTime.parse(
+                        start,
+                        DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+                    )
+                    val endLocalDateTime = LocalDateTime.parse(
+                        end,
+                        DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+                    )
+                    startLocalDateTime to endLocalDateTime
+                }
+
+                // 印出 localDateTimeSlots 日誌
+                localDateTimeSlots.forEach { (start, end) ->
+                    val formattedStart = start.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
+                    val formattedEnd = end.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
+                    println("Free Time Slot: $formattedStart to $formattedEnd")
+                }
+
+
+                // 計算總空閒時間
+                val totalFreeTime =
+                    evm.calculateTotalFreeTime(localDateTimeSlots)
+
+                val longestFreeTime = evm.findLongestSlot(localDateTimeSlots)
+
+                // 印出總空閒時間日誌
+                println("Total Free Time: $totalFreeTime")
+                println("longest Free Time: $longestFreeTime")
+
+                // 比較 totalFreeTime 和 duration
+                durationInMinutes = duration.split(":").let {
+                    it[0].toInt() * 60 + it[1].toInt()
+                }
+                totalFreeTimeInMinutes = totalFreeTime.split(":").let {
+                    it[0].toInt() * 60 + it[1].toInt()
+                }
+                longestFreeTimeInMinutes = longestFreeTime.split(":").let{
+                    it[0].toInt() * 60 + it[1].toInt()
+                }
+                //抓標籤
+                evm.filterSlotsByTagPreferences(localDateTimeSlots,tags){ byTagsList ->
+                    byTagsList.forEach{(start,end) ->
+                        println("Tags Time Slog:$start to $end")
+                    }
+
+                    val tagLocalDateTimeSlots = byTagsList.map { (start, end) ->
+                        val startLocalDateTime = LocalDateTime.parse(
+                            start,
+                            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+                        )
+                        val endLocalDateTime = LocalDateTime.parse(
+                            end,
+                            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+                        )
+                        startLocalDateTime to endLocalDateTime
+                    }
+                    var start: String = ""
+                    var end: String = ""
+
+                    // 排事件
+                    val shortestTime = "1hr"
+                    val longestTime = "3hr"
+                    val isSplittable = true
+                    val alarmTime = "1天前"
+                    val repeatEndDate = ""
+                    val idealTime = ""
+                    val dailyRepeat = false
+                    val disturb = false
+                    val repeatType = "無"
+                    val description = ""
+                    evm.scheduleEvents(tagLocalDateTimeSlots, duration, shortestTime, longestTime, isSplittable, tags) { scheduledEvent ->
+                        scheduledEvent.forEach { (eventStart, eventEnd) ->
+                            start = eventStart
+                            end = eventEnd
+                            println("EventTime: $start to $end")
+                            if(scheduledEvent.isNotEmpty()){
+                                    evm.addEvent(
+                                        name, start, end, tags, alarmTime, repeatEndDate, repeatType, duration, idealTime, shortestTime, longestTime, dailyRepeat, disturb, description
+                                    )
+                            }
+                        }
+                        // 如果標籤找不到換找總空檔時間
+                        if (scheduledEvent.isEmpty()) {
+                            evm.scheduleEvents(localDateTimeSlots, duration, shortestTime, longestTime, isSplittable, tags) { finalScheduledEvent ->
+                                finalScheduledEvent.forEach { (eventStart, eventEnd) ->
+                                    start = eventStart
+                                    end = eventEnd
+                                    println("EventTime: $start to $end")
+                                        evm.addEvent(
+                                            name, start, end, tags, alarmTime, repeatEndDate, repeatType, duration, idealTime, shortestTime, longestTime, dailyRepeat, disturb, description
+                                        )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
     }
 }
