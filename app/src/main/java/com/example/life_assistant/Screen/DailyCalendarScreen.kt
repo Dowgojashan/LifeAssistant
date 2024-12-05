@@ -166,6 +166,15 @@ fun DailyCalendarScreen(
                         DropdownMenuItem(
                             onClick = {
                                 expanded = false
+                                navController.navigate(DestinationScreen.FinishReport.route)
+                            },
+                            text = {
+                                Text("完成率分析")
+                            }
+                        )
+                        DropdownMenuItem(
+                            onClick = {
+                                expanded = false
                                 mvm.logout()
                             },
                             text = {
